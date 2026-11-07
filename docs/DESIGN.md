@@ -23,10 +23,62 @@ As of 2026-11-07. Principle: everything runs on its own. Interacting is optional
 - Upgrade menu in terminal style.
 - Visible setup tiers: laptop → PC → monitors.
 
-### Stage 5 – Contracts and money
-- Coding contracts: scripts → websites → apps → client projects.
-- **No deadlines with failure**, only a bonus for fast delivery (because of offline time).
-- Unlock automation: tests, builds, releases, backups. From then on contracts continue without input.
+### Stage 5 – Contracts and automation (PLAN, not implemented yet)
+Split into **5a contracts** and **5b automation**, one commit each. Principles stay: no failure, no deadlines, offline-safe.
+
+#### 5a – Contracts
+- **Idea:** XYMYX can take on client work. A contract turns part of his coding output into a bigger one-off reward. Contracts are optional – without them the game runs exactly as now.
+- **How progress works:** while a contract is active, **50 % of the coding income** (`Game.base_income("code")`) goes into the contract instead of the wallet. The contract has a workload `W` in CHF of coding output. When `W` is reached, the reward is `W × reward_mult`.
+  - `reward_mult` is 1.5 (script) up to 3.0 (enterprise), so contracts always pay off, but you «invest» time.
+  - **Speed bonus:** finished within `target_min` → reward ×1.25. Slower is fine, there is no failure.
+  - Workload is scaled to the current coding income when the offer is created (`W = coding/s × 60 × work_min`), so contracts stay relevant late game.
+  - Contracts progress **offline** too (same 8 h cap, same 50 % share).
+- **Contract types** (data in `scripts/contract_data.gd`, English names + German in CSV):
+
+  | Type | work_min | target_min | reward_mult | Requires |
+  |---|---|---|---|---|
+  | Script | 3 | 5 | 1.5 | – |
+  | Website | 10 | 15 | 1.8 | `monitor_2` |
+  | App | 30 | 45 | 2.2 | `gaming_pc` |
+  | Client project | 90 | 120 | 2.6 | `homeserver` |
+  | Enterprise | 240 | 360 | 3.0 | `rack` |
+
+  Each type gets 3–4 flavour titles (e.g. «Fix a client's WordPress», «Discord bot», «Inventory app for a bakery»).
+- **Offers:** 3 offers on the board, a new one every 5 min (max. 3). Picked from the unlocked types, weighted towards the highest unlocked type.
+- **Slots (parallel projects):** 1 base slot, +1 each from `ram` level 25, `workstation`, `rack` (max. 4). This gives RAM the «parallel projects» meaning from the original idea.
+- **Delivery:** a finished contract waits with **[DELIVER]** until clicked (reward is safe, never lost). XYMYX cheers and shows a heart emote; the money counter shows «+X». Automation (5b) makes this automatic.
+- **Terminal:** new category **«Contracts»** at the top of the list:
+  - active contracts with an ASCII progress bar `[#######.....] 58%  ETA 4:12  bonus 2:30`
+  - finished contracts with **[DELIVER]** (green)
+  - offers with **[ACCEPT]** (grey if no free slot), showing workload, reward and bonus time
+  - category marker `*` when something can be delivered or accepted
+- **Save:** `save.json` version 3 with `contracts: {active: [...], offers: [...], next_offer_in}`; loading a version 2 save starts with an empty board.
+- **New/changed files:** `scripts/contract_data.gd`, `scripts/contracts.gd` (Node, owned by `Game` or a child of main), `game.gd` (income split, save/load, offline), `terminal_menu.gd` (new view), `i18n/translations.csv`.
+
+#### 5b – Automation
+New upgrade category **«Automation»** (unlocked by owning `homeserver`), one line, tiers in order:
+
+| Tier | Effect |
+|---|---|
+| Unit tests | contract progress +25 % |
+| CI builds | contract progress +50 % (stacks) |
+| Auto-accept | free slots automatically take the best offer |
+| Release pipeline | finished contracts deliver themselves |
+| Nightly backups | halves the penalty of bad events (e.g. «Broken update») |
+
+From «Release pipeline» on, contracts run completely hands-off – the «first manual, later watch your infrastructure do it» moment.
+
+#### Order of work
+1. `contract_data.gd` + `contracts.gd` with offers, slots, progress, delivery (no UI) → headless test.
+2. Income split and offline progress in `game.gd`, save version 3 + migration → headless test incl. old save.
+3. Terminal view «Contracts» + translations → `check_i18n` must report no missing keys.
+4. Extend the balancing simulation (greedy player also takes contracts): total time for everything should stay around 26–35 h → tune `reward_mult`.
+5. Commit 5a. Then 5b (upgrades in `economy.gd`, effects in `contracts.gd`, translations, sim), commit 5b.
+
+#### Open questions for MYX
+- Is 50 % of the coding income the right share, or should contracts use a separate «developer time» resource?
+- Should XYMYX show it visually (e.g. a small folder icon or a different typing animation while working on a contract)? Would need a sprite.
+- Final names and flavour titles of the contract types.
 
 ### Stage 6 – Passive income and reputation
 - Own products (app, developer tool, hosting): users and subscriptions bring money, need updates now and then.
@@ -49,6 +101,16 @@ As of 2026-11-07. Principle: everything runs on its own. Interacting is optional
 ### Stage 9 – Prestige
 - Sell the company and start over. Contacts, knowledge, blueprints remain.
 - Specialization in the next run: security, software or data center.
+
+## Backlog (smaller items, as of 2026-11-07)
+- Screenshot for the README (`docs/screenshot.png`, then uncomment the line in README.md).
+- Settings in the terminal: scale, mouse reactions on/off, sleep delay, event frequency.
+- Click area as an outline of rectangles instead of one bounding box (a full room blocks up to ~197 game px of desktop clicks).
+- First release: export preset, include `*.ico` in the non-resource export filter, GitHub release with download.
+- Mention Claude at the end of README.md shortly before the first release.
+- Multi-monitor support (currently primary screen only) and reacting to resolution changes at runtime.
+- Windows API via a C++ GDExtension: hide while a fullscreen app runs, hide the main window's taskbar entry.
+- Known quirk: the tray menu may stay open after clicking elsewhere.
 
 ## Open / maybe never
 - Mining with a fluctuating price and investing: luck factor plus power as an extra resource. Little value for a lot of work. Only as an option, at the very end.
