@@ -1,6 +1,7 @@
 class_name Progress
 extends RefCounted
 ## Stage 6: product updates (versions) and open-source stars.
+## Stage 7: overclocking switch and contract quality levels.
 ## Pure functions shared by the game and the balancing simulation, so both compute the same.
 ##
 ## Product updates: each delivered update gives that product +5 % of its subscription
@@ -18,6 +19,49 @@ const STAR_TIERS := [
 	{"stars": 50, "name": "Contributors", "fx": {"contract_speed": 1.1}},
 	{"stars": 150, "name": "Sponsors", "fx": {"total_mult": 1.05}},
 	{"stars": 500, "name": "Famous", "fx": {"contract_reward": 1.25, "total_mult": 1.05}},
+]
+
+
+# --- Stage 7: overclocking ---------------------------------------------------------
+## Coding x1.3 while switched on. Needs free cooling (50 % of the current heat, at least 1)
+## and OCCUPIES it: that cooling is not available for new machines while overclocking.
+## Without enough cooling the PC throttles itself to x1.1 and uses what is left –
+## never worse than switched off. The trade-off: coding speed now vs. room to expand.
+const OC_MULT := 1.3
+const OC_THROTTLED := 1.1
+const OC_HEAT_SHARE := 0.5
+
+static func overclock_need(t: Dictionary) -> float:
+	return maxf(1.0, float(t["heat"]) * OC_HEAT_SHARE)
+
+
+## Totals with the cooling that overclocking occupies added to «heat».
+static func with_overclock_heat(t: Dictionary, on: bool) -> Dictionary:
+	if not on:
+		return t
+	var out := t.duplicate()
+	var free := float(t["cool_cap"]) - float(t["heat"])
+	out["heat"] = float(t["heat"]) + clampf(overclock_need(t), 0.0, maxf(free, 0.0))
+	return out
+
+
+static func overclock_mult(t: Dictionary, on: bool) -> float:
+	if not on:
+		return 1.0
+	return OC_MULT if float(t["cool_cap"]) - float(t["heat"]) >= overclock_need(t) else OC_THROTTLED
+
+
+# --- Stage 7: contract quality ------------------------------------------------------
+## Applied when a contract is accepted (not to product updates). The bonus target time stays
+## the same, which makes it a real trade-off (checked for all types and 1–4 parallel contracts):
+##   Normal:   best with 1–2 parallel contracts (bonus reachable, x1.25 per work)
+##   Thorough: best with 3–4 parallel (never gets the bonus, but x1.20 per work)
+##   Fast:     almost as good as thorough with 3–4 parallel (x1.19, bonus always reached),
+##             pays out about 3x sooner – for when you need the money soon
+const QUALITY := [
+	{"name": "Fast", "work": 0.6, "reward": 0.57, "stars": 0.57},
+	{"name": "Normal", "work": 1.0, "reward": 1.0, "stars": 1.0},
+	{"name": "Thorough", "work": 1.75, "reward": 2.1, "stars": 2.1},
 ]
 
 
@@ -54,7 +98,7 @@ static func updatable(levels: Dictionary, versions: Dictionary) -> Dictionary:
 
 ## Income per source like Economy.income(), plus product update bonuses and the
 ## star income multiplier. Effects from events (buffs) are applied on top by Game.
-static func income(levels: Dictionary, versions: Dictionary, stars: float) -> Dictionary:
+static func income(levels: Dictionary, versions: Dictionary, stars: float, overclock := false) -> Dictionary:
 	var inc := Economy.income(levels)
 	var t := Economy.totals(levels)
 	var bonus := 0.0
@@ -62,7 +106,7 @@ static func income(levels: Dictionary, versions: Dictionary, stars: float) -> Di
 		if int(levels.get(p, 0)) > 0:
 			bonus += float(Economy.get_def(p)["fx"]["software"]) * UPDATE_BONUS * int(versions.get(p, 0))
 	var m: float = star_fx(stars)["total_mult"]
-	var code: float = inc["code"] * m
+	var code: float = inc["code"] * m * overclock_mult(t, overclock)
 	var storage: float = inc["storage"] * m
 	var software: float = (inc["software"] + bonus * t["net_mult"]) * m
 	var mining: float = inc["mining"] * m

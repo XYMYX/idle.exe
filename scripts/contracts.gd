@@ -116,11 +116,19 @@ func fill_offers(levels: Dictionary, code_income: float) -> void:
 	next_offer_in = OFFER_EVERY_SEC
 
 
-func accept(i: int, levels: Dictionary) -> bool:
+## Accept offer i with a quality level (Progress.QUALITY index, product updates stay normal).
+func accept(i: int, levels: Dictionary, quality := 1) -> bool:
 	if i < 0 or i >= offers.size() or free_slots(levels) <= 0:
 		return false
 	var o: Dictionary = offers[i].duplicate()
 	offers.remove_at(i)
+	if o.get("kind", "client") != "update":
+		var q: Dictionary = Progress.QUALITY[clampi(quality, 0, Progress.QUALITY.size() - 1)]
+		o["work"] = float(o["work"]) * float(q["work"])
+		o["reward"] = float(o["reward"]) * float(q["reward"])
+		if o.has("stars"):
+			o["stars"] = float(o["stars"]) * float(q["stars"])
+		o["quality"] = quality
 	o["done"] = 0.0
 	o["elapsed"] = 0.0
 	active.append(o)

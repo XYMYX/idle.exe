@@ -25,6 +25,9 @@ var buffs: Array = []      # timed effects: {target, mult, until, label}
 var contracts := Contracts.new()  # stage 5a: offers, running contracts, delivery
 var product_versions := {}  # stage 6: product id -> number of delivered updates (0..10)
 var stars := 0.0            # stage 6: open-source stars (unlock tiers, not spent)
+var overclock := false      # stage 7: overclocking switch
+var contract_quality := 1   # stage 7: Progress.QUALITY index for newly accepted contracts
+var _oc_mult := 1.0
 var _star_fx := {"contract_reward": 1.0, "contract_speed": 1.0, "total_mult": 1.0}
 ## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
 ## translated when shown). Old saves may contain {t, clock, text} instead.
@@ -182,9 +185,11 @@ func buy(id: String) -> bool:
 
 
 func _recalc() -> void:
-	_totals = Economy.totals(levels)
+	var base_totals := Economy.totals(levels)
+	_oc_mult = Progress.overclock_mult(base_totals, overclock)
+	_totals = Progress.with_overclock_heat(base_totals, overclock)  # overclocking occupies cooling
 	_star_fx = Progress.star_fx(stars)
-	_income = Progress.income(levels, product_versions, stars)
+	_income = Progress.income(levels, product_versions, stars, overclock)
 	_apply_buffs()
 
 
@@ -216,8 +221,29 @@ func _apply_buffs() -> void:
 
 # --- Contracts (stage 5a) -------------------------------------------------------
 
+func set_overclock(on: bool) -> void:
+	overclock = on
+	_recalc()
+	changed.emit()
+
+
+## Current overclock multiplier on coding (1.0 off, 1.3 on, 1.1 throttled).
+func overclock_mult() -> float:
+	return _oc_mult
+
+
+## Free cooling overclocking needs for x1.5 (based on heat without overclocking).
+func overclock_need() -> float:
+	return Progress.overclock_need(Economy.totals(levels))
+
+
+func set_contract_quality(q: int) -> void:
+	contract_quality = clampi(q, 0, Progress.QUALITY.size() - 1)
+	changed.emit()
+
+
 func accept_contract(i: int) -> bool:
-	if not contracts.accept(i, levels):
+	if not contracts.accept(i, levels, contract_quality):
 		return false
 	changed.emit()
 	return true
@@ -320,6 +346,8 @@ func save_game() -> void:
 		"contracts": contracts.to_dict(),
 		"product_versions": product_versions,
 		"stars": stars,
+		"overclock": overclock,
+		"contract_quality": contract_quality,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -384,6 +412,8 @@ func load_game() -> void:
 			if pv.has(p):
 				product_versions[p] = clampi(int(pv[p]), 0, Progress.MAX_VERSION)
 	stars = maxf(0.0, float(data.get("stars", 0.0)))
+	overclock = bool(data.get("overclock", false))
+	contract_quality = clampi(int(data.get("contract_quality", 1)), 0, Progress.QUALITY.size() - 1)
 	var ct: Variant = data.get("contracts", {})  # missing in saves before version 3
 	if ct is Dictionary:
 		contracts.from_dict(ct)

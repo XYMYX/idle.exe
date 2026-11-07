@@ -214,3 +214,12 @@ CLI tool for Git hooks,CLI tool for Git hooks,CLI-Tool für Git-Hooks
 Pixel art editor plugin,Pixel art editor plugin,Plugin für einen Pixel-Art-Editor
 Godot shader collection,Godot shader collection,Godot-Shader-Sammlung
 Security scanner for CI pipelines,Security scanner for CI pipelines,Security-Scanner für CI-Pipelines
+[Overclock: ON],[Overclock: ON],[Übertakten: AN]
+[Overclock: OFF],[Overclock: OFF],[Übertakten: AUS]
+ · overclocked x%s, · overclocked x%s, · übertaktet x%s
+ · throttled x%s (needs %s free cooling), · throttled x%s (needs %s free cooling), · gedrosselt x%s (braucht %s freie Kühlung)
+Quality:,Quality:,Qualität:
+Fast,Fast,Schnell
+Normal,Normal,Normal
+Thorough,Thorough,Gründlich
+Normal: best with 1–2 contracts · Thorough: best with 3–4 · Fast: money sooner,Normal: best with 1–2 contracts · Thorough: best with 3–4 · Fast: money sooner,Normal: am besten mit 1–2 Aufträgen · Gründlich: mit 3–4 · Schnell: Geld früher

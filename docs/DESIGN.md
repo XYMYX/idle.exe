@@ -106,9 +106,19 @@ Both run through the contract board (no new screen). Rules stay: nothing decays,
 - Save version 4: `product_versions`, `stars`; contract entries carry `kind` (client/update/oss).
 - **Balancing** (greedy player): no contracts 27.0 h, client contracts only 22.4 h, with updates + open source **21.1 h** (≈ 6 % faster, reaches all 4 star tiers, 18 updates). A layer of depth, not a shortcut.
 
-### Stage 7 – Fine-tuning
-- Heat/overclocking as a **switch**: more performance, more heat. When overheating, the PC throttles automatically, no input needed.
-- «Speed ↔ quality» slider: fast = more money now, less income later (instead of a separate bug/support system).
+### Stage 7 – Overclocking and contract quality (done 2026-11-07)
+Math in `scripts/progress.gd`. Power running costs were dropped on purpose (they would feel like a permanent penalty).
+- **Overclocking switch** (terminal footer, saved): coding ×1.3. Needs free cooling of 50 % of the current heat and **occupies it** – that cooling is not available for new machines while overclocking. Without enough cooling the PC throttles itself to ×1.1 and uses what is left. Never worse than off.
+  - First draft (×1.5, 30 % cooling, nothing occupied) had no downside: 18.7 h instead of 21.1 h. Now 20.1 h (≈ 5 % faster). Honest note: it stays a net plus; the decision is «coding speed now vs. cooling for the next machine».
+- **Contract quality** (selector in the contracts view, applies to newly accepted contracts, not to product updates; the bonus target time stays the same):
+
+  | Level | Work | Reward / stars | Best when |
+  |---|---|---|---|
+  | Fast | ×0.6 | ×0.57 | you want the money soon (≈ 3× sooner, ×1.19 per work with 3–4 parallel) |
+  | Normal | ×1 | ×1 | 1–2 contracts in parallel (bonus reachable, ×1.25 per work) |
+  | Thorough | ×1.75 | ×2.1 | 3–4 contracts in parallel (no bonus, ×1.20 per work) |
+
+  Checked for all 6 contract types and 1–4 parallel contracts. The first draft (×0.7/×0.8 and ×1.4/×1.6) made «Normal» always the worst choice, the second (×1.5/×1.725) made «Thorough» almost always the best.
 
 ### Events (done 2026-11-07, data in `scripts/event_data.gd`)
 - Every 10–25 min (only while the user is present) a «!» bubble appears above XYMYX. Clicking him opens the choice in the terminal.

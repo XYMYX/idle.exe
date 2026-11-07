@@ -43,6 +43,7 @@ var _scroll: ScrollContainer
 var _btn_afford: Button
 var _btn_next: Button
 var _btn_back: Button
+var _btn_oc: Button
 
 var _cat := "hardware"
 var _line := ""
@@ -163,6 +164,8 @@ func _build_ui() -> void:
 	foot.add_child(_btn_next)
 	_btn_back = _button("", C_TEXT, _go_back)
 	foot.add_child(_btn_back)
+	_btn_oc = _button("", C_TEXT, func() -> void: Game.set_overclock(not Game.overclock))
+	foot.add_child(_btn_oc)
 	root.add_child(foot)
 
 
@@ -174,7 +177,7 @@ func _refresh_all() -> void:
 	var t := Game.totals()
 	_capacity.text = tr("Power %s / %s kW · Cooling %s / %s") % [
 		Economy._num(t["power"]), Economy._num(t["power_cap"]),
-		Economy._num(t["heat"]), Economy._num(t["cool_cap"])] + (tr("  [paused]") if Game.paused else "")
+		Economy._num(t["heat"]), Economy._num(t["cool_cap"])] + _overclock_text() + (tr("  [paused]") if Game.paused else "")
 	_effects.text = _effects_text()
 	_effects.visible = _effects.text != ""
 
@@ -182,6 +185,8 @@ func _refresh_all() -> void:
 	_btn_afford.text = tr("[Show all]") if _afford_mode else tr("[Show affordable]")
 	_btn_next.text = tr("[Next upgrade]")
 	_btn_back.text = tr("[Back]")
+	_btn_oc.text = tr("[Overclock: ON]") if Game.overclock else tr("[Overclock: OFF]")
+	_btn_oc.add_theme_color_override("font_color", C_OK if Game.overclock else C_TEXT)
 	_btn_back.disabled = not (_afford_mode or (_line != "" and Economy.lines(_cat).size() > 1))
 
 	var cats := _cat_rows()
@@ -389,6 +394,8 @@ func _render_body(rows: Array) -> void:
 				_render_contract(r)
 			"offer":
 				_render_offer(r)
+			"quality":
+				_render_quality(r["q"])
 			"next_offer":
 				_next_offer_label = _label("", C_DIM)
 				_content.add_child(_next_offer_label)
@@ -431,6 +438,9 @@ func _contract_rows() -> Array:
 	rows.append({"t": "text", "c": C_DIM,
 		"text": tr("Running contracts take a share of the coding income and pay it back multiplied.")})
 	rows.append({"t": "text", "c": C_OK, "text": _stars_text()})
+	rows.append({"t": "quality", "q": Game.contract_quality})
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("Normal: best with 1–2 contracts · Thorough: best with 3–4 · Fast: money sooner")})
 	if ct.active.is_empty():
 		rows.append({"t": "text", "text": tr("No running contracts."), "c": C_DIM})
 	for i in ct.active.size():
@@ -461,14 +471,40 @@ func _contract_title(c: Dictionary) -> String:
 	return tr(c["title"])
 
 
+## Offer info as it would be accepted with the current quality level (updates stay normal).
 func _offer_info(o: Dictionary, sec: float) -> String:
-	match o.get("kind", "client"):
-		"update":
-			return tr("Work ~%s · %s subscriptions +5 %% for good") % [_dur(sec), tr(Economy.name_of(o["product"]))]
-		"oss":
-			return tr("Work ~%s · +%d stars (+25 %% if done within %s)") % [_dur(sec), int(o["stars"]), _dur(o["target_sec"])]
+	if o.get("kind", "client") == "update":
+		return tr("Work ~%s · %s subscriptions +5 %% for good") % [_dur(sec), tr(Economy.name_of(o["product"]))]
+	var q: Dictionary = Progress.QUALITY[Game.contract_quality]
+	sec *= float(q["work"])
+	if o.get("kind", "client") == "oss":
+		return tr("Work ~%s · +%d stars (+25 %% if done within %s)") % [
+			_dur(sec), int(float(o["stars"]) * float(q["stars"])), _dur(o["target_sec"])]
 	return tr("Work ~%s · Reward %s CHF · +25 %% if done within %s") % [
-		_dur(sec), BigNum.format_chf(float(o["reward"]) * Game.contract_reward_mult()), _dur(o["target_sec"])]
+		_dur(sec), BigNum.format_chf(float(o["reward"]) * float(q["reward"]) * Game.contract_reward_mult()),
+		_dur(o["target_sec"])]
+
+
+## «Quality: [Fast] [Normal] [Thorough]» – the selected one in green.
+func _render_quality(selected: int) -> void:
+	var row := HBoxContainer.new()
+	row.add_child(_label(tr("Quality:")))
+	for i in Progress.QUALITY.size():
+		var q: Dictionary = Progress.QUALITY[i]
+		var text := "[%s]" % tr(q["name"])
+		row.add_child(_button(text, C_OK if i == selected else C_DIM, Game.set_contract_quality.bind(i)))
+	_content.add_child(row)
+
+
+## « · overclocked x1.3» or « · throttled x1.1 (needs 3 free cooling)», empty when off.
+func _overclock_text() -> String:
+	if not Game.overclock:
+		return ""
+	var m := Game.overclock_mult()
+	if m >= Progress.OC_MULT:
+		return tr(" · overclocked x%s") % EventData.mult_text(m).substr(1)
+	return tr(" · throttled x%s (needs %s free cooling)") % [EventData.mult_text(m).substr(1),
+		Economy._num(Game.overclock_need())]
 
 
 ## «★ 42 stars · Better contracts · next: Contributors at 50»
