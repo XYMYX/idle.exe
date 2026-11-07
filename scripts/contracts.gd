@@ -30,20 +30,24 @@ var next_offer_in := 0.0
 var versions := {}
 ## Skills of the game (shared reference, set by Game), used for course offers and skill-locked types.
 var skills := {}
+## Stage 12 research, set by Game: extra slots and the highest product version.
+var bonus_slots := 0
+var max_version := 10
 
 
 # --- Slots and types --------------------------------------------------------------
 
-static func slots(levels: Dictionary) -> int:
+## bonus: extra slots from research (stage 12), on top of the normal maximum.
+static func slots(levels: Dictionary, bonus := 0) -> int:
 	var n := BASE_SLOTS
 	for s: Dictionary in SLOT_SOURCES:
 		if int(levels.get(s["id"], 0)) >= int(s["level"]):
 			n += 1
-	return mini(n, MAX_SLOTS)
+	return mini(n, MAX_SLOTS) + bonus
 
 
 func free_slots(levels: Dictionary) -> int:
-	return maxi(0, slots(levels) - active.size())
+	return maxi(0, slots(levels, bonus_slots) - active.size())
 
 
 static func unlocked_types(levels: Dictionary, skill_levels: Dictionary = {}) -> Array:
@@ -100,7 +104,7 @@ func _free_course(levels: Dictionary) -> Dictionary:
 
 ## Updatable products that don't already have an update on the board or running.
 func _free_updates(levels: Dictionary) -> Dictionary:
-	var upd := Progress.updatable(levels, versions)
+	var upd := Progress.updatable(levels, versions, max_version)
 	for c: Dictionary in offers + active:
 		if c.get("kind", "client") == "update":
 			upd.erase(c.get("product", ""))

@@ -26,6 +26,7 @@ const CAT_CONTRACTS := "!contracts"
 const CAT_CTF := "!ctf"
 const CAT_COMPANY := "!company"
 const CAT_SKILLS := "!skills"
+const CAT_RESEARCH := "!research"
 const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters
 
@@ -249,6 +250,10 @@ func _cat_rows() -> Array:
 		"sel": _cat == CAT_CONTRACTS and not _afford_mode, "locked": false, "afford": contracts_ready, "special": true})
 	rows.append({"id": CAT_SKILLS, "name": tr("Training"), "sel": _cat == CAT_SKILLS and not _afford_mode,
 		"locked": false, "afford": false, "special": true})
+	var research_ready := Game.research_active.is_empty() and ResearchData.PROJECTS.any(
+		func(p: Dictionary) -> bool: return Game.research_problem(p["id"]) == "")
+	rows.append({"id": CAT_RESEARCH, "name": tr("Research"), "sel": _cat == CAT_RESEARCH and not _afford_mode,
+		"locked": false, "afford": research_ready, "special": true})
 	rows.append({"id": CAT_COMPANY, "name": tr("Company"), "sel": _cat == CAT_COMPANY and not _afford_mode,
 		"locked": false, "afford": Game.can_sell(), "special": true})
 	rows.append({"id": CAT_CTF, "name": tr("CTF"), "sel": _cat == CAT_CTF and not _afford_mode,
@@ -272,6 +277,8 @@ func _body_rows() -> Array:
 		return _company_rows()
 	if not _afford_mode and _cat == CAT_SKILLS:
 		return _skill_rows()
+	if not _afford_mode and _cat == CAT_RESEARCH:
+		return _research_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -350,7 +357,7 @@ func _line_row(line: String) -> Dictionary:
 		else:
 			all_done = false
 		if Economy.max_level(u) > 1:
-			summary = "lvl %d/%d" % [Game.level(id), Economy.max_level(u)]
+			summary = "lvl %d/%d" % [Game.level(id), Game.max_level(id)]
 	if summary == "":
 		summary = "%d/%d" % [done, items.size()]
 	var c := C_OK if afford else (C_DIM if all_done else C_TEXT)
@@ -361,7 +368,7 @@ func _line_row(line: String) -> Dictionary:
 ## One upgrade entry. sub = optional origin line (in affordable mode).
 func _entry_row(id: String, sub := "") -> Dictionary:
 	var u := Economy.get_def(id)
-	var maxl := Economy.max_level(u)
+	var maxl := Game.max_level(id)
 	var title := tr(u["name"])
 	if maxl > 1:
 		title += "  (lvl %d/%d)" % [Game.level(id), maxl]
@@ -429,6 +436,8 @@ func _render_body(rows: Array) -> void:
 				_render_quality(r["q"])
 			"spec":
 				_render_spec(r)
+			"project":
+				_render_project(r)
 			"live":
 				var lbl := _label("", r["c"])
 				_live_labels[r["key"]] = lbl
@@ -473,7 +482,7 @@ func _render_entry(r: Dictionary) -> void:
 func _contract_rows() -> Array:
 	var ct: Contracts = Game.contracts
 	var rows := []
-	rows.append({"t": "title", "text": tr("CONTRACTS  ·  slots %d/%d") % [ct.active.size(), Contracts.slots(Game.levels)]})
+	rows.append({"t": "title", "text": tr("CONTRACTS  ·  slots %d/%d") % [ct.active.size(), Contracts.slots(Game.levels, ct.bonus_slots)]})
 	rows.append({"t": "text", "c": C_DIM,
 		"text": tr("Running contracts take a share of the coding income and pay it back multiplied.")})
 	rows.append({"t": "text", "c": C_OK, "text": _stars_text()})
@@ -624,6 +633,46 @@ func _dur(sec: float) -> String:
 	return "%d:%02d" % [s / 60, s % 60]
 
 
+# --- Research (stage 12) -------------------------------------------------------------
+
+func _research_rows() -> Array:
+	var rows := [{"t": "title", "text": tr("RESEARCH")}]
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("One project at a time, runs in the background (also offline). Reset when the company is sold.")})
+	for p: Dictionary in ResearchData.PROJECTS:
+		rows.append({"t": "text", "text": " ", "c": C_DIM})
+		var id: String = p["id"]
+		var running: bool = Game.research_active.get("id", "") == id
+		rows.append({"t": "project", "id": id, "done": Game.research_done.get(id, false), "running": running,
+			"problem": Game.research_problem(id)})
+		if running:
+			rows.append({"t": "live", "key": "research", "c": C_OK})
+	return rows
+
+
+func _render_project(r: Dictionary) -> void:
+	var p := ResearchData.get_project(r["id"])
+	var row := HBoxContainer.new()
+	var name_lbl := _label(tr(p["name"]), C_DIM if r["done"] else C_TEXT)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lbl)
+	if r["done"]:
+		row.add_child(_label(tr("[DONE]") + " ", C_DIM))
+	elif r["running"]:
+		row.add_child(_label(tr("[RUNNING]") + " ", C_OK))
+	elif r["problem"] == "":
+		row.add_child(_button(tr("[START]"), C_OK, func() -> void: Game.start_research(r["id"])))
+	else:
+		row.add_child(_label(tr("[LOCKED]") + " ", C_DIM))
+	_content.add_child(row)
+	_content.add_child(_label("  " + tr("Effect: %s") % tr(p["desc"]), C_DIM if r["done"] else C_TEXT))
+	if not r["done"] and not r["running"]:
+		_content.add_child(_label("  " + tr("Cost: %s CHF") % BigNum.format_chf(p["cost"]) + " · "
+			+ tr("Duration: %s") % _dur(float(p["minutes"]) * 60.0)))
+		if r["problem"] != "":
+			_content.add_child(_label("  " + r["problem"], C_WARN))
+
+
 # --- Training (stage 10) -------------------------------------------------------------
 
 func _skill_rows() -> Array:
@@ -693,6 +742,14 @@ func _company_rows() -> Array:
 func _update_live_labels() -> void:
 	if _live_labels.has("earned") and is_instance_valid(_live_labels["earned"]):
 		_live_labels["earned"].text = tr("Earned this run: %s CHF") % BigNum.format_chf(Game.run_earned)
+	if _live_labels.has("research") and is_instance_valid(_live_labels["research"]) and not Game.research_active.is_empty():
+		var ra: Dictionary = Game.research_active
+		var p := ResearchData.get_project(ra["id"])
+		var total: float = float(p["minutes"]) * 60.0
+		var frac := clampf(1.0 - float(ra["left"]) / total, 0.0, 1.0)
+		var filled := int(frac * BAR_LEN)
+		_live_labels["research"].text = "  [" + "#".repeat(filled) + ".".repeat(BAR_LEN - filled) + "] %3d%%  " % int(frac * 100.0) \
+			+ tr("ETA %s") % _dur(maxf(float(ra["left"]), 0.0))
 	if _live_labels.has("points") and is_instance_valid(_live_labels["points"]):
 		_live_labels["points"].text = tr("A sale now gives +%d know-how points.") % Game.sell_points()
 

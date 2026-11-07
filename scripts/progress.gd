@@ -125,10 +125,10 @@ static func reached_tiers(stars: float) -> Array:
 
 
 ## Owned products that can still get an update: {id: next_version}
-static func updatable(levels: Dictionary, versions: Dictionary) -> Dictionary:
+static func updatable(levels: Dictionary, versions: Dictionary, max_v := MAX_VERSION) -> Dictionary:
 	var out := {}
 	for p: String in UPDATE_WORK_MIN:
-		if int(levels.get(p, 0)) > 0 and int(versions.get(p, 0)) < MAX_VERSION:
+		if int(levels.get(p, 0)) > 0 and int(versions.get(p, 0)) < max_v:
 			out[p] = int(versions.get(p, 0)) + 1
 	return out
 
@@ -139,7 +139,8 @@ static func updatable(levels: Dictionary, versions: Dictionary) -> Dictionary:
 ## spec / knowhow: specialization and know-how points of the prestige system (stage 9).
 ## skill_fx: SkillData.fx() of the learned skills (stage 10), uses «net_income».
 static func income(levels: Dictionary, versions: Dictionary, stars: float, overclock := false,
-		tools: Dictionary = {}, spec := "", knowhow := 0, skill_fx: Dictionary = {}) -> Dictionary:
+		tools: Dictionary = {}, spec := "", knowhow := 0, skill_fx: Dictionary = {},
+		research_fx: Dictionary = {}) -> Dictionary:
 	var inc := Economy.income(levels)
 	var t := spec_totals(Economy.totals(levels), spec)
 	var per_update := UPDATE_BONUS * (2.0 if spec == "software" else 1.0)
@@ -151,8 +152,9 @@ static func income(levels: Dictionary, versions: Dictionary, stars: float, overc
 	var spec_sw := 1.5 if spec == "software" else 1.0
 	var spec_dc := 1.3 if spec == "datacenter" else 1.0
 	var net := float(tools.get("net_mult", 1.0)) * float(skill_fx.get("net_income", 1.0))
-	var code: float = inc["code"] * m * overclock_mult(t, overclock) * float(tools.get("code_mult", 1.0))
-	var storage: float = inc["storage"] * m * net * spec_dc
+	var code: float = inc["code"] * m * overclock_mult(t, overclock) * float(tools.get("code_mult", 1.0)) \
+		* float(research_fx.get("code_mult", 1.0))
+	var storage: float = inc["storage"] * m * net * spec_dc * float(research_fx.get("storage_mult", 1.0))
 	var software: float = (inc["software"] + bonus * t["net_mult"] * t["software_mult"]) * m * net \
 		* float(tools.get("software_mult", 1.0)) * spec_sw
 	var mining: float = inc["mining"] * m * spec_dc

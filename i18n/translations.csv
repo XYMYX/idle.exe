@@ -329,3 +329,25 @@ Zero-day,Zero-day,Zero-Day
 A zero-day hits a popular library. Your security clients need help right now.,A zero-day hits a popular library. Your security clients need help right now.,Eine Zero-Day-Lücke trifft eine beliebte Bibliothek. Deine Security-Kunden brauchen sofort Hilfe.
 Emergency response for all clients,Emergency response for all clients,Notfall-Einsatz für alle Kunden
 Publish an advisory only,Publish an advisory only,Nur eine Sicherheitswarnung veröffentlichen
+Research,Research,Forschung
+RESEARCH,RESEARCH,FORSCHUNG
+"One project at a time, runs in the background (also offline). Reset when the company is sold.","One project at a time, runs in the background (also offline). Reset when the company is sold.","Ein Projekt aufs Mal, läuft im Hintergrund (auch offline). Wird beim Firmenverkauf zurückgesetzt."
+Research finished,Research finished,Forschung abgeschlossen
+Another project is running,Another project is running,Ein anderes Projekt läuft
+[START],[START],[STARTEN]
+[RUNNING],[RUNNING],[LÄUFT]
+[DONE],[DONE],[FERTIG]
+Done,Done,Abgeschlossen
+Duration: %s,Duration: %s,Dauer: %s
+Data compression,Data compression,Datenkompression
+Storage x1.25,Storage x1.25,Speicher x1.25
+Long-term support,Long-term support,Langzeit-Support
+Product updates up to v1.15,Product updates up to v1.15,Produkt-Updates bis v1.15
+VM density,VM density,VM-Dichte
+Up to 8 VMs per type,Up to 8 VMs per type,Bis 8 VMs pro Typ
+Parallel pipelines,Parallel pipelines,Parallele Pipelines
+A 5th contract slot,A 5th contract slot,Ein 5. Auftrags-Slot
+Own chips,Own chips,Eigene Chips
+Coding x1.5,Coding x1.5,Coden x1.5
+AI pair programmer,AI pair programmer,KI-Pair-Programmer
+Contracts 25 % faster,Contracts 25 % faster,Aufträge 25 % schneller

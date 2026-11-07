@@ -9,9 +9,10 @@ signal contract_delivered(reward: float)
 signal contract_done(kind: String)  # any delivered contract (client, update, oss)
 signal flag_captured(id: String, reward: float)  # stage 8a: CTF flag
 signal company_sold(points: int)  # stage 9: prestige
+signal research_finished(id: String)  # stage 12
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 7  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills
+const SAVE_VERSION := 8  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills, 8 = research
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -38,6 +39,9 @@ var run_earned := 0.0        # money earned in the current run (since the last s
 var specialization := ""     # stage 9: "", "security", "software" or "datacenter"
 var skills := {}             # stage 10: skill id -> level 0..5 (kept when the company is sold)
 var _skill_fx := SkillData.fx({})
+var research_done := {}      # stage 12: project id -> true
+var research_active := {}    # stage 12: {id, left} of the running project, {} = none
+var _research_fx := ResearchData.fx({})
 var _tools := FlagData.tool_fx({})
 var _star_fx := {"contract_reward": 1.0, "contract_speed": 1.0, "total_mult": 1.0}
 ## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
@@ -77,6 +81,8 @@ func _apply_offline() -> void:
 		return  # no save yet
 	offline_sec = clampf(Time.get_unix_time_from_system() - last_saved_at, 0.0, OFFLINE_MAX_SEC)
 	# Running contracts keep working offline and take their share of the coding income.
+	if not research_active.is_empty():
+		research_active["left"] = float(research_active["left"]) - offline_sec
 	var diverted := contracts.tick(offline_sec, _code_now, levels, contract_speed())
 	offline_gain = income() * offline_sec - diverted
 	# With the release pipeline, contracts finished while away are delivered right away.
@@ -92,6 +98,8 @@ func _apply_offline() -> void:
 
 func _process(delta: float) -> void:
 	if not paused:
+		if not research_active.is_empty():
+			research_active["left"] = float(research_active["left"]) - delta
 		var gain := income() * delta - contracts.tick(delta, _code_now, levels, contract_speed())
 		money += gain
 		total_earned += gain
@@ -108,6 +116,7 @@ func _process(delta: float) -> void:
 			changed.emit()
 		_automate_contracts()
 		_check_flags()
+		_check_research()
 	_autosave += delta
 	if _autosave >= AUTOSAVE_SEC:
 		_autosave = 0.0
@@ -175,7 +184,12 @@ func cost(id: String) -> float:
 
 
 func is_maxed(id: String) -> bool:
-	return level(id) >= Economy.max_level(Economy.get_def(id))
+	return level(id) >= max_level(id)
+
+
+## Highest level of an upgrade, incl. research (VM density raises VMs from 5 to 8).
+func max_level(id: String) -> int:
+	return ResearchData.max_level(Economy.get_def(id), _research_fx)
 
 
 ## Missing requirements (not counting money), translated. Empty = buyable once affordable.
@@ -206,7 +220,11 @@ func _recalc() -> void:
 	_star_fx = Progress.star_fx(stars)
 	_tools = FlagData.tool_fx(flags)
 	_skill_fx = SkillData.fx(skills)
-	_income = Progress.income(levels, product_versions, stars, overclock, _tools, specialization, knowhow, _skill_fx)
+	_research_fx = ResearchData.fx(research_done)
+	contracts.bonus_slots = int(_research_fx["bonus_slots"])
+	contracts.max_version = int(_research_fx["max_version"])
+	_income = Progress.income(levels, product_versions, stars, overclock, _tools, specialization, knowhow,
+		_skill_fx, _research_fx)
 	_apply_buffs()
 
 
@@ -282,7 +300,7 @@ func _automate_contracts() -> void:
 ## Contract progress multiplier: automation upgrades × star tier «Contributors».
 func contract_speed() -> float:
 	return float(_totals["contract_speed"]) * float(_star_fx["contract_speed"]) * float(_tools["contract_speed"]) \
-		* float(_skill_fx["contract_speed"])
+		* float(_skill_fx["contract_speed"]) * float(_research_fx["contract_speed"])
 
 
 ## Money multiplier for client contracts from star tiers.
@@ -336,6 +354,8 @@ func sell_company(next_spec: String) -> bool:
 	contracts.skills = skills  # skills stay after a sale
 	buffs.clear()
 	overclock = false
+	research_done.clear()  # research is reset like upgrades
+	research_active = {}
 	_recalc()
 	contracts.fill_offers(levels, _code_now)
 	log_event("Company sold", Progress.SPECS[next_spec]["name"], false)
@@ -348,6 +368,46 @@ func sell_company(next_spec: String) -> bool:
 ## Combined tool bonuses of the captured flags (for display).
 func tools() -> Dictionary:
 	return _tools
+
+
+# --- Research (stage 12) -----------------------------------------------------------
+
+## Translated reason why a project can't be started, "" if it can.
+func research_problem(id: String) -> String:
+	var p := ResearchData.get_project(id)
+	if research_done.get(id, false):
+		return tr("Done")
+	if not research_active.is_empty():
+		return tr("Another project is running")
+	if p["requires"] != "" and not has(p["requires"]):
+		return tr("Requires: %s") % tr(Economy.name_of(p["requires"]))
+	if money < float(p["cost"]):
+		return tr("Not enough money")
+	return ""
+
+
+func start_research(id: String) -> bool:
+	if research_problem(id) != "":
+		return false
+	var p := ResearchData.get_project(id)
+	money -= float(p["cost"])
+	research_active = {"id": id, "left": float(p["minutes"]) * 60.0}
+	changed.emit()
+	save_game()
+	return true
+
+
+func _check_research() -> void:
+	if research_active.is_empty() or float(research_active["left"]) > 0.0:
+		return
+	var id: String = research_active["id"]
+	research_done[id] = true
+	research_active = {}
+	_recalc()
+	log_event("Research finished", ResearchData.get_project(id)["name"], false)
+	research_finished.emit(id)
+	changed.emit()
+	save_game()
 
 
 # --- CTF flags (stage 8a) ---------------------------------------------------------
@@ -427,7 +487,7 @@ func _deliver_internal(i: int) -> float:
 	match c.get("kind", "client"):
 		"update":
 			var p: String = c.get("product", "")
-			product_versions[p] = mini(Progress.MAX_VERSION, maxi(int(product_versions.get(p, 0)), int(c.get("version", 1))))
+			product_versions[p] = mini(int(_research_fx["max_version"]), maxi(int(product_versions.get(p, 0)), int(c.get("version", 1))))
 			_recalc()
 			return 0.0
 		"oss":
@@ -494,6 +554,8 @@ func save_game() -> void:
 		"run_earned": run_earned,
 		"specialization": specialization,
 		"skills": skills,
+		"research_done": research_done,
+		"research_active": research_active,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -528,7 +590,8 @@ func load_game() -> void:
 	if lv is Dictionary:
 		for id: String in levels:
 			var u := Economy.get_def(id)
-			levels[id] = clampi(int(lv.get(id, 0)), 0, Economy.max_level(u))
+			# upper bound incl. research (VMs up to 8); research itself is loaded further below
+			levels[id] = clampi(int(lv.get(id, 0)), 0, ResearchData.max_level(u, {"vm_max": 8}))
 	var b: Variant = data.get("buffs", [])
 	if b is Array:
 		for x: Variant in b:
@@ -556,7 +619,7 @@ func load_game() -> void:
 	if pv is Dictionary:
 		for p: String in Progress.UPDATE_WORK_MIN:
 			if pv.has(p):
-				product_versions[p] = clampi(int(pv[p]), 0, Progress.MAX_VERSION)
+				product_versions[p] = clampi(int(pv[p]), 0, 15)  # up to v1.15 with long-term support
 	stars = maxf(0.0, float(data.get("stars", 0.0)))
 	overclock = bool(data.get("overclock", false))
 	var fl: Variant = data.get("flags", {})  # missing before version 5
@@ -568,6 +631,14 @@ func load_game() -> void:
 	run_earned = maxf(0.0, float(data.get("run_earned", total_earned)))  # first run: all earnings
 	var sp := String(data.get("specialization", ""))
 	specialization = sp if Progress.SPECS.has(sp) else ""
+	var rd: Variant = data.get("research_done", {})  # missing before version 8
+	if rd is Dictionary:
+		for p: Dictionary in ResearchData.PROJECTS:
+			if rd.get(p["id"], false):
+				research_done[p["id"]] = true
+	var ra: Variant = data.get("research_active", {})
+	if ra is Dictionary and ra.has("id") and not ResearchData.get_project(String(ra["id"])).is_empty():
+		research_active = {"id": String(ra["id"]), "left": float(ra.get("left", 0.0))}
 	var sk: Variant = data.get("skills", {})  # missing before version 7
 	if sk is Dictionary:
 		for s: Dictionary in SkillData.SKILLS:
@@ -581,6 +652,9 @@ func load_game() -> void:
 	var ct: Variant = data.get("contracts", {})  # missing in saves before version 3
 	if ct is Dictionary:
 		contracts.from_dict(ct)
+	var rfx := ResearchData.fx(research_done)
+	for id: String in ResearchData.VM_IDS:
+		levels[id] = mini(int(levels[id]), ResearchData.max_level(Economy.get_def(id), rfx))
 	print("idle.exe: save loaded from %s" % _abs(path))
 
 

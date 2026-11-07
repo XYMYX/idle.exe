@@ -203,6 +203,22 @@ Category «Security» (unlocked by **pentesting 2**), own income source «securi
 - **Fixes found by testing:** owning everything needed 415 kW but only 382.5 kW existed → own power grid +360 kW (was +300). With 2B and pentesting 4 the platform came 18 h after everything else → 1.2B and pentesting 3.
 - **Balancing:** first run with courses and the security business **27.6 h** (security starts around 16 h, the platform is the last purchase). The greedy simulation never switches overclocking off, so it got stuck on cooling – that is the intended trade-off, a real player switches it off before a big purchase.
 
+### Stage 12 – Research (done 2026-11-08, data in `scripts/research_data.gd`)
+Special category «Research». A project costs money once and then runs in real time in the background (also offline, not while paused). Only one project at a time. Research raises limits of existing systems and is reset when the company is sold.
+
+| Project | Cost | Duration | Needs | Effect |
+|---|---|---|---|---|
+| Data compression | 5M | 30 min | NAS | storage ×1.25 |
+| Long-term support | 20M | 1 h | subscription software | product updates up to v1.15 |
+| VM density | 15M | 45 min | home server | up to 8 VMs per type |
+| Parallel pipelines | 40M | 1.5 h | workstation | a 5th contract slot |
+| Own chips | 500M | 4 h | workstation | coding ×1.5 |
+| AI pair programmer | 2B | 6 h | platform | contracts 25 % faster |
+
+- Save version 8 (`research_done`, `research_active`). XYMYX cheers and the log gets an entry when a project finishes.
+- No room sprite yet (abstract system).
+- **Not simulated yet:** the greedy simulation doesn't buy research, so the 27.6 h of the first run don't include it (research only makes the run faster).
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
