@@ -198,3 +198,19 @@ Contracts %s,Contracts %s,Aufträge %s
 Free slots take the best offer,Free slots take the best offer,Freie Slots nehmen das beste Angebot
 Finished contracts deliver themselves,Finished contracts deliver themselves,Fertige Aufträge liefern sich selbst ab
 Halves penalties from bad events,Halves penalties from bad events,Halbiert Nachteile schlechter Ereignisse
+Update,Update,Update
+Open source,Open source,Open Source
+%s v1.%d,%s v1.%d,%s v1.%d
+Work ~%s · %s subscriptions +5 %% for good,Work ~%s · %s subscriptions +5 %% for good,Arbeit ~%s · %s Abos dauerhaft +5 %%
+Work ~%s · +%d stars (+25 %% if done within %s),Work ~%s · +%d stars (+25 %% if done within %s),Arbeit ~%s · +%d Sterne (+25 %% bei Abgabe innert %s)
+★ %d stars,★ %d stars,★ %d Sterne
+next: %s at %d,next: %s at %d,nächste: %s bei %d
+Better contracts,Better contracts,Bessere Aufträge
+Contributors,Contributors,Mitwirkende
+Sponsors,Sponsors,Sponsoren
+Famous,Famous,Berühmt
+Open-source logging library,Open-source logging library,Open-Source-Logging-Bibliothek
+CLI tool for Git hooks,CLI tool for Git hooks,CLI-Tool für Git-Hooks
+Pixel art editor plugin,Pixel art editor plugin,Plugin für einen Pixel-Art-Editor
+Godot shader collection,Godot shader collection,Godot-Shader-Sammlung
+Security scanner for CI pipelines,Security scanner for CI pipelines,Security-Scanner für CI-Pipelines

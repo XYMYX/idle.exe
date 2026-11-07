@@ -90,9 +90,21 @@ From «Release pipeline» on, contracts run completely hands-off – the «first
 - Should XYMYX show it visually (e.g. a small folder icon or a different typing animation while working on a contract)? Would need a sprite.
 - Final names and flavour titles of the contract types.
 
-### Stage 6 – Passive income and reputation
-- Own products (app, developer tool, hosting): users and subscriptions bring money, need updates now and then.
-- Open source projects bring stars → better contracts, contributors, sponsors.
+### Stage 6 – Product updates and open-source stars (done 2026-11-07)
+Both run through the contract board (no new screen). Rules stay: nothing decays, nothing is lost. Math in `scripts/progress.gd` (shared with the simulation).
+- **Product updates:** offers like «Update: Desktop app v1.3» (25 % of new offers, if a product can still be updated). Delivered, the product gets **+5 % of its subscription income for good**, up to v1.10 (+50 %). No money, no decay without updates. At most one update per product on the board/running at a time.
+- **Open-source projects:** offers without money that give **stars** (5 + 5 × unlocked client types, ×1.25 speed bonus). 20 % of new offers, unlocked by the gaming PC.
+- **Star tiers** (permanent, stars are not spent):
+
+  | Stars | Tier | Effect |
+  |---|---|---|
+  | 10 | Better contracts | client contract rewards ×1.1 |
+  | 50 | Contributors | contract speed ×1.1 |
+  | 150 | Sponsors | total income ×1.05 |
+  | 500 | Famous | rewards ×1.25 and income ×1.05 more |
+- Auto-accept prefers client contracts; updates and open source are taken when no client offer is left.
+- Save version 4: `product_versions`, `stars`; contract entries carry `kind` (client/update/oss).
+- **Balancing** (greedy player): no contracts 27.0 h, client contracts only 22.4 h, with updates + open source **21.1 h** (≈ 6 % faster, reaches all 4 star tiers, 18 updates). A layer of depth, not a shortcut.
 
 ### Stage 7 – Fine-tuning
 - Heat/overclocking as a **switch**: more performance, more heat. When overheating, the PC throttles automatically, no input needed.

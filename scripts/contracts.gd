@@ -19,12 +19,15 @@ const SLOT_SOURCES := [{"id": "ram", "level": 25}, {"id": "workstation", "level"
 const BONUS_MULT := 1.25         # reward bonus when finished within target time
 const MIN_WORK := 60.0           # minimum workload in CHF (very early game)
 
-## Running contracts: {type, title, work, done, reward, target_sec, elapsed}
-## A contract is finished when done >= work; it then waits for deliver().
+## Running contracts: {kind, type, title, work, done, reward, target_sec, elapsed, ...}
+## kind: "client" (money), "update" (+product, version), "oss" (+stars).
+## A contract is finished when done >= work; it then waits for delivery.
 var active: Array = []
-## Offers on the board: {type, title, work, reward, target_sec}
+## Offers on the board: same fields without done/elapsed
 var offers: Array = []
 var next_offer_in := 0.0
+## Product versions of the game (shared reference, set by Game), used for update offers.
+var versions := {}
 
 
 # --- Slots and types --------------------------------------------------------------
@@ -53,8 +56,36 @@ static func share(n: int) -> float:
 
 # --- Offers -----------------------------------------------------------------------
 
-## New offer, weighted towards the highest unlocked type. Workload scales with income.
+## New offer: sometimes a product update or an open-source project (stage 6),
+## otherwise a client contract weighted towards the highest unlocked type.
 func make_offer(levels: Dictionary, code_income: float) -> Dictionary:
+	var r := randf()
+	var upd := _free_updates(levels)
+	if not upd.is_empty() and r < ContractData.UPDATE_CHANCE:
+		var p: String = upd.keys().pick_random()
+		var w := maxf(MIN_WORK, code_income * share(1) * 60.0 * float(Progress.UPDATE_WORK_MIN[p]))
+		return {"kind": "update", "type": "update", "product": p, "version": upd[p], "title": "",
+			"work": w, "reward": 0.0, "target_sec": float(Progress.UPDATE_WORK_MIN[p]) * 90.0}
+	var oss: Dictionary = ContractData.OSS_TYPE
+	if int(levels.get(oss["requires"], 0)) > 0 and r >= ContractData.UPDATE_CHANCE \
+			and r < ContractData.UPDATE_CHANCE + ContractData.OSS_CHANCE:
+		var w := maxf(MIN_WORK, code_income * share(1) * 60.0 * float(oss["work_min"]))
+		return {"kind": "oss", "type": "oss", "title": (oss["titles"] as Array).pick_random(),
+			"work": w, "reward": 0.0, "stars": 5 + 5 * unlocked_types(levels).size(),
+			"target_sec": float(oss["target_min"]) * 60.0}
+	return _client_offer(levels, code_income)
+
+
+## Updatable products that don't already have an update on the board or running.
+func _free_updates(levels: Dictionary) -> Dictionary:
+	var upd := Progress.updatable(levels, versions)
+	for c: Dictionary in offers + active:
+		if c.get("kind", "client") == "update":
+			upd.erase(c.get("product", ""))
+	return upd
+
+
+func _client_offer(levels: Dictionary, code_income: float) -> Dictionary:
 	var types := unlocked_types(levels)
 	if types.is_empty():
 		return {}
@@ -71,7 +102,7 @@ func make_offer(levels: Dictionary, code_income: float) -> Dictionary:
 	# work_min = minutes for ONE running contract at its 50 % share, so the speed bonus
 	# (target_min > work_min) is reachable with a single slot; parallel contracts are slower.
 	var work := maxf(MIN_WORK, code_income * share(1) * 60.0 * float(t["work_min"]))
-	return {"type": t["id"], "title": (t["titles"] as Array).pick_random(), "work": work,
+	return {"kind": "client", "type": t["id"], "title": (t["titles"] as Array).pick_random(), "work": work,
 		"reward": work * float(t["reward_mult"]), "target_sec": float(t["target_min"]) * 60.0}
 
 
@@ -88,10 +119,11 @@ func fill_offers(levels: Dictionary, code_income: float) -> void:
 func accept(i: int, levels: Dictionary) -> bool:
 	if i < 0 or i >= offers.size() or free_slots(levels) <= 0:
 		return false
-	var o: Dictionary = offers[i]
+	var o: Dictionary = offers[i].duplicate()
 	offers.remove_at(i)
-	active.append({"type": o["type"], "title": o["title"], "work": o["work"], "done": 0.0,
-		"reward": o["reward"], "target_sec": o["target_sec"], "elapsed": 0.0})
+	o["done"] = 0.0
+	o["elapsed"] = 0.0
+	active.append(o)
 	return true
 
 
@@ -139,6 +171,8 @@ func tick(delta: float, code_income: float, levels: Dictionary, speed := 1.0) ->
 
 
 ## Index of the most lucrative offer (highest reward per work, then highest reward), -1 if none.
+## Updates and open-source projects have no money reward, so auto-accept takes them only
+## when no client contract is on the board.
 func best_offer() -> int:
 	var best := -1
 	for i in offers.size():
@@ -154,10 +188,30 @@ func best_offer() -> int:
 	return best
 
 
+static func has_bonus(c: Dictionary) -> bool:
+	return float(c["elapsed"]) <= float(c["target_sec"])
+
+
 ## Reward for a contract incl. speed bonus (only meaningful once finished).
 static func reward_of(c: Dictionary) -> float:
-	var bonus := BONUS_MULT if float(c["elapsed"]) <= float(c["target_sec"]) else 1.0
-	return float(c["reward"]) * bonus
+	return float(c["reward"]) * (BONUS_MULT if has_bonus(c) else 1.0)
+
+
+## Stars of an open-source project incl. speed bonus.
+static func stars_of(c: Dictionary) -> float:
+	return float(c.get("stars", 0.0)) * (BONUS_MULT if has_bonus(c) else 1.0)
+
+
+## Remove finished contract i and return it with «payout» (money) and «payout_stars».
+## Game applies the effect depending on «kind». {} if not finished.
+func take_finished(i: int) -> Dictionary:
+	if i < 0 or i >= active.size() or not is_finished(active[i]):
+		return {}
+	var c: Dictionary = active[i]
+	c["payout"] = reward_of(c)
+	c["payout_stars"] = stars_of(c)
+	active.remove_at(i)
+	return c
 
 
 ## Deliver finished contract i. Returns the reward (0 if not finished).
@@ -180,13 +234,26 @@ func from_dict(d: Dictionary) -> void:
 	offers = []
 	for c: Variant in d.get("active", []):
 		if c is Dictionary and c.has_all(["type", "work", "done", "reward", "target_sec", "elapsed"]):
-			active.append({"type": String(c["type"]), "title": String(c.get("title", "")),
-				"work": float(c["work"]), "done": float(c["done"]), "reward": float(c["reward"]),
-				"target_sec": float(c["target_sec"]), "elapsed": float(c["elapsed"])})
+			var e := _clean(c)
+			e["done"] = float(c["done"])
+			e["elapsed"] = float(c["elapsed"])
+			active.append(e)
 	for o: Variant in d.get("offers", []):
 		if o is Dictionary and o.has_all(["type", "work", "reward", "target_sec"]):
-			offers.append({"type": String(o["type"]), "title": String(o.get("title", "")),
-				"work": float(o["work"]), "reward": float(o["reward"]), "target_sec": float(o["target_sec"])})
+			offers.append(_clean(o))
 	if offers.size() > OFFER_MAX:
 		offers.resize(OFFER_MAX)
 	next_offer_in = clampf(float(d.get("next_offer_in", OFFER_EVERY_SEC)), 0.0, OFFER_EVERY_SEC)
+
+
+## Typed copy of a saved offer/contract (unknown keys dropped, old saves get kind «client»).
+static func _clean(o: Dictionary) -> Dictionary:
+	var e := {"kind": String(o.get("kind", "client")), "type": String(o["type"]),
+		"title": String(o.get("title", "")), "work": float(o["work"]), "reward": float(o["reward"]),
+		"target_sec": float(o["target_sec"])}
+	if o.has("product"):
+		e["product"] = String(o["product"])
+		e["version"] = int(o.get("version", 1))
+	if o.has("stars"):
+		e["stars"] = float(o["stars"])
+	return e

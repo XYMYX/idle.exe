@@ -6,9 +6,10 @@ signal changed
 signal bought(id: String)
 signal milestone(value: float)  # total_earned reaches 1K, 10K, 100K, ...
 signal contract_delivered(reward: float)
+signal contract_done(kind: String)  # any delivered contract (client, update, oss)
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 3  # 3 = contracts
+const SAVE_VERSION := 4  # 3 = contracts, 4 = product versions + stars
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -22,6 +23,9 @@ var offline_sec := 0.0
 
 var buffs: Array = []      # timed effects: {target, mult, until, label}
 var contracts := Contracts.new()  # stage 5a: offers, running contracts, delivery
+var product_versions := {}  # stage 6: product id -> number of delivered updates (0..10)
+var stars := 0.0            # stage 6: open-source stars (unlock tiers, not spent)
+var _star_fx := {"contract_reward": 1.0, "contract_speed": 1.0, "total_mult": 1.0}
 ## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
 ## translated when shown). Old saves may contain {t, clock, text} instead.
 var event_log: Array = []
@@ -40,6 +44,7 @@ var _next_milestone := 1000.0
 func _ready() -> void:
 	for id in Economy.ids():
 		levels[id] = 0
+	contracts.versions = product_versions  # shared reference for update offers
 	load_game()
 	_prune_buffs()
 	_recalc()
@@ -57,12 +62,13 @@ func _apply_offline() -> void:
 		return  # no save yet
 	offline_sec = clampf(Time.get_unix_time_from_system() - last_saved_at, 0.0, OFFLINE_MAX_SEC)
 	# Running contracts keep working offline and take their share of the coding income.
-	var diverted := contracts.tick(offline_sec, _code_now, levels, _totals["contract_speed"])
+	var diverted := contracts.tick(offline_sec, _code_now, levels, contract_speed())
 	offline_gain = income() * offline_sec - diverted
 	# With the release pipeline, contracts finished while away are delivered right away.
 	if _totals["auto_deliver"] > 0.0:
 		for i in range(contracts.active.size() - 1, -1, -1):
-			offline_gain += contracts.deliver(i)
+			if Contracts.is_finished(contracts.active[i]):
+				offline_gain += _deliver_internal(i)
 	money += offline_gain
 	total_earned += offline_gain
 	print("idle.exe: offline %d s -> +%s CHF" % [int(offline_sec), BigNum.format_chf(offline_gain)])
@@ -70,7 +76,7 @@ func _apply_offline() -> void:
 
 func _process(delta: float) -> void:
 	if not paused:
-		var gain := income() * delta - contracts.tick(delta, _code_now, levels, _totals["contract_speed"])
+		var gain := income() * delta - contracts.tick(delta, _code_now, levels, contract_speed())
 		money += gain
 		total_earned += gain
 		if total_earned >= _next_milestone:
@@ -177,7 +183,8 @@ func buy(id: String) -> bool:
 
 func _recalc() -> void:
 	_totals = Economy.totals(levels)
-	_income = Economy.income(levels)
+	_star_fx = Progress.star_fx(stars)
+	_income = Progress.income(levels, product_versions, stars)
 	_apply_buffs()
 
 
@@ -228,14 +235,51 @@ func _automate_contracts() -> void:
 				break
 
 
-## Deliver a finished contract: reward goes to the wallet.
+## Contract progress multiplier: automation upgrades × star tier «Contributors».
+func contract_speed() -> float:
+	return float(_totals["contract_speed"]) * float(_star_fx["contract_speed"])
+
+
+## Money multiplier for client contracts from star tiers.
+func contract_reward_mult() -> float:
+	return float(_star_fx["contract_reward"])
+
+
+## Deliver a finished contract: money, a product update or stars, depending on its kind.
 func deliver_contract(i: int) -> float:
-	var reward := contracts.deliver(i)
+	var kind: String = contracts.active[i].get("kind", "client") if i >= 0 and i < contracts.active.size() else ""
+	var reward := _deliver_internal(i)
+	if kind == "":
+		return 0.0
 	if reward > 0.0:
-		earn(reward)
 		contract_delivered.emit(reward)
-		save_game()
+	contract_done.emit(kind)
+	changed.emit()
+	save_game()
 	return reward
+
+
+## Applies the effect of a finished contract without signals/saving (also used offline).
+## Returns the money paid out (0 for updates and open source).
+func _deliver_internal(i: int) -> float:
+	var c := contracts.take_finished(i)
+	if c.is_empty():
+		return 0.0
+	match c.get("kind", "client"):
+		"update":
+			var p: String = c.get("product", "")
+			product_versions[p] = mini(Progress.MAX_VERSION, maxi(int(product_versions.get(p, 0)), int(c.get("version", 1))))
+			_recalc()
+			return 0.0
+		"oss":
+			stars += float(c["payout_stars"])
+			_recalc()
+			return 0.0
+		_:
+			var reward: float = float(c["payout"]) * contract_reward_mult()
+			money += reward
+			total_earned += reward
+			return reward
 
 
 func earn(amount: float) -> void:
@@ -274,6 +318,8 @@ func save_game() -> void:
 		"buffs": buffs,
 		"event_log": event_log,
 		"contracts": contracts.to_dict(),
+		"product_versions": product_versions,
+		"stars": stars,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -332,6 +378,12 @@ func load_game() -> void:
 			event_log.append(e)
 		if event_log.size() > LOG_MAX:
 			event_log.resize(LOG_MAX)
+	var pv: Variant = data.get("product_versions", {})  # missing before version 4
+	if pv is Dictionary:
+		for p: String in Progress.UPDATE_WORK_MIN:
+			if pv.has(p):
+				product_versions[p] = clampi(int(pv[p]), 0, Progress.MAX_VERSION)
+	stars = maxf(0.0, float(data.get("stars", 0.0)))
 	var ct: Variant = data.get("contracts", {})  # missing in saves before version 3
 	if ct is Dictionary:
 		contracts.from_dict(ct)

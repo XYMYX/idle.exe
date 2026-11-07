@@ -23,6 +23,26 @@ const TYPES := [
 ]
 
 
+## Stage 6: special contract kinds that appear on the same board.
+## «update»: a product update (no money, product +5 % subscriptions for good).
+## «oss»: an open-source project (no money, stars).
+const UPDATE_TYPE := {"id": "update", "name": "Update"}
+const OSS_TYPE := {"id": "oss", "name": "Open source", "work_min": 20.0, "target_min": 30.0, "requires": "gaming_pc",
+	"titles": ["Open-source logging library", "CLI tool for Git hooks", "Pixel art editor plugin",
+		"Godot shader collection", "Security scanner for CI pipelines"]}
+const UPDATE_CHANCE := 0.25  # share of new offers that are product updates (if possible)
+const OSS_CHANCE := 0.2      # share of new offers that are open-source projects (if unlocked)
+
+
+## Display name of any contract type id, incl. the special kinds.
+static func type_name(id: String) -> String:
+	if id == UPDATE_TYPE["id"]:
+		return UPDATE_TYPE["name"]
+	if id == OSS_TYPE["id"]:
+		return OSS_TYPE["name"]
+	return get_type(id).get("name", id)
+
+
 static func get_type(id: String) -> Dictionary:
 	for t: Dictionary in TYPES:
 		if t["id"] == id:

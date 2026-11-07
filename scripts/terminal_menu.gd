@@ -430,12 +430,13 @@ func _contract_rows() -> Array:
 	rows.append({"t": "title", "text": tr("CONTRACTS  ·  slots %d/%d") % [ct.active.size(), Contracts.slots(Game.levels)]})
 	rows.append({"t": "text", "c": C_DIM,
 		"text": tr("Running contracts take a share of the coding income and pay it back multiplied.")})
+	rows.append({"t": "text", "c": C_OK, "text": _stars_text()})
 	if ct.active.is_empty():
 		rows.append({"t": "text", "text": tr("No running contracts."), "c": C_DIM})
 	for i in ct.active.size():
 		var c: Dictionary = ct.active[i]
-		rows.append({"t": "contract", "i": i, "title": tr(c["title"]),
-			"type": tr(ContractData.get_type(c["type"]).get("name", c["type"])),
+		rows.append({"t": "contract", "i": i, "title": _contract_title(c),
+			"type": tr(ContractData.type_name(c["type"])),
 			"finished": Contracts.is_finished(c),
 			"reward": BigNum.format_chf(Contracts.reward_of(c)) if Contracts.is_finished(c) else ""})
 	rows.append({"t": "text", "text": " ", "c": C_DIM})
@@ -446,12 +447,39 @@ func _contract_rows() -> Array:
 	for i in ct.offers.size():
 		var o: Dictionary = ct.offers[i]
 		var alone_sec: float = o["work"] / maxf(Contracts.share(1) * Game.code_income(), 0.001)
-		rows.append({"t": "offer", "i": i, "title": tr(o["title"]),
-			"type": tr(ContractData.get_type(o["type"]).get("name", o["type"])), "can": free,
-			"info": tr("Work ~%s · Reward %s CHF · +25 %% if done within %s") % [
-				_dur(alone_sec), BigNum.format_chf(o["reward"]), _dur(o["target_sec"])]})
+		rows.append({"t": "offer", "i": i, "title": _contract_title(o),
+			"type": tr(ContractData.type_name(o["type"])), "can": free,
+			"info": _offer_info(o, alone_sec / Game.contract_speed())})
 	rows.append({"t": "next_offer"})
 	return rows
+
+
+## Display title: client/oss use their stored title, updates are «Desktop app v1.3».
+func _contract_title(c: Dictionary) -> String:
+	if c.get("kind", "client") == "update":
+		return tr("%s v1.%d") % [tr(Economy.name_of(c["product"])), int(c["version"])]
+	return tr(c["title"])
+
+
+func _offer_info(o: Dictionary, sec: float) -> String:
+	match o.get("kind", "client"):
+		"update":
+			return tr("Work ~%s · %s subscriptions +5 %% for good") % [_dur(sec), tr(Economy.name_of(o["product"]))]
+		"oss":
+			return tr("Work ~%s · +%d stars (+25 %% if done within %s)") % [_dur(sec), int(o["stars"]), _dur(o["target_sec"])]
+	return tr("Work ~%s · Reward %s CHF · +25 %% if done within %s") % [
+		_dur(sec), BigNum.format_chf(float(o["reward"]) * Game.contract_reward_mult()), _dur(o["target_sec"])]
+
+
+## «★ 42 stars · Better contracts · next: Contributors at 50»
+func _stars_text() -> String:
+	var parts: Array[String] = [tr("★ %d stars") % int(Game.stars)]
+	for t: Dictionary in Progress.reached_tiers(Game.stars):
+		parts.append(tr(t["name"]))
+	var nxt := Progress.next_tier(Game.stars)
+	if not nxt.is_empty():
+		parts.append(tr("next: %s at %d") % [tr(nxt["name"]), int(nxt["stars"])])
+	return " · ".join(parts)
 
 
 func _render_contract(r: Dictionary) -> void:
@@ -486,7 +514,7 @@ func _render_offer(r: Dictionary) -> void:
 func _update_contract_labels() -> void:
 	var ct: Contracts = Game.contracts
 	var running := ct.running_count()
-	var rate := Contracts.share(running) * Game.code_income() / maxf(running, 1)
+	var rate := Contracts.share(running) * Game.code_income() / maxf(running, 1) * Game.contract_speed()
 	for i: int in _contract_labels:
 		var lbl: Label = _contract_labels[i]
 		if not is_instance_valid(lbl) or i >= ct.active.size():

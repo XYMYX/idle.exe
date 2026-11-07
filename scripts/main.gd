@@ -126,9 +126,8 @@ func _build_scene() -> void:
 	_xymyx.repair_started.connect(func() -> void: _desk.flash(_last_bought))
 	_xymyx.chair_taken.connect(func(taken: bool) -> void: _desk.chair_visible = not taken)
 	Game.milestone.connect(func(_v: float) -> void: _xymyx.react("cheer"))
-	Game.contract_delivered.connect(func(reward: float) -> void:
-		_xymyx.react("cheer")
-		_counter.show_gain(reward))
+	Game.contract_delivered.connect(func(reward: float) -> void: _counter.show_gain(reward))
+	Game.contract_done.connect(func(_kind: String) -> void: _xymyx.react("cheer"))
 
 	# Mouse reactions (mouse position only, no keys, no hook)
 	_watch = MouseWatch.new()
