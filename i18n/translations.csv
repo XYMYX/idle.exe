@@ -359,3 +359,19 @@ Colocation data center,Colocation data center,Colocation-Rechenzentrum
 Tech campus,Tech campus,Tech-Campus
 +%s CHF/s from the office,+%s CHF/s from the office,+%s CHF/s vom Standort
 Offices,Offices,Standorte
+Acquisitions,Acquisitions,Übernahmen
+ACQUISITIONS,ACQUISITIONS,ÜBERNAHMEN
+"Buy other companies once, their effect lasts for this run. Reset when the company is sold.","Buy other companies once, their effect lasts for this run. Reset when the company is sold.","Kaufe andere Firmen einmal, ihre Wirkung hält den ganzen Durchlauf. Wird beim Firmenverkauf zurückgesetzt."
+Company acquired,Company acquired,Firma übernommen
+Already yours,Already yours,Gehört schon dir
+[OWNED],[OWNED],[GEHÖRT DIR]
+Hosting startup,Hosting startup,Hosting-Startup
+Indie app studio,Indie app studio,Indie-App-Studio
+Consulting agency,Consulting agency,Beratungsfirma
+Security boutique,Security boutique,Security-Boutique
+Chip designer,Chip designer,Chip-Entwickler
+Storage x1.5,Storage x1.5,Speicher x1.5
+Subscriptions x1.5,Subscriptions x1.5,Abos x1.5
+Contract rewards x1.5,Contract rewards x1.5,Auftragslohn x1.5
+Security x1.5,Security x1.5,Security x1.5
+"Coding x2, locations x1.5","Coding x2, locations x1.5","Coden x2, Standorte x1.5"

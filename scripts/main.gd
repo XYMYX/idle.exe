@@ -134,6 +134,7 @@ func _build_scene() -> void:
 		_xymyx.react("cheer")
 		_update_passthrough(true))
 	Game.research_finished.connect(func(_id: String) -> void: _xymyx.react("cheer"))
+	Game.company_acquired.connect(func(_id: String) -> void: _xymyx.react("cheer"))
 	Game.flag_captured.connect(func(_id: String, reward: float) -> void:
 		_xymyx.react("cheer")
 		_counter.show_gain(reward))

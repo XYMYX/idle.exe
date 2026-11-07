@@ -140,7 +140,7 @@ static func updatable(levels: Dictionary, versions: Dictionary, max_v := MAX_VER
 ## skill_fx: SkillData.fx() of the learned skills (stage 10), uses «net_income».
 static func income(levels: Dictionary, versions: Dictionary, stars: float, overclock := false,
 		tools: Dictionary = {}, spec := "", knowhow := 0, skill_fx: Dictionary = {},
-		research_fx: Dictionary = {}) -> Dictionary:
+		research_fx: Dictionary = {}) -> Dictionary:  # research_fx: research + acquisitions (stage 14)
 	var inc := Economy.income(levels)
 	var t := spec_totals(Economy.totals(levels), spec)
 	var per_update := UPDATE_BONUS * (2.0 if spec == "software" else 1.0)
@@ -156,12 +156,12 @@ static func income(levels: Dictionary, versions: Dictionary, stars: float, overc
 		* float(research_fx.get("code_mult", 1.0))
 	var storage: float = inc["storage"] * m * net * spec_dc * float(research_fx.get("storage_mult", 1.0))
 	var software: float = (inc["software"] + bonus * t["net_mult"] * t["software_mult"]) * m * net \
-		* float(tools.get("software_mult", 1.0)) * spec_sw
+		* float(tools.get("software_mult", 1.0)) * spec_sw * float(research_fx.get("software_mult", 1.0))
 	var mining: float = inc["mining"] * m * spec_dc
 	# Stage 11: security business, boosted by pentesting and the security specialization
 	var security: float = inc["security"] * m * float(skill_fx.get("security_income", 1.0)) \
-		* (1.5 if spec == "security" else 1.0)
+		* (1.5 if spec == "security" else 1.0) * float(research_fx.get("security_mult", 1.0))
 	# Stage 13: income from the team at the locations
-	var office: float = inc["office"] * m
+	var office: float = inc["office"] * m * float(research_fx.get("office_mult", 1.0))
 	return {"code": code, "storage": storage, "software": software, "mining": mining, "security": security,
 		"office": office, "total": code + storage + software + mining + security + office}

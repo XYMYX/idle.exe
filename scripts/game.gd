@@ -10,9 +10,11 @@ signal contract_done(kind: String)  # any delivered contract (client, update, os
 signal flag_captured(id: String, reward: float)  # stage 8a: CTF flag
 signal company_sold(points: int)  # stage 9: prestige
 signal research_finished(id: String)  # stage 12
+signal company_acquired(id: String)  # stage 14
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 8  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills, 8 = research
+const SAVE_VERSION := 9  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills,
+	# 8 = research, 9 = acquisitions
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -42,6 +44,8 @@ var _skill_fx := SkillData.fx({})
 var research_done := {}      # stage 12: project id -> true
 var research_active := {}    # stage 12: {id, left} of the running project, {} = none
 var _research_fx := ResearchData.fx({})
+var acquisitions := {}       # stage 14: company id -> true (reset when the company is sold)
+var _acq_fx := AcquisitionData.fx({})
 var _tools := FlagData.tool_fx({})
 var _star_fx := {"contract_reward": 1.0, "contract_speed": 1.0, "total_mult": 1.0}
 ## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
@@ -223,8 +227,9 @@ func _recalc() -> void:
 	_research_fx = ResearchData.fx(research_done)
 	contracts.bonus_slots = int(_research_fx["bonus_slots"])
 	contracts.max_version = int(_research_fx["max_version"])
+	_acq_fx = AcquisitionData.fx(acquisitions)
 	_income = Progress.income(levels, product_versions, stars, overclock, _tools, specialization, knowhow,
-		_skill_fx, _research_fx)
+		_skill_fx, AcquisitionData.merge(_research_fx, _acq_fx))
 	_apply_buffs()
 
 
@@ -306,7 +311,8 @@ func contract_speed() -> float:
 
 ## Money multiplier for client contracts from star tiers.
 func contract_reward_mult() -> float:
-	return float(_star_fx["contract_reward"]) * float(_tools["contract_reward"]) * Progress.spec_contract_reward(specialization)
+	return float(_star_fx["contract_reward"]) * float(_tools["contract_reward"]) * Progress.spec_contract_reward(specialization) \
+		* float(_acq_fx["contract_reward"])
 
 
 ## Multiplier for money gained from events (tool «Incident runbook»).
@@ -357,6 +363,7 @@ func sell_company(next_spec: String) -> bool:
 	overclock = false
 	research_done.clear()  # research is reset like upgrades
 	research_active = {}
+	acquisitions.clear()
 	_recalc()
 	contracts.fill_offers(levels, _code_now)
 	log_event("Company sold", Progress.SPECS[next_spec]["name"], false)
@@ -409,6 +416,34 @@ func _check_research() -> void:
 	research_finished.emit(id)
 	changed.emit()
 	save_game()
+
+
+# --- Acquisitions (stage 14) ---------------------------------------------------------
+
+## Translated reason why a company can't be bought, "" if it can.
+func acquisition_problem(id: String) -> String:
+	var c := AcquisitionData.get_company(id)
+	if acquisitions.get(id, false):
+		return tr("Already yours")
+	if c["requires"] != "" and not has(c["requires"]):
+		return tr("Requires: %s") % tr(Economy.name_of(c["requires"]))
+	if money < float(c["cost"]):
+		return tr("Not enough money")
+	return ""
+
+
+func acquire(id: String) -> bool:
+	if acquisition_problem(id) != "":
+		return false
+	var c := AcquisitionData.get_company(id)
+	money -= float(c["cost"])
+	acquisitions[id] = true
+	_recalc()
+	log_event("Company acquired", c["name"], false)
+	company_acquired.emit(id)
+	changed.emit()
+	save_game()
+	return true
 
 
 # --- CTF flags (stage 8a) ---------------------------------------------------------
@@ -557,6 +592,7 @@ func save_game() -> void:
 		"skills": skills,
 		"research_done": research_done,
 		"research_active": research_active,
+		"acquisitions": acquisitions,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -640,6 +676,11 @@ func load_game() -> void:
 	var ra: Variant = data.get("research_active", {})
 	if ra is Dictionary and ra.has("id") and not ResearchData.get_project(String(ra["id"])).is_empty():
 		research_active = {"id": String(ra["id"]), "left": float(ra.get("left", 0.0))}
+	var aq: Variant = data.get("acquisitions", {})  # missing before version 9
+	if aq is Dictionary:
+		for c: Dictionary in AcquisitionData.COMPANIES:
+			if aq.get(c["id"], false):
+				acquisitions[c["id"]] = true
 	var sk: Variant = data.get("skills", {})  # missing before version 7
 	if sk is Dictionary:
 		for s: Dictionary in SkillData.SKILLS:

@@ -228,6 +228,10 @@ func _board_owned() -> Array[String]:
 	for id: String in BOARD_ITEMS:
 		if Game.has(id):
 			out.append(id)
+	# Stage 14: logos of acquired companies (art/icon_acq_<id>.png)
+	for c: Dictionary in AcquisitionData.COMPANIES:
+		if Game.acquisitions.get(c["id"], false):
+			out.append("acq_" + c["id"])
 	return out
 
 

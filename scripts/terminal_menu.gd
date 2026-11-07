@@ -27,6 +27,7 @@ const CAT_CTF := "!ctf"
 const CAT_COMPANY := "!company"
 const CAT_SKILLS := "!skills"
 const CAT_RESEARCH := "!research"
+const CAT_ACQ := "!acquisitions"
 const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters
 
@@ -254,6 +255,10 @@ func _cat_rows() -> Array:
 		func(p: Dictionary) -> bool: return Game.research_problem(p["id"]) == "")
 	rows.append({"id": CAT_RESEARCH, "name": tr("Research"), "sel": _cat == CAT_RESEARCH and not _afford_mode,
 		"locked": false, "afford": research_ready, "special": true})
+	var acq_ready := AcquisitionData.COMPANIES.any(
+		func(c: Dictionary) -> bool: return Game.acquisition_problem(c["id"]) == "")
+	rows.append({"id": CAT_ACQ, "name": tr("Acquisitions"), "sel": _cat == CAT_ACQ and not _afford_mode,
+		"locked": false, "afford": acq_ready, "special": true})
 	rows.append({"id": CAT_COMPANY, "name": tr("Company"), "sel": _cat == CAT_COMPANY and not _afford_mode,
 		"locked": false, "afford": Game.can_sell(), "special": true})
 	rows.append({"id": CAT_CTF, "name": tr("CTF"), "sel": _cat == CAT_CTF and not _afford_mode,
@@ -279,6 +284,8 @@ func _body_rows() -> Array:
 		return _skill_rows()
 	if not _afford_mode and _cat == CAT_RESEARCH:
 		return _research_rows()
+	if not _afford_mode and _cat == CAT_ACQ:
+		return _acq_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -438,6 +445,8 @@ func _render_body(rows: Array) -> void:
 				_render_spec(r)
 			"project":
 				_render_project(r)
+			"company":
+				_render_company(r)
 			"live":
 				var lbl := _label("", r["c"])
 				_live_labels[r["key"]] = lbl
@@ -669,6 +678,39 @@ func _render_project(r: Dictionary) -> void:
 	if not r["done"] and not r["running"]:
 		_content.add_child(_label("  " + tr("Cost: %s CHF") % BigNum.format_chf(p["cost"]) + " · "
 			+ tr("Duration: %s") % _dur(float(p["minutes"]) * 60.0)))
+		if r["problem"] != "":
+			_content.add_child(_label("  " + r["problem"], C_WARN))
+
+
+# --- Acquisitions (stage 14) -----------------------------------------------------------
+
+func _acq_rows() -> Array:
+	var rows := [{"t": "title", "text": tr("ACQUISITIONS")}]
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("Buy other companies once, their effect lasts for this run. Reset when the company is sold.")})
+	for c: Dictionary in AcquisitionData.COMPANIES:
+		rows.append({"t": "text", "text": " ", "c": C_DIM})
+		rows.append({"t": "company", "id": c["id"], "owned": Game.acquisitions.get(c["id"], false),
+			"problem": Game.acquisition_problem(c["id"])})
+	return rows
+
+
+func _render_company(r: Dictionary) -> void:
+	var c := AcquisitionData.get_company(r["id"])
+	var row := HBoxContainer.new()
+	var name_lbl := _label(c["name"] + "  (" + tr(c["kind"]) + ")", C_DIM if r["owned"] else C_TEXT)
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lbl)
+	if r["owned"]:
+		row.add_child(_label(tr("[OWNED]") + " ", C_DIM))
+	elif r["problem"] == "":
+		row.add_child(_button(tr("[BUY]"), C_OK, func() -> void: Game.acquire(r["id"])))
+	else:
+		row.add_child(_label(tr("[LOCKED]") + " ", C_DIM))
+	_content.add_child(row)
+	_content.add_child(_label("  " + tr("Effect: %s") % tr(c["desc"]), C_DIM if r["owned"] else C_TEXT))
+	if not r["owned"]:
+		_content.add_child(_label("  " + tr("Cost: %s CHF") % BigNum.format_chf(c["cost"])))
 		if r["problem"] != "":
 			_content.add_child(_label("  " + r["problem"], C_WARN))
 

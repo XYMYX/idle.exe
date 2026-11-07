@@ -234,6 +234,22 @@ Category «Locations» (unlocked by the server rack), one line in build order. E
 - **Room:** wall map right of the AC (`world_map.png`), one more lit dot per location.
 - **Balancing (greedy simulation, now also buying research):** first run without research **27.6 h**, with research **24.6 h** (the campus is part of «everything bought» now). Locations come at 3.1 / 5.4 / 9.2 / 14.4 / 22 h.
 
+### Stage 14 – Acquisitions (done 2026-11-08, data in `scripts/acquisition_data.gd`)
+Special category «Acquisitions». A fixed list of 5 made-up companies. Each costs money once and gives a permanent multiplier for the rest of the run. Acquisitions are reset when the company is sold.
+
+| Company | Kind | Cost | Needs | Effect |
+|---|---|---|---|---|
+| PixelHost GmbH | hosting startup | 30M | small office | storage ×1.5 |
+| Tiny Apps AG | indie app studio | 150M | subscription software | subscriptions ×1.5 |
+| Byte & Partner | consulting agency | 300M | city office | contract rewards ×1.5 |
+| RedLeaf Security | security boutique | 800M | security lab | security ×1.5 |
+| Nullgate Silicon | chip designer | 2.5B | colocation data center | coding ×2, locations ×1.5 |
+
+- Save version 9 (`acquisitions`). XYMYX cheers and the log gets an entry.
+- Company names are proper names and are not translated, the kind is.
+- **Room:** the logo of each acquired company appears on the board (8×8, `art/icon_acq_<id>.png`: hosting, app_studio, consulting, sec_boutique, chip_design; optionally 2 frames = 16×8).
+- **Balancing (greedy simulation with research and acquisitions):** first run **23.3 h** (24.6 h without acquisitions, 27.6 h without both). All 5 companies are bought, the last at 20.8 h.
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
