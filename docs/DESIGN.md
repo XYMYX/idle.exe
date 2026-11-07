@@ -168,6 +168,33 @@ Terminal category «Company». Math in `scripts/progress.gd`, logic in `Game.sel
 - **Two clicks:** [SELL COMPANY] arms a confirm button for 5 s that says what is reset.
 - **Balancing:** run 1 takes ~20.2 h and earns ~11.4B → 16 know-how (+32 %). Run 2: data center 13.4 h, security 14.5 h, software 14.6 h. First draft had data center ×1.5 (12.7 h) and security without contract bonus (16.3 h, events are not simulated) – evened out.
 
+### Stage 10 – Training (done 2026-11-07)
+Data in `scripts/skill_data.gd`, terminal category «Training». Save version 7 (`skills`).
+- **Courses** appear on the contract board (≈15 % of new offers, at most one at a time), cost coding time like a contract (10, 20, 40, 80, 160 min for level 1–5), pay no money, ignore the quality setting. Delivered: the skill rises by one level.
+- **Skills** (0–5, **kept when the company is sold**):
+
+  | Skill | Courses from | Per level |
+  |---|---|---|
+  | Python | start | script, client project, automation job rewards +10 % |
+  | JavaScript | second monitor | website, app rewards +10 % |
+  | Rust | gaming PC | enterprise rewards +10 %, contracts +2 % faster |
+  | DevOps | home server | storage + subscriptions +3 % |
+  | Pentesting | gaming PC | security audit rewards +10 %, event gains +10 % |
+- **New contract types:** automation job (Python 2, ×1.9) and security audit (Pentesting 2, ×2.4).
+- **Room:** certificates on the wall next to the monitors, one frame per learned skill.
+- **Balancing:** first run 19.5 h → 19.1 h with courses. Courses cost time early and pay off slowly; their real value is that skills carry over into every later run.
+- The category list in the terminal is scrollable now (14+ categories).
+
+### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
+Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
+On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
+
+- **10 – Training:** courses («Learn Python», «Learn Rust», «Pentesting», …) appear on the contract board, cost coding time like a contract, no money. Each delivered course raises a skill (0–5). Skills improve matching contract types and unlock new ones.
+- **11 – Security business:** own upgrade line (test server → security lab → vulnerability scanner → monitoring service → security platform) with its own income «security subscriptions» plus automatic bug bounty income. Needs the pentesting skill.
+- **12 – Research:** projects cost money and run in the background for a while. They raise limits of existing systems: products up to v1.15, VMs up to 8, a 5th contract slot, compression (+storage), own chips (+coding).
+- **13 – Locations + map:** second rack → rented space → own server room → data center → international sites. Each adds power, cooling and RAM capacity plus an income multiplier. A map on the wall shows active locations.
+- **14 – Acquisitions:** fixed list of 5 companies (plugin studio, app company, hosting provider, security startup, software studio) with fixed prices; each brings its own income and can be upgraded.
+
 ## Backlog (smaller items, as of 2026-11-07)
 - Screenshot for the README (`docs/screenshot.png`, then uncomment the line in README.md).
 - Settings in the terminal: scale, mouse reactions on/off, sleep delay, event frequency.

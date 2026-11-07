@@ -23,6 +23,8 @@ const PARTS := [
 	{"tex": "res://art/monitor_2.png", "pos": Vector2(16, 11), "size": Vector2(14, 17), "needs": "monitor_2"},
 	{"tex": "res://art/monitor_3.png", "pos": Vector2(46, 11), "size": Vector2(14, 17), "needs": "monitor_3"},
 	{"tex": "res://art/keyboard_mech.png", "pos": Vector2(18, 24), "size": Vector2(16, 4), "needs": "keyboard"},
+	# Stage 10: certificates on the wall, one frame per learned skill (sheet with 5 frames)
+	{"tex": "res://art/certificates.png", "pos": Vector2(52, -6), "size": Vector2(10, 12), "needs": "", "skill_frames": true},
 	# Right of the desk
 	{"tex": "res://art/rack.png", "pos": Vector2(63, 0), "size": Vector2(24, 48), "needs": "rack"},
 	{"tex": "res://art/rack_cooling.png", "pos": Vector2(63, 0), "size": Vector2(24, 48), "needs": "rack_cooling", "fps": 2.0},
@@ -164,7 +166,21 @@ func _draw_parts(behind: bool) -> void:
 	for part: Dictionary in PARTS:
 		if not _shown(part) or part.get("behind", false) != behind:
 			continue
-		_draw_sprite(part["tex"], part["pos"], part["size"], part.get("fps", 0.0))
+		if part.get("skill_frames", false):
+			_draw_frame(part["tex"], part["pos"], part["size"], SkillData.learned_count(Game.skills) - 1)
+		else:
+			_draw_sprite(part["tex"], part["pos"], part["size"], part.get("fps", 0.0))
+
+
+## Draws a fixed frame of a sheet (clamped to the frames that exist) or the placeholder.
+func _draw_frame(path: String, pos: Vector2, size: Vector2, f: int) -> void:
+	var t := _tex(path)
+	if t == null:
+		_placeholder(Rect2(pos, size))
+		return
+	var frames := maxi(1, int(t.get_width() / size.x))
+	f = clampi(f, 0, frames - 1)
+	draw_texture_rect_region(t, Rect2(pos, size), Rect2(Vector2(f * size.x, 0), size))
 
 
 ## Draws a (possibly animated) sprite or the placeholder in its target size.
@@ -250,6 +266,8 @@ func _board_colors() -> Array[Color]:
 
 
 func _shown(part: Dictionary) -> bool:
+	if part.get("skill_frames", false):
+		return SkillData.learned_count(Game.skills) > 0
 	return Game.has(part["needs"]) and not (part.has("hide_if") and Game.has(part["hide_if"]))
 
 

@@ -8,6 +8,7 @@ extends RefCounted
 ## target_min  = finish within this time for the speed bonus (no failure if slower)
 ## reward_mult = reward = workload × reward_mult
 ## requires    = upgrade that unlocks the type ("" = always)
+## requires_skill = optional {skill, level} (stage 10: training)
 
 const TYPES := [
 	{"id": "script", "name": "Script", "work_min": 3.0, "target_min": 5.0, "reward_mult": 1.3, "requires": "",
@@ -20,6 +21,13 @@ const TYPES := [
 		"titles": ["Online shop for a watchmaker", "CRM for a small agency", "Data dashboard for a city"]},
 	{"id": "enterprise", "name": "Enterprise", "work_min": 240.0, "target_min": 360.0, "reward_mult": 2.4, "requires": "rack",
 		"titles": ["Banking API migration", "Logistics platform", "Hospital scheduling system"]},
+	# Stage 10: unlocked by skills
+	{"id": "automation", "name": "Automation job", "work_min": 20.0, "target_min": 30.0, "reward_mult": 1.9, "requires": "",
+		"requires_skill": {"skill": "python", "level": 2},
+		"titles": ["Automate a client's invoicing", "Scrape data for a newsroom", "Batch image converter"]},
+	{"id": "audit", "name": "Security audit", "work_min": 60.0, "target_min": 90.0, "reward_mult": 2.4, "requires": "",
+		"requires_skill": {"skill": "pentesting", "level": 2},
+		"titles": ["Pentest a web shop", "Audit a school network", "Red team exercise for a bank"]},
 ]
 
 
@@ -27,6 +35,7 @@ const TYPES := [
 ## «update»: a product update (no money, product +5 % subscriptions for good).
 ## «oss»: an open-source project (no money, stars).
 const UPDATE_TYPE := {"id": "update", "name": "Update"}
+const COURSE_TYPE := {"id": "course", "name": "Course"}
 const OSS_TYPE := {"id": "oss", "name": "Open source", "work_min": 20.0, "target_min": 30.0, "requires": "gaming_pc",
 	"titles": ["Open-source logging library", "CLI tool for Git hooks", "Pixel art editor plugin",
 		"Godot shader collection", "Security scanner for CI pipelines"]}
@@ -40,6 +49,8 @@ static func type_name(id: String) -> String:
 		return UPDATE_TYPE["name"]
 	if id == OSS_TYPE["id"]:
 		return OSS_TYPE["name"]
+	if id == COURSE_TYPE["id"]:
+		return COURSE_TYPE["name"]
 	return get_type(id).get("name", id)
 
 

@@ -25,6 +25,7 @@ const CAT_LOG := "!log"
 const CAT_CONTRACTS := "!contracts"
 const CAT_CTF := "!ctf"
 const CAT_COMPANY := "!company"
+const CAT_SKILLS := "!skills"
 const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters
 
@@ -146,7 +147,13 @@ func _build_ui() -> void:
 	_cats_title = _label("", C_DIM)
 	left.add_child(_cats_title)
 	_cat_box = _vbox()
-	left.add_child(_cat_box)
+	# Scrollable: with all stages there are more categories than fit in the window
+	var cat_scroll := ScrollContainer.new()
+	cat_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cat_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_cat_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cat_scroll.add_child(_cat_box)
+	left.add_child(cat_scroll)
 	body.add_child(left)
 
 	var vline := ColorRect.new()
@@ -240,6 +247,8 @@ func _cat_rows() -> Array:
 	var contracts_ready: bool = ct.finished_count() > 0 or (not ct.offers.is_empty() and ct.free_slots(Game.levels) > 0)
 	rows.insert(1 if not _events.pending.is_empty() else 0, {"id": CAT_CONTRACTS, "name": tr("Contracts"),
 		"sel": _cat == CAT_CONTRACTS and not _afford_mode, "locked": false, "afford": contracts_ready, "special": true})
+	rows.append({"id": CAT_SKILLS, "name": tr("Training"), "sel": _cat == CAT_SKILLS and not _afford_mode,
+		"locked": false, "afford": false, "special": true})
 	rows.append({"id": CAT_COMPANY, "name": tr("Company"), "sel": _cat == CAT_COMPANY and not _afford_mode,
 		"locked": false, "afford": Game.can_sell(), "special": true})
 	rows.append({"id": CAT_CTF, "name": tr("CTF"), "sel": _cat == CAT_CTF and not _afford_mode,
@@ -261,6 +270,8 @@ func _body_rows() -> Array:
 		return _ctf_rows()
 	if not _afford_mode and _cat == CAT_COMPANY:
 		return _company_rows()
+	if not _afford_mode and _cat == CAT_SKILLS:
+		return _skill_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -494,6 +505,8 @@ func _contract_rows() -> Array:
 func _contract_title(c: Dictionary) -> String:
 	if c.get("kind", "client") == "update":
 		return tr("%s v1.%d") % [tr(Economy.name_of(c["product"])), int(c["version"])]
+	if c.get("kind", "client") == "course":
+		return tr("%s (level %d)") % [tr(SkillData.get_skill(c["skill"])["course"]), int(c["level"])]
 	return tr(c["title"])
 
 
@@ -501,13 +514,16 @@ func _contract_title(c: Dictionary) -> String:
 func _offer_info(o: Dictionary, sec: float) -> String:
 	if o.get("kind", "client") == "update":
 		return tr("Work ~%s · %s subscriptions +5 %% for good") % [_dur(sec), tr(Economy.name_of(o["product"]))]
+	if o.get("kind", "client") == "course":
+		return tr("Work ~%s · %s level %d, stays forever") % [_dur(sec), tr(SkillData.get_skill(o["skill"])["name"]), int(o["level"])]
 	var q: Dictionary = Progress.QUALITY[Game.contract_quality]
 	sec *= float(q["work"])
 	if o.get("kind", "client") == "oss":
 		return tr("Work ~%s · +%d stars (+25 %% if done within %s)") % [
 			_dur(sec), int(float(o["stars"]) * float(q["stars"])), _dur(o["target_sec"])]
 	return tr("Work ~%s · Reward %s CHF · +25 %% if done within %s") % [
-		_dur(sec), BigNum.format_chf(float(o["reward"]) * float(q["reward"]) * Game.contract_reward_mult()),
+		_dur(sec), BigNum.format_chf(float(o["reward"]) * float(q["reward"]) * Game.contract_reward_mult()
+			* Game.skill_reward_mult(o.get("type", ""))),
 		_dur(o["target_sec"])]
 
 
@@ -604,6 +620,42 @@ func _dur(sec: float) -> String:
 	if s >= 3600:
 		return "%d:%02d:%02d" % [s / 3600, (s / 60) % 60, s % 60]
 	return "%d:%02d" % [s / 60, s % 60]
+
+
+# --- Training (stage 10) -------------------------------------------------------------
+
+func _skill_rows() -> Array:
+	var rows := [{"t": "title", "text": tr("TRAINING")}]
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("Courses appear on the contract board. Skills stay when the company is sold.")})
+	for s: Dictionary in SkillData.SKILLS:
+		var lv := int(Game.skills.get(s["id"], 0))
+		var bar := "[" + "#".repeat(lv) + ".".repeat(SkillData.MAX_LEVEL - lv) + "]"
+		rows.append({"t": "text", "text": " ", "c": C_DIM})
+		rows.append({"t": "text", "c": C_OK if lv > 0 else C_TEXT,
+			"text": "%s %s %d/%d" % [tr(s["name"]).rpad(12), bar, lv, SkillData.MAX_LEVEL]})
+		var fx := _skill_fx_text(s, maxi(lv, 1))
+		rows.append({"t": "text", "c": C_TEXT if lv > 0 else C_DIM,
+			"text": "    " + (tr("Now: %s") % _skill_fx_text(s, lv) if lv > 0 else tr("Per level: %s") % fx)})
+		if s["requires"] != "" and not Game.has(s["requires"]):
+			rows.append({"t": "text", "c": C_WARN,
+				"text": "    " + tr("Courses after: %s") % tr(Economy.name_of(s["requires"]))})
+	return rows
+
+
+## «Script, Client project +20 %, Contracts +4 %» for a skill at a level.
+func _skill_fx_text(s: Dictionary, lv: int) -> String:
+	var parts: Array[String] = []
+	if not (s["boosts"] as Array).is_empty():
+		var names: Array[String] = []
+		for t: String in s["boosts"]:
+			names.append(tr(ContractData.type_name(t)))
+		parts.append(tr("%s rewards +%d %%") % [", ".join(names), int(round(SkillData.REWARD_PER_LEVEL * 100.0 * lv))])
+	var labels := {"contract_speed": "Contracts +%d %%", "net_income": "Storage+subscriptions +%d %%",
+		"event_gain": "Event gains +%d %%"}
+	for k: String in s["fx"]:
+		parts.append(tr(labels[k]) % int(round(float(s["fx"][k]) * 100.0 * lv)))
+	return ", ".join(parts)
 
 
 # --- Company / prestige (stage 9) ----------------------------------------------------

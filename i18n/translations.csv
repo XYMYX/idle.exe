@@ -286,3 +286,34 @@ Data center,Data center,Rechenzentrum
 [SELL COMPANY],[SELL COMPANY],[FIRMA VERKAUFEN]
 [CONFIRM: sell and start over],[CONFIRM: sell and start over],[BESTÄTIGEN: verkaufen und neu starten]
 Company sold,Company sold,Firma verkauft
+Training,Training,Weiterbildung
+TRAINING,TRAINING,WEITERBILDUNG
+Courses appear on the contract board. Skills stay when the company is sold.,Courses appear on the contract board. Skills stay when the company is sold.,Kurse erscheinen auf dem Auftragsbrett. Skills bleiben auch nach einem Firmenverkauf.
+Now: %s,Now: %s,Jetzt: %s
+Per level: %s,Per level: %s,Pro Level: %s
+Courses after: %s,Courses after: %s,Kurse ab: %s
+%s rewards +%d %%,%s rewards +%d %%,%s Lohn +%d %%
+Contracts +%d %%,Contracts +%d %%,Aufträge +%d %%
+Storage+subscriptions +%d %%,Storage+subscriptions +%d %%,Speicher+Abos +%d %%
+Event gains +%d %%,Event gains +%d %%,Ereignis-Gewinne +%d %%
+Course,Course,Kurs
+%s (level %d),%s (level %d),%s (Level %d)
+"Work ~%s · %s level %d, stays forever","Work ~%s · %s level %d, stays forever","Arbeit ~%s · %s Level %d, bleibt für immer"
+Python,Python,Python
+JavaScript,JavaScript,JavaScript
+Rust,Rust,Rust
+DevOps,DevOps,DevOps
+Pentesting,Pentesting,Pentesting
+Learn Python,Learn Python,Python lernen
+Learn JavaScript,Learn JavaScript,JavaScript lernen
+Learn Rust,Learn Rust,Rust lernen
+Learn DevOps,Learn DevOps,DevOps lernen
+Pentesting course,Pentesting course,Pentesting-Kurs
+Automation job,Automation job,Automatisierungs-Job
+Security audit,Security audit,Security-Audit
+Automate a client's invoicing,Automate a client's invoicing,Rechnungswesen eines Kunden automatisieren
+Scrape data for a newsroom,Scrape data for a newsroom,Daten für eine Redaktion sammeln
+Batch image converter,Batch image converter,Bilder-Stapelkonverter
+Pentest a web shop,Pentest a web shop,Pentest eines Webshops
+Audit a school network,Audit a school network,Audit eines Schulnetzwerks
+Red team exercise for a bank,Red team exercise for a bank,Red-Team-Übung für eine Bank

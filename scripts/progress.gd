@@ -137,8 +137,9 @@ static func updatable(levels: Dictionary, versions: Dictionary) -> Dictionary:
 ## star income multiplier. Effects from events (buffs) are applied on top by Game.
 ## tools: FlagData.tool_fx() of the captured CTF flags (stage 8).
 ## spec / knowhow: specialization and know-how points of the prestige system (stage 9).
+## skill_fx: SkillData.fx() of the learned skills (stage 10), uses «net_income».
 static func income(levels: Dictionary, versions: Dictionary, stars: float, overclock := false,
-		tools: Dictionary = {}, spec := "", knowhow := 0) -> Dictionary:
+		tools: Dictionary = {}, spec := "", knowhow := 0, skill_fx: Dictionary = {}) -> Dictionary:
 	var inc := Economy.income(levels)
 	var t := spec_totals(Economy.totals(levels), spec)
 	var per_update := UPDATE_BONUS * (2.0 if spec == "software" else 1.0)
@@ -149,7 +150,7 @@ static func income(levels: Dictionary, versions: Dictionary, stars: float, overc
 	var m: float = star_fx(stars)["total_mult"] * float(tools.get("total_mult", 1.0)) * knowhow_mult(knowhow)
 	var spec_sw := 1.5 if spec == "software" else 1.0
 	var spec_dc := 1.3 if spec == "datacenter" else 1.0
-	var net := float(tools.get("net_mult", 1.0))
+	var net := float(tools.get("net_mult", 1.0)) * float(skill_fx.get("net_income", 1.0))
 	var code: float = inc["code"] * m * overclock_mult(t, overclock) * float(tools.get("code_mult", 1.0))
 	var storage: float = inc["storage"] * m * net * spec_dc
 	var software: float = (inc["software"] + bonus * t["net_mult"] * t["software_mult"]) * m * net \

@@ -11,7 +11,7 @@ signal flag_captured(id: String, reward: float)  # stage 8a: CTF flag
 signal company_sold(points: int)  # stage 9: prestige
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 6  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige
+const SAVE_VERSION := 7  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -36,6 +36,8 @@ var stats := {"contracts": 0, "events": 0, "max_combo": 0, "naps": 0, "sales": 0
 var knowhow := 0             # stage 9: know-how points from selling the company (+2 % each)
 var run_earned := 0.0        # money earned in the current run (since the last sale)
 var specialization := ""     # stage 9: "", "security", "software" or "datacenter"
+var skills := {}             # stage 10: skill id -> level 0..5 (kept when the company is sold)
+var _skill_fx := SkillData.fx({})
 var _tools := FlagData.tool_fx({})
 var _star_fx := {"contract_reward": 1.0, "contract_speed": 1.0, "total_mult": 1.0}
 ## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
@@ -57,6 +59,7 @@ func _ready() -> void:
 	for id in Economy.ids():
 		levels[id] = 0
 	contracts.versions = product_versions  # shared reference for update offers
+	contracts.skills = skills  # shared reference for course offers and skill-locked types
 	load_game()
 	_prune_buffs()
 	_recalc()
@@ -202,7 +205,8 @@ func _recalc() -> void:
 	_totals = Progress.with_overclock_heat(base_totals, overclock)  # overclocking occupies cooling
 	_star_fx = Progress.star_fx(stars)
 	_tools = FlagData.tool_fx(flags)
-	_income = Progress.income(levels, product_versions, stars, overclock, _tools, specialization, knowhow)
+	_skill_fx = SkillData.fx(skills)
+	_income = Progress.income(levels, product_versions, stars, overclock, _tools, specialization, knowhow, _skill_fx)
 	_apply_buffs()
 
 
@@ -276,7 +280,8 @@ func _automate_contracts() -> void:
 
 ## Contract progress multiplier: automation upgrades × star tier «Contributors».
 func contract_speed() -> float:
-	return float(_totals["contract_speed"]) * float(_star_fx["contract_speed"]) * float(_tools["contract_speed"])
+	return float(_totals["contract_speed"]) * float(_star_fx["contract_speed"]) * float(_tools["contract_speed"]) \
+		* float(_skill_fx["contract_speed"])
 
 
 ## Money multiplier for client contracts from star tiers.
@@ -286,7 +291,12 @@ func contract_reward_mult() -> float:
 
 ## Multiplier for money gained from events (tool «Incident runbook»).
 func event_gain_mult() -> float:
-	return float(_tools["event_gain"]) * (2.0 if specialization == "security" else 1.0)
+	return float(_tools["event_gain"]) * (2.0 if specialization == "security" else 1.0) * float(_skill_fx["event_gain"])
+
+
+## Reward multiplier of the learned skills for a contract type (stage 10).
+func skill_reward_mult(contract_type: String) -> float:
+	return SkillData.reward_mult(skills, contract_type)
 
 
 ## Penalties of bad events are halved (nightly backups or the security specialization).
@@ -322,6 +332,7 @@ func sell_company(next_spec: String) -> bool:
 	product_versions.clear()  # keeps the shared reference used by contracts
 	contracts = Contracts.new()
 	contracts.versions = product_versions
+	contracts.skills = skills  # skills stay after a sale
 	buffs.clear()
 	overclock = false
 	_recalc()
@@ -422,8 +433,13 @@ func _deliver_internal(i: int) -> float:
 			stars += float(c["payout_stars"]) * float(_totals["star_mult"]) * float(_tools["star_mult"])
 			_recalc()
 			return 0.0
+		"course":
+			var sid: String = c.get("skill", "")
+			skills[sid] = mini(SkillData.MAX_LEVEL, maxi(int(skills.get(sid, 0)), int(c.get("level", 1))))
+			_recalc()
+			return 0.0
 		_:
-			var reward: float = float(c["payout"]) * contract_reward_mult()
+			var reward: float = float(c["payout"]) * contract_reward_mult() * skill_reward_mult(c.get("type", ""))
 			money += reward
 			total_earned += reward
 			run_earned += reward
@@ -476,6 +492,7 @@ func save_game() -> void:
 		"knowhow": knowhow,
 		"run_earned": run_earned,
 		"specialization": specialization,
+		"skills": skills,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -550,6 +567,11 @@ func load_game() -> void:
 	run_earned = maxf(0.0, float(data.get("run_earned", total_earned)))  # first run: all earnings
 	var sp := String(data.get("specialization", ""))
 	specialization = sp if Progress.SPECS.has(sp) else ""
+	var sk: Variant = data.get("skills", {})  # missing before version 7
+	if sk is Dictionary:
+		for s: Dictionary in SkillData.SKILLS:
+			if sk.has(s["id"]):
+				skills[s["id"]] = clampi(int(sk[s["id"]]), 0, SkillData.MAX_LEVEL)
 	var st: Variant = data.get("stats", {})
 	if st is Dictionary:
 		for k: String in stats:

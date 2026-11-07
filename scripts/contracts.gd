@@ -28,6 +28,8 @@ var offers: Array = []
 var next_offer_in := 0.0
 ## Product versions of the game (shared reference, set by Game), used for update offers.
 var versions := {}
+## Skills of the game (shared reference, set by Game), used for course offers and skill-locked types.
+var skills := {}
 
 
 # --- Slots and types --------------------------------------------------------------
@@ -44,9 +46,14 @@ func free_slots(levels: Dictionary) -> int:
 	return maxi(0, slots(levels) - active.size())
 
 
-static func unlocked_types(levels: Dictionary) -> Array:
+static func unlocked_types(levels: Dictionary, skill_levels: Dictionary = {}) -> Array:
 	return ContractData.TYPES.filter(func(t: Dictionary) -> bool:
-		return t["requires"] == "" or int(levels.get(t["requires"], 0)) > 0)
+		if t["requires"] != "" and int(levels.get(t["requires"], 0)) <= 0:
+			return false
+		if t.has("requires_skill"):
+			var rs: Dictionary = t["requires_skill"]
+			return int(skill_levels.get(rs["skill"], 0)) >= int(rs["level"])
+		return true)
 
 
 ## Share of the coding income diverted with n running (unfinished) contracts.
@@ -66,14 +73,29 @@ func make_offer(levels: Dictionary, code_income: float) -> Dictionary:
 		var w := maxf(MIN_WORK, code_income * share(1) * 60.0 * float(Progress.UPDATE_WORK_MIN[p]))
 		return {"kind": "update", "type": "update", "product": p, "version": upd[p], "title": "",
 			"work": w, "reward": 0.0, "target_sec": float(Progress.UPDATE_WORK_MIN[p]) * 90.0}
+	var course := _free_course(levels)
+	if not course.is_empty() and r >= 1.0 - SkillData.COURSE_CHANCE:
+		var sid: String = course.keys().pick_random()
+		var cmin: float = SkillData.COURSE_WORK_MIN[int(course[sid]) - 1]
+		var cw := maxf(MIN_WORK, code_income * share(1) * 60.0 * cmin)
+		return {"kind": "course", "type": "course", "skill": sid, "level": course[sid], "title": "",
+			"work": cw, "reward": 0.0, "target_sec": cmin * 90.0}
 	var oss: Dictionary = ContractData.OSS_TYPE
 	if int(levels.get(oss["requires"], 0)) > 0 and r >= ContractData.UPDATE_CHANCE \
 			and r < ContractData.UPDATE_CHANCE + ContractData.OSS_CHANCE:
 		var w := maxf(MIN_WORK, code_income * share(1) * 60.0 * float(oss["work_min"]))
 		return {"kind": "oss", "type": "oss", "title": (oss["titles"] as Array).pick_random(),
-			"work": w, "reward": 0.0, "stars": 5 + 5 * unlocked_types(levels).size(),
+			"work": w, "reward": 0.0, "stars": 5 + 5 * unlocked_types(levels, skills).size(),
 			"target_sec": float(oss["target_min"]) * 60.0}
 	return _client_offer(levels, code_income)
+
+
+## Learnable skills, but only if no course is already on the board or running.
+func _free_course(levels: Dictionary) -> Dictionary:
+	for c: Dictionary in offers + active:
+		if c.get("kind", "client") == "course":
+			return {}
+	return SkillData.learnable(levels, skills)
 
 
 ## Updatable products that don't already have an update on the board or running.
@@ -86,7 +108,7 @@ func _free_updates(levels: Dictionary) -> Dictionary:
 
 
 func _client_offer(levels: Dictionary, code_income: float) -> Dictionary:
-	var types := unlocked_types(levels)
+	var types := unlocked_types(levels, skills)
 	if types.is_empty():
 		return {}
 	var total := 0
@@ -122,7 +144,7 @@ func accept(i: int, levels: Dictionary, quality := 1) -> bool:
 		return false
 	var o: Dictionary = offers[i].duplicate()
 	offers.remove_at(i)
-	if o.get("kind", "client") != "update":
+	if o.get("kind", "client") not in ["update", "course"]:
 		var q: Dictionary = Progress.QUALITY[clampi(quality, 0, Progress.QUALITY.size() - 1)]
 		o["work"] = float(o["work"]) * float(q["work"])
 		o["reward"] = float(o["reward"]) * float(q["reward"])
@@ -259,6 +281,9 @@ static func _clean(o: Dictionary) -> Dictionary:
 	var e := {"kind": String(o.get("kind", "client")), "type": String(o["type"]),
 		"title": String(o.get("title", "")), "work": float(o["work"]), "reward": float(o["reward"]),
 		"target_sec": float(o["target_sec"])}
+	if o.has("skill"):
+		e["skill"] = String(o["skill"])
+		e["level"] = int(o.get("level", 1))
 	if o.has("product"):
 		e["product"] = String(o["product"])
 		e["version"] = int(o.get("version", 1))
