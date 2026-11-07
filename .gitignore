@@ -3,3 +3,8 @@
 /android/
 /export/
 *.tmp
+
+# Persönliche Notizen für Claude Code, nur lokal
+CLAUDE.md
+CLAUDE.local.md
+.claude/
