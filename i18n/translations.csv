@@ -223,3 +223,47 @@ Fast,Fast,Schnell
 Normal,Normal,Normal
 Thorough,Thorough,Gründlich
 Normal: best with 1–2 contracts · Thorough: best with 3–4 · Fast: money sooner,Normal: best with 1–2 contracts · Thorough: best with 3–4 · Fast: money sooner,Normal: am besten mit 1–2 Aufträgen · Gründlich: mit 3–4 · Schnell: Geld früher
+CTF,CTF,CTF
+CTF  ·  %d/%d flags,CTF  ·  %d/%d flags,CTF  ·  %d/%d Flaggen
+Each flag pays once and unlocks a tool with a permanent bonus.,Each flag pays once and unlocks a tool with a permanent bonus.,Jede Flagge zahlt einmal und schaltet ein Tool mit dauerhaftem Bonus frei.
+Tool: %s,Tool: %s,Tool: %s
+Flag captured,Flag captured,Flagge erobert
+"Earn 1,000 CHF in total","Earn 1,000 CHF in total",Insgesamt 1'000 CHF verdienen
+Deliver your first contract,Deliver your first contract,Den ersten Auftrag abliefern
+Let XYMYX fall asleep once,Let XYMYX fall asleep once,XYMYX einmal einschlafen lassen
+Reach the highest combo jump,Reach the highest combo jump,Den höchsten Kombo-Sprung schaffen
+Own a home server,Own a home server,Einen Heimserver besitzen
+Own a fiber connection,Own a fiber connection,Einen Glasfaseranschluss besitzen
+Resolve 10 events,Resolve 10 events,10 Ereignisse lösen
+Collect 50 stars,Collect 50 stars,50 Sterne sammeln
+Deliver 10 product updates,Deliver 10 product updates,10 Produkt-Updates abliefern
+Deliver 25 contracts,Deliver 25 contracts,25 Aufträge abliefern
+Earn 1B CHF in total,Earn 1B CHF in total,Insgesamt 1 Mrd. CHF verdienen
+Own every one-off upgrade,Own every one-off upgrade,Jedes einmalige Upgrade besitzen
+Nano,Nano,Nano
+Git,Git,Git
+Coffee script,Coffee script,Kaffee-Skript
+Spring boots,Spring boots,Sprungfeder-Stiefel
+SSH keys,SSH keys,SSH-Schlüssel
+Wireshark,Wireshark,Wireshark
+Incident runbook,Incident runbook,Incident-Runbook
+Ghidra,Ghidra,Ghidra
+CI badges,CI badges,CI-Badges
+Burp Suite,Burp Suite,Burp Suite
+Nmap,Nmap,Nmap
+XYMYX OS,XYMYX OS,XYMYX OS
+Income %s,Income %s,Einkommen %s
+Contract rewards %s,Contract rewards %s,Auftragslohn %s
+Event gains %s,Event gains %s,Ereignis-Gewinne %s
+Subscriptions %s,Subscriptions %s,Abos %s
+Stars %s,Stars %s,Sterne %s
++%s GB RAM,+%s GB RAM,+%s GB RAM
+%s GB RAM (free: %s),%s GB RAM (free: %s),%s GB RAM (frei: %s)
+ · RAM %s / %s GB, · RAM %s / %s GB, · RAM %s / %s GB
+Homelab,Homelab,Homelab
+CI runner,CI runner,CI-Runner
+Game server,Game server,Game-Server
+Honeypot,Honeypot,Honeypot
+CI runner VM,CI runner VM,CI-Runner-VM
+Game server VM,Game server VM,Game-Server-VM
+Honeypot VM,Honeypot VM,Honeypot-VM

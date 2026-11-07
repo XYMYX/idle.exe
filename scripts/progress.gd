@@ -98,17 +98,21 @@ static func updatable(levels: Dictionary, versions: Dictionary) -> Dictionary:
 
 ## Income per source like Economy.income(), plus product update bonuses and the
 ## star income multiplier. Effects from events (buffs) are applied on top by Game.
-static func income(levels: Dictionary, versions: Dictionary, stars: float, overclock := false) -> Dictionary:
+## tools: FlagData.tool_fx() of the captured CTF flags (stage 8).
+static func income(levels: Dictionary, versions: Dictionary, stars: float, overclock := false,
+		tools: Dictionary = {}) -> Dictionary:
 	var inc := Economy.income(levels)
 	var t := Economy.totals(levels)
 	var bonus := 0.0
 	for p: String in UPDATE_WORK_MIN:
 		if int(levels.get(p, 0)) > 0:
 			bonus += float(Economy.get_def(p)["fx"]["software"]) * UPDATE_BONUS * int(versions.get(p, 0))
-	var m: float = star_fx(stars)["total_mult"]
-	var code: float = inc["code"] * m * overclock_mult(t, overclock)
-	var storage: float = inc["storage"] * m
-	var software: float = (inc["software"] + bonus * t["net_mult"]) * m
+	var m: float = star_fx(stars)["total_mult"] * float(tools.get("total_mult", 1.0))
+	var net := float(tools.get("net_mult", 1.0))
+	var code: float = inc["code"] * m * overclock_mult(t, overclock) * float(tools.get("code_mult", 1.0))
+	var storage: float = inc["storage"] * m * net
+	var software: float = (inc["software"] + bonus * t["net_mult"] * t["software_mult"]) * m * net \
+		* float(tools.get("software_mult", 1.0))
 	var mining: float = inc["mining"] * m
 	return {"code": code, "storage": storage, "software": software, "mining": mining,
 		"total": code + storage + software + mining}

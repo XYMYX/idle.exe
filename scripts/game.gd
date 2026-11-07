@@ -7,9 +7,10 @@ signal bought(id: String)
 signal milestone(value: float)  # total_earned reaches 1K, 10K, 100K, ...
 signal contract_delivered(reward: float)
 signal contract_done(kind: String)  # any delivered contract (client, update, oss)
+signal flag_captured(id: String, reward: float)  # stage 8a: CTF flag
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 4  # 3 = contracts, 4 = product versions + stars
+const SAVE_VERSION := 5  # 3 = contracts, 4 = product versions + stars, 5 = flags + stats
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -28,6 +29,10 @@ var stars := 0.0            # stage 6: open-source stars (unlock tiers, not spen
 var overclock := false      # stage 7: overclocking switch
 var contract_quality := 1   # stage 7: Progress.QUALITY index for newly accepted contracts
 var _oc_mult := 1.0
+var flags := {}  # stage 8a: captured CTF flags, id -> true
+## Counters for flags: delivered contracts, resolved events, highest combo level, naps
+var stats := {"contracts": 0, "events": 0, "max_combo": 0, "naps": 0}
+var _tools := FlagData.tool_fx({})
 var _star_fx := {"contract_reward": 1.0, "contract_speed": 1.0, "total_mult": 1.0}
 ## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
 ## translated when shown). Old saves may contain {t, clock, text} instead.
@@ -93,6 +98,7 @@ func _process(delta: float) -> void:
 			_apply_buffs()
 			changed.emit()
 		_automate_contracts()
+		_check_flags()
 	_autosave += delta
 	if _autosave >= AUTOSAVE_SEC:
 		_autosave = 0.0
@@ -189,7 +195,8 @@ func _recalc() -> void:
 	_oc_mult = Progress.overclock_mult(base_totals, overclock)
 	_totals = Progress.with_overclock_heat(base_totals, overclock)  # overclocking occupies cooling
 	_star_fx = Progress.star_fx(stars)
-	_income = Progress.income(levels, product_versions, stars, overclock)
+	_tools = FlagData.tool_fx(flags)
+	_income = Progress.income(levels, product_versions, stars, overclock, _tools)
 	_apply_buffs()
 
 
@@ -263,12 +270,74 @@ func _automate_contracts() -> void:
 
 ## Contract progress multiplier: automation upgrades × star tier «Contributors».
 func contract_speed() -> float:
-	return float(_totals["contract_speed"]) * float(_star_fx["contract_speed"])
+	return float(_totals["contract_speed"]) * float(_star_fx["contract_speed"]) * float(_tools["contract_speed"])
 
 
 ## Money multiplier for client contracts from star tiers.
 func contract_reward_mult() -> float:
-	return float(_star_fx["contract_reward"])
+	return float(_star_fx["contract_reward"]) * float(_tools["contract_reward"])
+
+
+## Multiplier for money gained from events (tool «Incident runbook»).
+func event_gain_mult() -> float:
+	return float(_tools["event_gain"])
+
+
+## Combined tool bonuses of the captured flags (for display).
+func tools() -> Dictionary:
+	return _tools
+
+
+# --- CTF flags (stage 8a) ---------------------------------------------------------
+
+func note_stat(key: String, value := 1) -> void:
+	if key == "max_combo":
+		stats[key] = maxi(int(stats.get(key, 0)), value)
+	else:
+		stats[key] = int(stats.get(key, 0)) + value
+
+
+## Current value towards a flag's goal.
+func flag_progress(f: Dictionary) -> float:
+	match f["goal"]:
+		"earned": return total_earned
+		"contracts": return float(stats["contracts"])
+		"events": return float(stats["events"])
+		"combo": return float(stats["max_combo"])
+		"naps": return float(stats["naps"])
+		"stars": return stars
+		"updates":
+			var n := 0
+			for p: String in product_versions:
+				n += int(product_versions[p])
+			return float(n)
+		"owns": return 1.0 if has(f["target"]) else 0.0
+		"all_upgrades":
+			for u: Dictionary in Economy.UPGRADES:
+				if Economy.max_level(u) == 1 and not has(u["id"]):
+					return 0.0
+			return 1.0
+	return 0.0
+
+
+static func flag_target(f: Dictionary) -> float:
+	return 1.0 if f["goal"] in ["owns", "all_upgrades"] else float(f["target"])
+
+
+## Capture every flag whose goal is reached: money once + permanent tool bonus.
+func _check_flags() -> void:
+	for f: Dictionary in FlagData.FLAGS:
+		if flags.get(f["id"], false) or flag_progress(f) < flag_target(f):
+			continue
+		flags[f["id"]] = true
+		var reward: float = base_income() * 60.0 * float(f["reward_min"])
+		money += reward
+		total_earned += reward
+		_recalc()
+		log_event("Flag captured", FlagData.flag_name(f), false)
+		flag_captured.emit(f["id"], reward)
+		changed.emit()
+		save_game()
 
 
 ## Deliver a finished contract: money, a product update or stars, depending on its kind.
@@ -291,6 +360,7 @@ func _deliver_internal(i: int) -> float:
 	var c := contracts.take_finished(i)
 	if c.is_empty():
 		return 0.0
+	note_stat("contracts")
 	match c.get("kind", "client"):
 		"update":
 			var p: String = c.get("product", "")
@@ -298,7 +368,7 @@ func _deliver_internal(i: int) -> float:
 			_recalc()
 			return 0.0
 		"oss":
-			stars += float(c["payout_stars"])
+			stars += float(c["payout_stars"]) * float(_totals["star_mult"]) * float(_tools["star_mult"])
 			_recalc()
 			return 0.0
 		_:
@@ -348,6 +418,8 @@ func save_game() -> void:
 		"stars": stars,
 		"overclock": overclock,
 		"contract_quality": contract_quality,
+		"flags": flags,
+		"stats": stats,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -413,6 +485,15 @@ func load_game() -> void:
 				product_versions[p] = clampi(int(pv[p]), 0, Progress.MAX_VERSION)
 	stars = maxf(0.0, float(data.get("stars", 0.0)))
 	overclock = bool(data.get("overclock", false))
+	var fl: Variant = data.get("flags", {})  # missing before version 5
+	if fl is Dictionary:
+		for f: Dictionary in FlagData.FLAGS:
+			if fl.get(f["id"], false):
+				flags[f["id"]] = true
+	var st: Variant = data.get("stats", {})
+	if st is Dictionary:
+		for k: String in stats:
+			stats[k] = maxi(0, int(st.get(k, 0)))
 	contract_quality = clampi(int(data.get("contract_quality", 1)), 0, Progress.QUALITY.size() - 1)
 	var ct: Variant = data.get("contracts", {})  # missing in saves before version 3
 	if ct is Dictionary:

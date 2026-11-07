@@ -26,13 +26,16 @@ const CATEGORIES := [
 	{"id": "software", "name": "Software", "requires": ["gaming_pc"]},
 	{"id": "mining", "name": "Mining", "requires": ["ups", "fan"]},
 	{"id": "automation", "name": "Automation", "requires": ["homeserver"]},
+	{"id": "homelab", "name": "Homelab", "requires": ["homeserver"]},
 ]
 
 ## Upgrades. Within a line (cat + line) the order is the build order:
 ## a tier can only be bought once the previous one is owned.
 ## cost = price (if max > 1: cost * growth^level)
 ## fx   = effect per level: code_add, code_mult, storage, software, mining, net_mult, power_cap, cool_cap,
-##        contract_speed (mult), auto_accept, auto_deliver, event_shield (flags, 1 = on)
+##        contract_speed (mult), auto_accept, auto_deliver, event_shield (flags, 1 = on),
+##        software_mult, star_mult (mult), ram_cap (GB)
+## uses: power (kW), heat, ram (GB) – buying needs enough free capacity of each
 ## uses = consumption per level: power (kW), heat
 ## requires = additional upgrades you must own
 const UPGRADES := [
@@ -44,7 +47,7 @@ const UPGRADES := [
 	{"id": "cpu", "cat": "hardware", "line": "CPU", "name": "CPU upgrade", "cost": 100.0, "growth": 1.6, "max": 25,
 		"fx": {"code_mult": 1.05}},
 	{"id": "ram", "cat": "hardware", "line": "RAM", "name": "RAM stick", "cost": 10.0, "growth": 1.15, "max": 999,
-		"fx": {"code_add": 0.5}},
+		"fx": {"code_add": 0.5, "ram_cap": 1.0}},
 	{"id": "gpu_mid", "cat": "hardware", "line": "GPU", "name": "Mid-range GPU", "cost": 8000.0,
 		"fx": {"code_mult": 1.25}, "uses": {"power": 0.3, "heat": 1.0}, "requires": ["gaming_pc"]},
 	{"id": "gpu_high", "cat": "hardware", "line": "GPU", "name": "High-end GPU", "cost": 300000.0,
@@ -147,11 +150,19 @@ const UPGRADES := [
 		"fx": {"auto_deliver": 1.0}, "requires": ["rack"]},
 	{"id": "nightly_backups", "cat": "automation", "line": "Automation", "name": "Nightly backups", "cost": 60.0e6,
 		"fx": {"event_shield": 1.0}, "requires": ["nas"]},
+
+	# --- Homelab (stage 8b: virtual machines use RAM, 1 RAM stick = 1 GB) -------
+	{"id": "vm_ci", "cat": "homelab", "line": "CI runner", "name": "CI runner VM", "cost": 1.5e6, "growth": 2.5, "max": 5,
+		"fx": {"contract_speed": 1.05}, "uses": {"ram": 4.0, "power": 0.3, "heat": 0.5}},
+	{"id": "vm_game", "cat": "homelab", "line": "Game server", "name": "Game server VM", "cost": 4.0e6, "growth": 2.5, "max": 5,
+		"fx": {"software_mult": 1.06}, "uses": {"ram": 6.0, "power": 0.5, "heat": 1.0}},
+	{"id": "vm_honeypot", "cat": "homelab", "line": "Honeypot", "name": "Honeypot VM", "cost": 2.5e6, "growth": 2.5, "max": 5,
+		"fx": {"star_mult": 1.15}, "uses": {"ram": 4.0, "power": 0.3, "heat": 0.5}},
 ]
 
 const FX_ADD := ["code_add", "storage", "software", "mining", "power_cap", "cool_cap",
-	"auto_accept", "auto_deliver", "event_shield"]
-const FX_MULT := ["code_mult", "net_mult", "contract_speed"]
+	"auto_accept", "auto_deliver", "event_shield", "ram_cap"]
+const FX_MULT := ["code_mult", "net_mult", "contract_speed", "software_mult", "star_mult"]
 
 static var _index := {}
 
@@ -221,7 +232,8 @@ static func totals(levels: Dictionary) -> Dictionary:
 	var t := {"code_add": 0.0, "storage": 0.0, "software": 0.0, "mining": 0.0,
 		"power_cap": BASE_POWER, "cool_cap": BASE_COOL,
 		"code_mult": 1.0, "net_mult": 1.0, "power": 0.0, "heat": 0.0,
-		"contract_speed": 1.0, "auto_accept": 0.0, "auto_deliver": 0.0, "event_shield": 0.0}
+		"contract_speed": 1.0, "auto_accept": 0.0, "auto_deliver": 0.0, "event_shield": 0.0,
+		"software_mult": 1.0, "star_mult": 1.0, "ram_cap": 0.0, "ram": 0.0}
 	for u: Dictionary in UPGRADES:
 		var lv: int = levels.get(u["id"], 0)
 		if lv <= 0:
@@ -243,7 +255,7 @@ static func income(levels: Dictionary) -> Dictionary:
 	var t := totals(levels)
 	var code: float = (BASE_CODE + t["code_add"]) * t["code_mult"]
 	var storage: float = t["storage"] * t["net_mult"]
-	var software: float = t["software"] * t["net_mult"]
+	var software: float = t["software"] * t["net_mult"] * t["software_mult"]
 	var mining: float = t["mining"]
 	return {"code": code, "storage": storage, "software": software, "mining": mining,
 		"total": code + storage + software + mining}
@@ -285,6 +297,10 @@ static func missing(u: Dictionary, levels: Dictionary, totals_now: Dictionary = 
 	var free_h: float = tot["cool_cap"] - tot["heat"]
 	if need_h > 0.0 and need_h > free_h + 0.0001:
 		out.append(tx("%s cooling (free: %s)") % [_num(need_h), _num(maxf(free_h, 0.0))])
+	var need_r := float(uses.get("ram", 0.0))
+	var free_r: float = tot["ram_cap"] - tot["ram"]
+	if need_r > 0.0 and need_r > free_r + 0.0001:
+		out.append(tx("%s GB RAM (free: %s)") % [_num(need_r), _num(maxf(free_r, 0.0))])
 	return out
 
 
@@ -307,6 +323,9 @@ static func effect_text(u: Dictionary) -> String:
 			"auto_accept": parts.append(tx("Free slots take the best offer"))
 			"auto_deliver": parts.append(tx("Finished contracts deliver themselves"))
 			"event_shield": parts.append(tx("Halves penalties from bad events"))
+			"software_mult": parts.append(tx("Subscriptions %s") % _mult(v))
+			"star_mult": parts.append(tx("Stars %s") % _mult(v))
+			"ram_cap": parts.append(tx("+%s GB RAM") % _num(v))
 	var text := ", ".join(parts)
 	var uses: Dictionary = u.get("uses", {})
 	if not uses.is_empty():
@@ -315,6 +334,8 @@ static func effect_text(u: Dictionary) -> String:
 			u_parts.append("%s kW" % _num(uses["power"]))
 		if uses.has("heat"):
 			u_parts.append(tx("%s heat") % _num(uses["heat"]))
+		if uses.has("ram"):
+			u_parts.append("%s GB RAM" % _num(uses["ram"]))
 		text += " · " + tx("needs %s") % ", ".join(u_parts)
 	return text
 

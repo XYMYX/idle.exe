@@ -80,6 +80,7 @@ func choose(i: int, auto := false) -> void:
 			mult = 1.0 - (1.0 - mult) / 2.0  # nightly backups halve the penalty
 		Game.add_buff(b["target"], mult, float(b["min"]) * 60.0, ev["title"])
 	Game.log_event(ev["title"], c["label"], auto)
+	Game.note_stat("events")
 	pending = {}
 	resolved.emit(ev, c, auto)
 
@@ -104,7 +105,7 @@ func cost_of(c: Dictionary) -> float:
 
 
 func gain_of(c: Dictionary) -> float:
-	return Game.base_income(c.get("base", "total")) * 60.0 * float(c.get("gain_min", 0.0))
+	return Game.base_income(c.get("base", "total")) * 60.0 * float(c.get("gain_min", 0.0)) * Game.event_gain_mult()
 
 
 ## Default choice; if it is locked, the last available one.

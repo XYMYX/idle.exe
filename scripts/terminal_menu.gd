@@ -23,6 +23,7 @@ const C_WARN := Color("#e8c547")     # requirement missing
 const CAT_EVENT := "!event"
 const CAT_LOG := "!log"
 const CAT_CONTRACTS := "!contracts"
+const CAT_CTF := "!ctf"
 const BAR_LEN := 20  # progress bar width in characters
 
 var hidden_msec := 0  # time of closing (prevents immediate reopening)
@@ -177,7 +178,9 @@ func _refresh_all() -> void:
 	var t := Game.totals()
 	_capacity.text = tr("Power %s / %s kW · Cooling %s / %s") % [
 		Economy._num(t["power"]), Economy._num(t["power_cap"]),
-		Economy._num(t["heat"]), Economy._num(t["cool_cap"])] + _overclock_text() + (tr("  [paused]") if Game.paused else "")
+		Economy._num(t["heat"]), Economy._num(t["cool_cap"])] + _overclock_text() \
+		+ (tr(" · RAM %s / %s GB") % [Economy._num(t["ram"]), Economy._num(t["ram_cap"])] if t["ram_cap"] > 0.0 else "") \
+		+ (tr("  [paused]") if Game.paused else "")
 	_effects.text = _effects_text()
 	_effects.visible = _effects.text != ""
 
@@ -231,6 +234,8 @@ func _cat_rows() -> Array:
 	var contracts_ready: bool = ct.finished_count() > 0 or (not ct.offers.is_empty() and ct.free_slots(Game.levels) > 0)
 	rows.insert(1 if not _events.pending.is_empty() else 0, {"id": CAT_CONTRACTS, "name": tr("Contracts"),
 		"sel": _cat == CAT_CONTRACTS and not _afford_mode, "locked": false, "afford": contracts_ready, "special": true})
+	rows.append({"id": CAT_CTF, "name": tr("CTF"), "sel": _cat == CAT_CTF and not _afford_mode,
+		"locked": false, "afford": false, "special": true})
 	rows.append({"id": CAT_LOG, "name": tr("Log"), "sel": _cat == CAT_LOG and not _afford_mode,
 		"locked": false, "afford": false, "special": true})
 	return rows
@@ -244,6 +249,8 @@ func _body_rows() -> Array:
 		return _log_rows()
 	if not _afford_mode and _cat == CAT_CONTRACTS:
 		return _contract_rows()
+	if not _afford_mode and _cat == CAT_CTF:
+		return _ctf_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -578,6 +585,43 @@ func _dur(sec: float) -> String:
 	if s >= 3600:
 		return "%d:%02d:%02d" % [s / 3600, (s / 60) % 60, s % 60]
 	return "%d:%02d" % [s / 60, s % 60]
+
+
+# --- CTF flags (stage 8a) ---------------------------------------------------------
+
+func _ctf_rows() -> Array:
+	var got := 0
+	for f: Dictionary in FlagData.FLAGS:
+		if Game.flags.get(f["id"], false):
+			got += 1
+	var rows := [{"t": "title", "text": tr("CTF  ·  %d/%d flags") % [got, FlagData.FLAGS.size()]}]
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("Each flag pays once and unlocks a tool with a permanent bonus.")})
+	for f: Dictionary in FlagData.FLAGS:
+		rows.append({"t": "text", "text": " ", "c": C_DIM})
+		var tool := "%s (%s)" % [tr(f["tool"]["name"]), _tool_fx_text(f["tool"]["fx"])]
+		if Game.flags.get(f["id"], false):
+			rows.append({"t": "text", "c": C_OK, "text": "[x] %s  ·  %s" % [FlagData.flag_name(f), tr(f["text"])]})
+			rows.append({"t": "text", "c": C_OK, "text": "    " + tr("Tool: %s") % tool})
+		else:
+			var cur := Game.flag_progress(f)
+			var target := Game.flag_target(f)
+			var prog := ""
+			if f["goal"] not in ["owns", "all_upgrades"]:
+				prog = "  (%s / %s)" % [BigNum.format(minf(cur, target)), BigNum.format(target)]
+			rows.append({"t": "text", "c": C_TEXT, "text": "[ ] %s  ·  %s%s" % [FlagData.flag_name(f), tr(f["text"]), prog]})
+			rows.append({"t": "text", "c": C_DIM, "text": "    " + tr("Tool: %s") % tool})
+	return rows
+
+
+func _tool_fx_text(fx: Dictionary) -> String:
+	var names := {"code_mult": "Coding %s", "net_mult": "Storage+subscriptions %s", "software_mult": "Subscriptions %s",
+		"total_mult": "Income %s", "contract_reward": "Contract rewards %s", "contract_speed": "Contracts %s",
+		"star_mult": "Stars %s", "event_gain": "Event gains %s"}
+	var parts: Array[String] = []
+	for k: String in fx:
+		parts.append(tr(names.get(k, k + " %s")) % Economy._mult(float(fx[k])))
+	return ", ".join(parts)
 
 
 # --- Events, log, effects -------------------------------------------------------

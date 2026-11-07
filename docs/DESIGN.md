@@ -126,9 +126,33 @@ Math in `scripts/progress.gd`. Power running costs were dropped on purpose (they
 - Effects are timed (shown in the terminal header), everything goes to the log.
 - 9 events: viral, broken update, sponsor, coffee machine, power outage, heatwave, CTF, bug bounty, RGB sale.
 
-### Stage 8 – Milestones
-- CTFs and bug bounties (in-game only, authorized test environments) as milestones: rewards money, reputation, rare tools.
-- Homelab/server room (merged): virtual servers consume RAM, unlock abilities and projects.
+### Stage 8 – CTF flags and homelab (done 2026-11-07)
+**8a – CTF flags** (data in `scripts/flag_data.gd`, terminal category «CTF»): 12 milestones named like `flag{first_client}`. Capturing one pays once (5–60 min of income) and unlocks a **tool** with a permanent bonus. Goals: total earned, delivered contracts, owned upgrades, stars, resolved events, product updates, highest combo jump, XYMYX falling asleep, owning every one-off upgrade. Checked once per second, saved (version 5: `flags`, `stats`).
+
+| Flag | Goal | Tool |
+|---|---|---|
+| hello_world | earn 1,000 CHF | Nano: coding +5 % |
+| first_client | deliver 1 contract | Git: contract rewards +5 % |
+| power_nap | XYMYX falls asleep | Coffee script: coding +3 % |
+| trampoline | highest combo jump | Spring boots: coding +3 % |
+| root_access | own a home server | SSH keys: contracts +5 % |
+| packet_sniffer | own fiber | Wireshark: storage+subscriptions +5 % |
+| crisis_manager | resolve 10 events | Incident runbook: event gains +25 % |
+| open_source | 50 stars | Ghidra: stars +10 % |
+| ship_it | 10 product updates | CI badges: subscriptions +5 % |
+| bounty_hunter | deliver 25 contracts | Burp Suite: contract rewards +10 % |
+| billionaire | earn 1B CHF | Nmap: income +5 % |
+| full_stack | own every one-off upgrade | XYMYX OS: income +10 % |
+
+Counters start with stage 8, so contracts delivered before do not count.
+
+**8b – Homelab** (category «Homelab», unlocked by the home server): virtual machines use **RAM** (1 RAM stick = 1 GB, shown in the terminal header), plus a little power and cooling. Each type up to 5×, cost ×2.5 per level:
+- CI runner VM (1.5M, 4 GB): contracts +5 %
+- Game server VM (4M, 6 GB): subscriptions +6 %
+- Honeypot VM (2.5M, 4 GB): stars +15 %
+
+All 15 VMs need 70 GB – a real gate early, easy later. A first idea with 16 GB per VM was impossible (RAM costs ×1.15 per stick, 280 GB would cost over 10^18 CHF).
+**Balancing:** total time stays ~20.2 h (VMs mostly change *when* things are bought); flag tools are not simulated and should save about another hour.
 
 ### Stage 9 – Prestige
 - Sell the company and start over. Contacts, knowledge, blueprints remain.

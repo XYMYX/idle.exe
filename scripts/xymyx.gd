@@ -369,6 +369,11 @@ func bounce() -> void:
 	_play_or("fall", "dangle")
 
 
+## Current combo level 1..7 (for the «trampoline» flag).
+func combo_level() -> int:
+	return _combo + 1
+
+
 ## Small hop as click feedback.
 func hop() -> void:
 	var tw := create_tween()

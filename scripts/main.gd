@@ -128,6 +128,9 @@ func _build_scene() -> void:
 	Game.milestone.connect(func(_v: float) -> void: _xymyx.react("cheer"))
 	Game.contract_delivered.connect(func(reward: float) -> void: _counter.show_gain(reward))
 	Game.contract_done.connect(func(_kind: String) -> void: _xymyx.react("cheer"))
+	Game.flag_captured.connect(func(_id: String, reward: float) -> void:
+		_xymyx.react("cheer")
+		_counter.show_gain(reward))
 
 	# Mouse reactions (mouse position only, no keys, no hook)
 	_watch = MouseWatch.new()
@@ -135,7 +138,9 @@ func _build_scene() -> void:
 		return Vector2(screen - get_window().position) / pixel_scale
 	_watch.figure_center = func() -> Vector2: return _xymyx.position + Vector2(FIGURE, FIGURE) / 2.0
 	_watch.figure_hit = func(g: Vector2) -> bool: return _xymyx.visible and _xymyx.hit(g)
-	_watch.away.connect(_xymyx.fall_asleep)
+	_watch.away.connect(func() -> void:
+		_xymyx.fall_asleep()
+		Game.note_stat("naps"))
 	_watch.back.connect(_xymyx.wake_up)
 	_watch.startled.connect(func() -> void:
 		if _press == Press.NONE:  # don't get startled by our own dragging
@@ -312,6 +317,7 @@ func _release() -> void:
 			_open_event()  # pending event: clicking XYMYX shows the choice
 		else:
 			_xymyx.bounce()  # the more often, the higher
+			Game.note_stat("max_combo", _xymyx.combo_level())
 	elif was == Press.DESK:
 		if dragged:
 			_save_layout()
