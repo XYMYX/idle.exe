@@ -1,0 +1,10 @@
+# Normalize line endings: always LF in the repository and the working copy,
+# no matter whether you commit from Windows or WSL.
+* text=auto eol=lf
+
+# Binary files: never touch
+*.png binary
+*.jpg binary
+*.ico binary
+*.aseprite binary
+*.translation binary
