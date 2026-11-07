@@ -2,6 +2,7 @@
 .godot/
 /android/
 /export/
+/build/
 *.tmp
 
 # Personal notes for Claude Code, local only
