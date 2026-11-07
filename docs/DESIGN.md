@@ -68,8 +68,15 @@ New upgrade category **«Automation»** (unlocked by owning `homeserver`), one l
 
 From «Release pipeline» on, contracts run completely hands-off – the «first manual, later watch your infrastructure do it» moment.
 
+#### Decisions made while building step 1 (2026-11-07)
+- **Diverted share grows with running contracts:** `1 - 0.5^n` (1 → 50 %, 2 → 75 %, 3 → 87.5 %, 4 → 93.75 %), split equally. Extra slots therefore convert more income at the contract rate instead of just queueing.
+- **`work_min` = minutes one contract takes alone** (workload `W = coding/s × 0.5 × 60 × work_min`). The first draft counted full coding output, which made the speed bonus unreachable. Parallel contracts take longer and may miss the bonus – a real trade-off.
+- **Only working time counts for the bonus**: waiting for [DELIVER] is free, and in a long offline step only the time until completion counts.
+- `Contracts` is a plain `RefCounted` with `tick(delta, code_income, levels) -> diverted`, `fill_offers`, `accept`, `deliver`, `to_dict`/`from_dict`. Step 2 calls `tick` from `Game._process` and `_apply_offline` and subtracts the diverted amount from the wallet.
+- Contract names/titles are not translated yet – add them to `i18n/translations.csv` in step 3 and extend `check_i18n` to scan `contract_data.gd` (`"name"` and the `"titles"` arrays).
+
 #### Order of work
-1. `contract_data.gd` + `contracts.gd` with offers, slots, progress, delivery (no UI) → headless test.
+1. ✅ `contract_data.gd` + `contracts.gd` with offers, slots, progress, delivery (no UI) → headless test passed (offers, slots, progress, bonus, waiting, offline, save roundtrip, broken data).
 2. Income split and offline progress in `game.gd`, save version 3 + migration → headless test incl. old save.
 3. Terminal view «Contracts» + translations → `check_i18n` must report no missing keys.
 4. Extend the balancing simulation (greedy player also takes contracts): total time for everything should stay around 26–35 h → tune `reward_mult`.
