@@ -24,6 +24,8 @@ const CAT_EVENT := "!event"
 const CAT_LOG := "!log"
 const CAT_CONTRACTS := "!contracts"
 const CAT_CTF := "!ctf"
+const CAT_COMPANY := "!company"
+const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters
 
 var hidden_msec := 0  # time of closing (prevents immediate reopening)
@@ -45,6 +47,9 @@ var _btn_afford: Button
 var _btn_next: Button
 var _btn_back: Button
 var _btn_oc: Button
+var _next_spec := ""           # specialization chosen for the next run
+var _sell_armed_until := 0     # ticks (ms) until the confirm button is active
+var _live_labels := {}         # key -> Label whose text changes every refresh (no rebuild)
 
 var _cat := "hardware"
 var _line := ""
@@ -208,6 +213,7 @@ func _refresh_all() -> void:
 			_nav_sig = nav
 			_scroll.scroll_vertical = 0
 	_update_contract_labels()
+	_update_live_labels()
 	# Event countdown: change the text in place (no rebuild, no hover flicker)
 	if _countdown and is_instance_valid(_countdown) and not _events.pending.is_empty():
 		var d: Dictionary = _events.pending["choices"][_events.default_index(_events.pending)]
@@ -234,6 +240,8 @@ func _cat_rows() -> Array:
 	var contracts_ready: bool = ct.finished_count() > 0 or (not ct.offers.is_empty() and ct.free_slots(Game.levels) > 0)
 	rows.insert(1 if not _events.pending.is_empty() else 0, {"id": CAT_CONTRACTS, "name": tr("Contracts"),
 		"sel": _cat == CAT_CONTRACTS and not _afford_mode, "locked": false, "afford": contracts_ready, "special": true})
+	rows.append({"id": CAT_COMPANY, "name": tr("Company"), "sel": _cat == CAT_COMPANY and not _afford_mode,
+		"locked": false, "afford": Game.can_sell(), "special": true})
 	rows.append({"id": CAT_CTF, "name": tr("CTF"), "sel": _cat == CAT_CTF and not _afford_mode,
 		"locked": false, "afford": false, "special": true})
 	rows.append({"id": CAT_LOG, "name": tr("Log"), "sel": _cat == CAT_LOG and not _afford_mode,
@@ -251,6 +259,8 @@ func _body_rows() -> Array:
 		return _contract_rows()
 	if not _afford_mode and _cat == CAT_CTF:
 		return _ctf_rows()
+	if not _afford_mode and _cat == CAT_COMPANY:
+		return _company_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -378,6 +388,7 @@ func _render_cats(rows: Array) -> void:
 func _render_body(rows: Array) -> void:
 	_clear(_content)
 	_countdown = null
+	_live_labels = {}
 	_contract_labels = {}
 	_next_offer_label = null
 	for r: Dictionary in rows:
@@ -403,6 +414,14 @@ func _render_body(rows: Array) -> void:
 				_render_offer(r)
 			"quality":
 				_render_quality(r["q"])
+			"spec":
+				_render_spec(r)
+			"live":
+				var lbl := _label("", r["c"])
+				_live_labels[r["key"]] = lbl
+				_content.add_child(lbl)
+			"sell":
+				_render_sell(r)
 			"next_offer":
 				_next_offer_label = _label("", C_DIM)
 				_content.add_child(_next_offer_label)
@@ -585,6 +604,65 @@ func _dur(sec: float) -> String:
 	if s >= 3600:
 		return "%d:%02d:%02d" % [s / 3600, (s / 60) % 60, s % 60]
 	return "%d:%02d" % [s / 60, s % 60]
+
+
+# --- Company / prestige (stage 9) ----------------------------------------------------
+
+func _company_rows() -> Array:
+	if _next_spec == "":
+		_next_spec = Game.specialization if Game.specialization != "" else "software"
+	var rows := [{"t": "title", "text": tr("COMPANY")}]
+	rows.append({"t": "live", "key": "earned", "c": C_TEXT})
+	rows.append({"t": "text", "c": C_OK, "text": tr("Know-how: %d points (+%d %% on everything)") % [
+		Game.knowhow, int(round(Progress.KNOWHOW_BONUS * 100.0 * Game.knowhow))]})
+	var cur := tr(Progress.SPECS[Game.specialization]["name"]) if Game.specialization != "" else tr("none")
+	rows.append({"t": "text", "c": C_TEXT, "text": tr("Specialization: %s") % cur})
+	rows.append({"t": "text", "text": " ", "c": C_DIM})
+	rows.append({"t": "title", "text": tr("SELL THE COMPANY")})
+	if Game.can_sell():
+		rows.append({"t": "live", "key": "points", "c": C_OK})
+	else:
+		rows.append({"t": "text", "c": C_WARN,
+			"text": tr("Possible from %s CHF earned in this run.") % BigNum.format_chf(Progress.SELL_MIN)})
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("Kept: CTF flags and tools, stars, statistics. Reset: money, upgrades, contracts, product versions.")})
+	rows.append({"t": "text", "text": " ", "c": C_DIM})
+	rows.append({"t": "text", "c": C_TEXT, "text": tr("Specialization for the next run:")})
+	for id: String in Progress.SPECS:
+		rows.append({"t": "spec", "id": id, "sel": id == _next_spec})
+	rows.append({"t": "text", "text": " ", "c": C_DIM})
+	rows.append({"t": "sell", "can": Game.can_sell(), "armed": Time.get_ticks_msec() < _sell_armed_until})
+	return rows
+
+
+## Company numbers that change all the time, written in place (no rebuild, clicks stay safe).
+func _update_live_labels() -> void:
+	if _live_labels.has("earned") and is_instance_valid(_live_labels["earned"]):
+		_live_labels["earned"].text = tr("Earned this run: %s CHF") % BigNum.format_chf(Game.run_earned)
+	if _live_labels.has("points") and is_instance_valid(_live_labels["points"]):
+		_live_labels["points"].text = tr("A sale now gives +%d know-how points.") % Game.sell_points()
+
+
+func _render_spec(r: Dictionary) -> void:
+	var spec: Dictionary = Progress.SPECS[r["id"]]
+	_content.add_child(_button("%s [%s]" % [">" if r["sel"] else " ", tr(spec["name"])],
+		C_OK if r["sel"] else C_TEXT, func() -> void:
+			_next_spec = r["id"]
+			_refresh_all()))
+	_content.add_child(_label("    " + tr(spec["desc"]), C_DIM, true))
+
+
+func _render_sell(r: Dictionary) -> void:
+	if not r["can"]:
+		_content.add_child(_label(tr("[SELL COMPANY]"), C_DIM))
+	elif r["armed"]:
+		_content.add_child(_button(tr("[CONFIRM: sell and start over]"), C_WARN, func() -> void:
+			_sell_armed_until = 0
+			Game.sell_company(_next_spec)))
+	else:
+		_content.add_child(_button(tr("[SELL COMPANY]"), C_OK, func() -> void:
+			_sell_armed_until = Time.get_ticks_msec() + int(SELL_CONFIRM_SEC * 1000.0)
+			_refresh_all()))
 
 
 # --- CTF flags (stage 8a) ---------------------------------------------------------

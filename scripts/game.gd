@@ -8,9 +8,10 @@ signal milestone(value: float)  # total_earned reaches 1K, 10K, 100K, ...
 signal contract_delivered(reward: float)
 signal contract_done(kind: String)  # any delivered contract (client, update, oss)
 signal flag_captured(id: String, reward: float)  # stage 8a: CTF flag
+signal company_sold(points: int)  # stage 9: prestige
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 5  # 3 = contracts, 4 = product versions + stars, 5 = flags + stats
+const SAVE_VERSION := 6  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -31,7 +32,10 @@ var contract_quality := 1   # stage 7: Progress.QUALITY index for newly accepted
 var _oc_mult := 1.0
 var flags := {}  # stage 8a: captured CTF flags, id -> true
 ## Counters for flags: delivered contracts, resolved events, highest combo level, naps
-var stats := {"contracts": 0, "events": 0, "max_combo": 0, "naps": 0}
+var stats := {"contracts": 0, "events": 0, "max_combo": 0, "naps": 0, "sales": 0}
+var knowhow := 0             # stage 9: know-how points from selling the company (+2 % each)
+var run_earned := 0.0        # money earned in the current run (since the last sale)
+var specialization := ""     # stage 9: "", "security", "software" or "datacenter"
 var _tools := FlagData.tool_fx({})
 var _star_fx := {"contract_reward": 1.0, "contract_speed": 1.0, "total_mult": 1.0}
 ## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
@@ -79,6 +83,7 @@ func _apply_offline() -> void:
 				offline_gain += _deliver_internal(i)
 	money += offline_gain
 	total_earned += offline_gain
+	run_earned += offline_gain
 	print("idle.exe: offline %d s -> +%s CHF" % [int(offline_sec), BigNum.format_chf(offline_gain)])
 
 
@@ -87,6 +92,7 @@ func _process(delta: float) -> void:
 		var gain := income() * delta - contracts.tick(delta, _code_now, levels, contract_speed())
 		money += gain
 		total_earned += gain
+		run_earned += gain
 		if total_earned >= _next_milestone:
 			milestone.emit(_next_milestone)
 			while _next_milestone <= total_earned:
@@ -191,12 +197,12 @@ func buy(id: String) -> bool:
 
 
 func _recalc() -> void:
-	var base_totals := Economy.totals(levels)
+	var base_totals := Progress.spec_totals(Economy.totals(levels), specialization)
 	_oc_mult = Progress.overclock_mult(base_totals, overclock)
 	_totals = Progress.with_overclock_heat(base_totals, overclock)  # overclocking occupies cooling
 	_star_fx = Progress.star_fx(stars)
 	_tools = FlagData.tool_fx(flags)
-	_income = Progress.income(levels, product_versions, stars, overclock, _tools)
+	_income = Progress.income(levels, product_versions, stars, overclock, _tools, specialization, knowhow)
 	_apply_buffs()
 
 
@@ -275,12 +281,56 @@ func contract_speed() -> float:
 
 ## Money multiplier for client contracts from star tiers.
 func contract_reward_mult() -> float:
-	return float(_star_fx["contract_reward"]) * float(_tools["contract_reward"])
+	return float(_star_fx["contract_reward"]) * float(_tools["contract_reward"]) * Progress.spec_contract_reward(specialization)
 
 
 ## Multiplier for money gained from events (tool «Incident runbook»).
 func event_gain_mult() -> float:
-	return float(_tools["event_gain"])
+	return float(_tools["event_gain"]) * (2.0 if specialization == "security" else 1.0)
+
+
+## Penalties of bad events are halved (nightly backups or the security specialization).
+func event_shield() -> bool:
+	return float(_totals["event_shield"]) > 0.0 or specialization == "security"
+
+
+# --- Prestige (stage 9) -------------------------------------------------------------
+
+func can_sell() -> bool:
+	return Progress.knowhow_points(run_earned) > 0
+
+
+## Know-how points a sale would give right now.
+func sell_points() -> int:
+	return Progress.knowhow_points(run_earned)
+
+
+## Sell the company: know-how points, then start over with a specialization.
+## Kept: flags + tools, stars, stats, event log, settings. Reset: money, upgrades,
+## contracts, product versions, effects, overclocking.
+func sell_company(next_spec: String) -> bool:
+	var points := sell_points()
+	if points <= 0 or not Progress.SPECS.has(next_spec):
+		return false
+	knowhow += points
+	stats["sales"] = int(stats.get("sales", 0)) + 1
+	specialization = next_spec
+	money = 0.0
+	run_earned = 0.0
+	for id: String in levels:
+		levels[id] = 0
+	product_versions.clear()  # keeps the shared reference used by contracts
+	contracts = Contracts.new()
+	contracts.versions = product_versions
+	buffs.clear()
+	overclock = false
+	_recalc()
+	contracts.fill_offers(levels, _code_now)
+	log_event("Company sold", Progress.SPECS[next_spec]["name"], false)
+	company_sold.emit(points)
+	changed.emit()
+	save_game()
+	return true
 
 
 ## Combined tool bonuses of the captured flags (for display).
@@ -330,9 +380,10 @@ func _check_flags() -> void:
 		if flags.get(f["id"], false) or flag_progress(f) < flag_target(f):
 			continue
 		flags[f["id"]] = true
-		var reward: float = base_income() * 60.0 * float(f["reward_min"])
+		var reward: float = base_income() * 60.0 * float(f["reward_min"]) * (2.0 if specialization == "security" else 1.0)
 		money += reward
 		total_earned += reward
+		run_earned += reward
 		_recalc()
 		log_event("Flag captured", FlagData.flag_name(f), false)
 		flag_captured.emit(f["id"], reward)
@@ -375,12 +426,14 @@ func _deliver_internal(i: int) -> float:
 			var reward: float = float(c["payout"]) * contract_reward_mult()
 			money += reward
 			total_earned += reward
+			run_earned += reward
 			return reward
 
 
 func earn(amount: float) -> void:
 	money += amount
 	total_earned += amount
+	run_earned += amount
 	changed.emit()
 
 
@@ -420,6 +473,9 @@ func save_game() -> void:
 		"contract_quality": contract_quality,
 		"flags": flags,
 		"stats": stats,
+		"knowhow": knowhow,
+		"run_earned": run_earned,
+		"specialization": specialization,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -490,6 +546,10 @@ func load_game() -> void:
 		for f: Dictionary in FlagData.FLAGS:
 			if fl.get(f["id"], false):
 				flags[f["id"]] = true
+	knowhow = maxi(0, int(data.get("knowhow", 0)))  # missing before version 6
+	run_earned = maxf(0.0, float(data.get("run_earned", total_earned)))  # first run: all earnings
+	var sp := String(data.get("specialization", ""))
+	specialization = sp if Progress.SPECS.has(sp) else ""
 	var st: Variant = data.get("stats", {})
 	if st is Dictionary:
 		for k: String in stats:

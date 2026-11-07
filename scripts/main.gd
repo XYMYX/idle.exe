@@ -128,6 +128,11 @@ func _build_scene() -> void:
 	Game.milestone.connect(func(_v: float) -> void: _xymyx.react("cheer"))
 	Game.contract_delivered.connect(func(reward: float) -> void: _counter.show_gain(reward))
 	Game.contract_done.connect(func(_kind: String) -> void: _xymyx.react("cheer"))
+	Game.company_sold.connect(func(_points: int) -> void:
+		_events.pending = {}  # a fresh company starts without an open event
+		_xymyx.set_alert(false)
+		_xymyx.react("cheer")
+		_update_passthrough(true))
 	Game.flag_captured.connect(func(_id: String, reward: float) -> void:
 		_xymyx.react("cheer")
 		_counter.show_gain(reward))

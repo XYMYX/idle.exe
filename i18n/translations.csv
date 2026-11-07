@@ -267,3 +267,22 @@ Honeypot,Honeypot,Honeypot
 CI runner VM,CI runner VM,CI-Runner-VM
 Game server VM,Game server VM,Game-Server-VM
 Honeypot VM,Honeypot VM,Honeypot-VM
+Company,Company,Firma
+COMPANY,COMPANY,FIRMA
+Earned this run: %s CHF,Earned this run: %s CHF,In diesem Durchlauf verdient: %s CHF
+Know-how: %d points (+%d %% on everything),Know-how: %d points (+%d %% on everything),Know-how: %d Punkte (+%d %% auf alles)
+Specialization: %s,Specialization: %s,Spezialisierung: %s
+none,none,keine
+SELL THE COMPANY,SELL THE COMPANY,FIRMA VERKAUFEN
+A sale now gives +%d know-how points.,A sale now gives +%d know-how points.,Ein Verkauf jetzt bringt +%d Know-how-Punkte.
+Possible from %s CHF earned in this run.,Possible from %s CHF earned in this run.,Möglich ab %s CHF verdient in diesem Durchlauf.
+"Kept: CTF flags and tools, stars, statistics. Reset: money, upgrades, contracts, product versions.","Kept: CTF flags and tools, stars, statistics. Reset: money, upgrades, contracts, product versions.","Bleibt: CTF-Flaggen und Tools, Sterne, Statistik. Zurückgesetzt: Geld, Upgrades, Aufträge, Produkt-Versionen."
+Specialization for the next run:,Specialization for the next run:,Spezialisierung für den nächsten Durchlauf:
+Security,Security,Security
+Data center,Data center,Rechenzentrum
+"Contract rewards x1.3, event gains x2, event penalties halved, flag rewards x2","Contract rewards x1.3, event gains x2, event penalties halved, flag rewards x2","Auftragslohn x1.3, Ereignis-Gewinne x2, Ereignis-Strafen halbiert, Flaggen-Belohnung x2"
+"Subscriptions x1.5, product updates +10 % instead of +5 %","Subscriptions x1.5, product updates +10 % instead of +5 %","Abos x1.5, Produkt-Updates +10 % statt +5 %"
+"Storage and mining x1.3, power and cooling capacity +25 %","Storage and mining x1.3, power and cooling capacity +25 %","Speicher und Mining x1.3, Strom- und Kühlkapazität +25 %"
+[SELL COMPANY],[SELL COMPANY],[FIRMA VERKAUFEN]
+[CONFIRM: sell and start over],[CONFIRM: sell and start over],[BESTÄTIGEN: verkaufen und neu starten]
+Company sold,Company sold,Firma verkauft

@@ -2,6 +2,7 @@ class_name Progress
 extends RefCounted
 ## Stage 6: product updates (versions) and open-source stars.
 ## Stage 7: overclocking switch and contract quality levels.
+## Stage 9: prestige (selling the company): know-how points and specializations.
 ## Pure functions shared by the game and the balancing simulation, so both compute the same.
 ##
 ## Product updates: each delivered update gives that product +5 % of its subscription
@@ -65,6 +66,42 @@ const QUALITY := [
 ]
 
 
+# --- Stage 9: prestige ---------------------------------------------------------------
+## Selling is possible from SELL_MIN CHF earned in the current run. Points for this run:
+## floor(5 × sqrt(run_earned / 1B)) → 1B: 5, 10B: 15, 100B: 50. Each point: +2 % on everything.
+const SELL_MIN := 1.0e9
+const KNOWHOW_BONUS := 0.02
+const SPECS := {
+	"security": {"name": "Security", "desc": "Contract rewards x1.3, event gains x2, event penalties halved, flag rewards x2"},
+	"software": {"name": "Software", "desc": "Subscriptions x1.5, product updates +10 % instead of +5 %"},
+	"datacenter": {"name": "Data center", "desc": "Storage and mining x1.3, power and cooling capacity +25 %"},
+}
+
+static func knowhow_points(run_earned: float) -> int:
+	if run_earned < SELL_MIN:
+		return 0
+	return int(floor(5.0 * sqrt(run_earned / 1.0e9)))
+
+
+## Contract reward multiplier of the specialization (security audits pay well).
+static func spec_contract_reward(spec: String) -> float:
+	return 1.3 if spec == "security" else 1.0
+
+
+static func knowhow_mult(knowhow: int) -> float:
+	return 1.0 + KNOWHOW_BONUS * knowhow
+
+
+## Totals with the data center specialization (+25 % power and cooling capacity).
+static func spec_totals(t: Dictionary, spec: String) -> Dictionary:
+	if spec != "datacenter":
+		return t
+	var out := t.duplicate()
+	out["power_cap"] = float(t["power_cap"]) * 1.25
+	out["cool_cap"] = float(t["cool_cap"]) * 1.25
+	return out
+
+
 ## Combined multipliers of all reached star tiers.
 static func star_fx(stars: float) -> Dictionary:
 	var fx := {"contract_reward": 1.0, "contract_speed": 1.0, "total_mult": 1.0}
@@ -99,20 +136,24 @@ static func updatable(levels: Dictionary, versions: Dictionary) -> Dictionary:
 ## Income per source like Economy.income(), plus product update bonuses and the
 ## star income multiplier. Effects from events (buffs) are applied on top by Game.
 ## tools: FlagData.tool_fx() of the captured CTF flags (stage 8).
+## spec / knowhow: specialization and know-how points of the prestige system (stage 9).
 static func income(levels: Dictionary, versions: Dictionary, stars: float, overclock := false,
-		tools: Dictionary = {}) -> Dictionary:
+		tools: Dictionary = {}, spec := "", knowhow := 0) -> Dictionary:
 	var inc := Economy.income(levels)
-	var t := Economy.totals(levels)
+	var t := spec_totals(Economy.totals(levels), spec)
+	var per_update := UPDATE_BONUS * (2.0 if spec == "software" else 1.0)
 	var bonus := 0.0
 	for p: String in UPDATE_WORK_MIN:
 		if int(levels.get(p, 0)) > 0:
-			bonus += float(Economy.get_def(p)["fx"]["software"]) * UPDATE_BONUS * int(versions.get(p, 0))
-	var m: float = star_fx(stars)["total_mult"] * float(tools.get("total_mult", 1.0))
+			bonus += float(Economy.get_def(p)["fx"]["software"]) * per_update * int(versions.get(p, 0))
+	var m: float = star_fx(stars)["total_mult"] * float(tools.get("total_mult", 1.0)) * knowhow_mult(knowhow)
+	var spec_sw := 1.5 if spec == "software" else 1.0
+	var spec_dc := 1.3 if spec == "datacenter" else 1.0
 	var net := float(tools.get("net_mult", 1.0))
 	var code: float = inc["code"] * m * overclock_mult(t, overclock) * float(tools.get("code_mult", 1.0))
-	var storage: float = inc["storage"] * m * net
+	var storage: float = inc["storage"] * m * net * spec_dc
 	var software: float = (inc["software"] + bonus * t["net_mult"] * t["software_mult"]) * m * net \
-		* float(tools.get("software_mult", 1.0))
-	var mining: float = inc["mining"] * m
+		* float(tools.get("software_mult", 1.0)) * spec_sw
+	var mining: float = inc["mining"] * m * spec_dc
 	return {"code": code, "storage": storage, "software": software, "mining": mining,
 		"total": code + storage + software + mining}

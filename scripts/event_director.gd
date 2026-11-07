@@ -76,7 +76,7 @@ func choose(i: int, auto := false) -> void:
 		Game.earn(gain_of(c))
 	for b: Dictionary in c.get("buffs", []):
 		var mult := float(b["mult"])
-		if mult < 1.0 and Game.totals()["event_shield"] > 0.0:
+		if mult < 1.0 and Game.event_shield():
 			mult = 1.0 - (1.0 - mult) / 2.0  # nightly backups halve the penalty
 		Game.add_buff(b["target"], mult, float(b["min"]) * 60.0, ev["title"])
 	Game.log_event(ev["title"], c["label"], auto)

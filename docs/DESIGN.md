@@ -154,9 +154,19 @@ Counters start with stage 8, so contracts delivered before do not count.
 All 15 VMs need 70 GB – a real gate early, easy later. A first idea with 16 GB per VM was impossible (RAM costs ×1.15 per stick, 280 GB would cost over 10^18 CHF).
 **Balancing:** total time stays ~20.2 h (VMs mostly change *when* things are bought); flag tools are not simulated and should save about another hour.
 
-### Stage 9 – Prestige
-- Sell the company and start over. Contacts, knowledge, blueprints remain.
-- Specialization in the next run: security, software or data center.
+### Stage 9 – Prestige: selling the company (done 2026-11-07)
+Terminal category «Company». Math in `scripts/progress.gd`, logic in `Game.sell_company()`. Save version 6.
+- **Sale** possible from 1B CHF earned in the current run. Gives **know-how points** = floor(5 × sqrt(run earnings / 1B)): 1B → 5, 10B → 15, 100B → 50. Each point: **+2 % on everything**, forever.
+- **Kept:** CTF flags and tools, stars and star tiers, statistics, event log, settings. **Reset:** money, upgrades, contracts, product versions, effects, overclocking.
+- **Specialization per run** (chosen at the sale, can change with every sale):
+
+  | Specialization | Effect |
+  |---|---|
+  | Security | contract rewards ×1.3, event gains ×2, event penalties halved, flag rewards ×2 |
+  | Software | subscriptions ×1.5, product updates +10 % instead of +5 % |
+  | Data center | storage and mining ×1.3, power and cooling capacity +25 % |
+- **Two clicks:** [SELL COMPANY] arms a confirm button for 5 s that says what is reset.
+- **Balancing:** run 1 takes ~20.2 h and earns ~11.4B → 16 know-how (+32 %). Run 2: data center 13.4 h, security 14.5 h, software 14.6 h. First draft had data center ×1.5 (12.7 h) and security without contract bonus (16.3 h, events are not simulated) – evened out.
 
 ## Backlog (smaller items, as of 2026-11-07)
 - Screenshot for the README (`docs/screenshot.png`, then uncomment the line in README.md).
