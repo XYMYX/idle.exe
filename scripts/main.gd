@@ -14,7 +14,7 @@ const FIGURE := 48
 const DRAG_START_PX := 3.0   # ab so viel Mausweg (Spielpixel) wird aus einem Klick ein Ziehen
 const SETTINGS_PATH := "user://settings.cfg"
 
-enum MenuId { INFO, TERMINAL, PAUSE, QUIT }
+enum MenuId { INFO, TERMINAL, PAUSE, RESET, QUIT }
 enum Press { NONE, FIGURE, DESK }
 
 var pixel_scale := BASE_SCALE
@@ -146,6 +146,34 @@ func _build_menu() -> void:
 	add_child(_terminal)
 	_terminal.setup(pixel_scale)
 
+	_build_tray()
+
+
+## Tray-Icon (Infobereich der Taskleiste). Links = Terminal, rechts = Menü.
+## Eigenes Icon: art/tray_icon.png (32×32), sonst Platzhalter.
+const TRAY_ICON := "res://art/tray_icon.png"
+
+func _build_tray() -> void:
+	var tray := StatusIndicator.new()
+	tray.tooltip = "idle.exe – XYMYX"
+	tray.icon = load(TRAY_ICON) if ResourceLoader.exists(TRAY_ICON) else _placeholder_tray_icon()
+	tray.pressed.connect(func(button: int, _pos: Vector2i) -> void:
+		if button == MOUSE_BUTTON_LEFT:
+			_toggle_terminal()
+		else:
+			_open_menu())
+	add_child(tray)
+
+
+## 32×32: schwarz, weisser Rand, zwei weisse Augen (wie die Figur).
+func _placeholder_tray_icon() -> Texture2D:
+	var img := Image.create_empty(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	img.fill_rect(Rect2i(2, 2, 28, 28), Color.BLACK)
+	img.fill_rect(Rect2i(9, 12, 4, 4), Color.WHITE)
+	img.fill_rect(Rect2i(19, 12, 4, 4), Color.WHITE)
+	return ImageTexture.create_from_image(img)
+
 
 ## Menü bei jedem Öffnen neu aufbauen, damit die Zahlen stimmen.
 func _fill_menu() -> void:
@@ -157,6 +185,8 @@ func _fill_menu() -> void:
 	_menu.add_item("Terminal öffnen", MenuId.TERMINAL)
 	_menu.add_check_item("Pause", MenuId.PAUSE)
 	_menu.set_item_checked(_menu.get_item_index(MenuId.PAUSE), Game.paused)
+	_menu.add_item("Leiste zurücksetzen", MenuId.RESET)
+	_menu.add_separator()
 	_menu.add_item("Beenden", MenuId.QUIT)
 
 
@@ -295,6 +325,16 @@ func _clamp_desk_from_right(dfr: float) -> float:
 	return clampf(dfr, right + 2.0, float(game_width) - left - 2.0)
 
 
+## Leiste direkt über die Taskleiste, Desk an den Standardplatz. Wird gespeichert.
+func _reset_layout() -> void:
+	var win := get_window()
+	win.position = Vector2i(win.position.x, _clamp_win_y(_usable.end.y - GAME_HEIGHT * pixel_scale))
+	_desk_from_right = _clamp_desk_from_right(float(DESK_FROM_RIGHT))
+	_place_desk()
+	_update_passthrough()
+	_save_layout()
+
+
 func _save_layout() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(SETTINGS_PATH)
@@ -334,6 +374,8 @@ func _on_menu_id(id: int) -> void:
 			_xymyx.paused = Game.paused
 		MenuId.TERMINAL:
 			_toggle_terminal()
+		MenuId.RESET:
+			_reset_layout()
 		MenuId.QUIT:
 			Game.quit()
 
