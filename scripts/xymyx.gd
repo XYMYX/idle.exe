@@ -10,7 +10,7 @@ signal repair_started            # Desk lässt das gekaufte Teil aufblinken
 signal landed                    # nach dem Fallenlassen wieder auf dem Boden
 
 enum State { SITTING, WALKING_OUT, STANDING, WALKING_HOME, WALKING_TO_REPAIR, ACTION,
-	GRABBED, FALLING, LANDING }
+	GRABBED, FALLING, LANDING, SLEEPING }
 
 const WALK_SPEED := 18.0                     # Spielpixel pro Sekunde
 const SIT_TIME := Vector2(25.0, 70.0)        # Sekunden am Desk bis zum Spaziergang
@@ -40,7 +40,11 @@ const ACTIONS := {
 	"dangle": {"fps": 6.0, "seq": [0, 1, 2, 3], "loop": true},
 	"fall": {"fps": 8.0, "seq": [0, 1], "loop": true},
 	"land": {"fps": 8.0, "seq": [0, 1, 2, 3]},
+	# Maus-Reaktionen (optional): am Desk einschlafen, zusammenzucken
+	"sleep": {"fps": 2.0, "seq": [0, 1, 2, 3], "loop": true},
+	"startle": {"fps": 8.0, "seq": [0, 1, 2, 2, 1, 0]},
 }
+const BUBBLE_POS := Vector2(26, -2)  # Zzz / ! über dem Kopf (relativ zur Sprite-Ecke)
 ## Zufällige Pausen beim Tippen mit Gewicht (headdesk später durch Bug-Ereignisse)
 const IDLE_ACTIONS := {"stretch": 3, "drink": 3, "roll": 1, "headdesk": 1, "look": 3}
 
@@ -54,7 +58,7 @@ var paused := false:
 		paused = value
 		if paused:
 			pause()
-		elif _state != State.STANDING:
+		elif _state != State.STANDING and not (_state == State.SLEEPING and animation != "sleep"):
 			play()
 
 var _state := State.SITTING
@@ -68,6 +72,8 @@ var _repair_left := 0.0
 var _fall_pos := Vector2.ZERO
 var _vel := Vector2.ZERO
 var _image_cache := {}  # Textur -> Image, für die pixelgenaue Treffer-Prüfung
+var _sleepy := false    # User weg: beim nächsten Hinsetzen einschlafen
+var _bubble: SpeechBubble
 
 
 func _ready() -> void:
@@ -84,6 +90,9 @@ func _ready() -> void:
 		_add_anim(sf, anim, frames, a["fps"], a["seq"], a.get("loop", false))
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
+	_bubble = SpeechBubble.new()
+	_bubble.position = BUBBLE_POS
+	add_child(_bubble)
 
 
 func setup(home: float, repair: float, lo: float, hi: float) -> void:
@@ -101,7 +110,7 @@ func _process(delta: float) -> void:
 	if _state == State.FALLING:
 		_process_fall(delta)
 		return
-	if paused or _state == State.GRABBED or _state == State.LANDING:
+	if paused or _state == State.GRABBED or _state == State.LANDING or _state == State.SLEEPING:
 		return
 	match _state:
 		State.SITTING:
@@ -171,6 +180,61 @@ func can_grab() -> bool:
 	return not paused
 
 
+## User ist weg (Maus lange unbewegt): am Desk einschlafen. Ist er unterwegs,
+## schläft er ein, sobald er wieder sitzt.
+func fall_asleep() -> void:
+	_sleepy = true
+	if _state == State.SITTING:
+		_sleep()
+
+
+## User ist zurück: aufwachen und strecken.
+func wake_up() -> void:
+	_sleepy = false
+	if _state != State.SLEEPING:
+		return
+	_bubble.set_zzz(false)
+	if sprite_frames.has_animation("stretch"):
+		_play_action("stretch")
+	else:
+		_sit()
+
+
+## Schnelle Maus nahe bei ihm: zusammenzucken, «!».
+func startle() -> void:
+	if _state == State.SLEEPING:
+		wake_up()
+	elif is_airborne() or _state == State.LANDING:
+		return
+	_bubble.flash("!", 1.2)
+	if _state == State.SITTING and sprite_frames.has_animation("startle"):
+		_play_action("startle")
+	else:
+		_flinch()
+
+
+## Zeiger ruht auf ihm: zum User schauen.
+func notice() -> void:
+	match _state:
+		State.SITTING:
+			if sprite_frames.has_animation("look"):
+				_play_action("look")
+		State.STANDING:
+			if sprite_frames.has_animation("front") and animation != "front":
+				flip_h = false
+				play("front")
+				var n := sprite_frames.get_frame_count("front")
+				_timer = maxf(_timer, n / sprite_frames.get_animation_speed("front") + 0.5)
+
+
+## Beim Stehen zum Mauszeiger drehen (nur seitlich, Sprites schauen nach rechts).
+func face_toward(game_x: float) -> void:
+	if _state == State.STANDING and animation != "front":
+		var want := game_x < position.x + 24.0
+		if flip_h != want:
+			flip_h = want
+
+
 ## Getragen oder im Fall: wird dann im Tragefenster gezeigt, nicht in der Leiste.
 func is_airborne() -> bool:
 	return _state == State.GRABBED or _state == State.FALLING
@@ -196,6 +260,7 @@ func set_home(home: float, repair: float) -> void:
 func grab() -> void:
 	if _state == State.ACTION and _action == "roll":
 		chair_taken.emit(false)
+	_bubble.set_zzz(false)
 	_state = State.GRABBED
 	_action = ""
 	offset = Vector2.ZERO
@@ -220,6 +285,15 @@ func drop(vel: Vector2) -> void:
 	_play_or("fall", "dangle")
 
 
+## Zusammenzucken ohne eigenes Sprite: hochschrecken und kurz zittern (~0.5 s).
+func _flinch() -> void:
+	var tw := create_tween()
+	tw.tween_property(self, "offset", Vector2(0, -6), 0.05)
+	for dx in [2.0, -2.0, 2.0, -1.0]:
+		tw.tween_property(self, "offset", Vector2(dx, -4), 0.05)
+	tw.tween_property(self, "offset", Vector2.ZERO, 0.15)
+
+
 ## Kleiner Hüpfer als Klick-Feedback.
 func hop() -> void:
 	var tw := create_tween()
@@ -237,6 +311,19 @@ func _sit(reset_walk_timer := true) -> void:
 	_idle_timer = randf_range(IDLE_ACTION_TIME.x, IDLE_ACTION_TIME.y)
 	flip_h = false
 	play("sit")
+	if _sleepy:
+		_sleep()
+
+
+func _sleep() -> void:
+	_state = State.SLEEPING
+	_action = ""
+	if sprite_frames.has_animation("sleep"):
+		play("sleep")
+	else:
+		play("sit")  # ohne Schlaf-Sprite: stillsitzen, nur die Zzz zeigen
+		pause()
+	_bubble.set_zzz(true)
 
 
 func _stand() -> void:

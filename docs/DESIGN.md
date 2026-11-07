@@ -71,6 +71,15 @@ Fehlt eine Datei, wird die Animation übersprungen bzw. durch «walk» ersetzt.
 | `xymyx_dangle.png` | 192×48 | 4 | 6 | Gepackt (Loop) | frontal hängend, Beine zappeln (4 Phasen) |
 | `xymyx_fall.png` | 96×48 | 2 | 8 | Fallen (Loop) | Arme hoch, 2 Phasen |
 | `xymyx_land.png` | 192×48 | 4 | 8 | Landung | 0 Aufprall/Hocke, 1 tiefste Hocke, 2 richtet sich auf, 3 steht |
+| `xymyx_sleep.png` | 192×48 | 4 | 2 | Maus 10 min unbewegt (Loop) | sitzend eingeschlafen, Kopf nickt/sinkt, Atmen |
+| `xymyx_startle.png` | 144×48 | 3 | 8 | schnelle Maus nahe bei ihm | sitzend: 0 normal, 1 zuckt hoch, 2 Augen weit/Arme hoch |
+
+### Maus-Reaktionen (nur Mausposition, keine Tasten, kein Hook)
+- Maus 10 min unbewegt → schläft am Desk ein (Zzz), Maus bewegt → wacht auf und streckt sich.
+- Schnelle Maus nahe bei ihm → zuckt zusammen, «!».
+- Zeiger ruht 1.5 s auf ihm → schaut zum User (look / front).
+- Steht er unterwegs, dreht er sich zum Zeiger.
+- Zzz/! werden mit der Pixel-Schrift gezeichnet, Position `BUBBLE_POS` in `xymyx.gd`.
 
 ### Setup-Teile (Position relativ zur linken oberen Ecke des Desks, Boden = y 48)
 Animiert = horizontales Sheet, Breite = Frames × Breite. Fehlt ein PNG, zeigt das Spiel einen grauen Kasten in Sollgrösse.

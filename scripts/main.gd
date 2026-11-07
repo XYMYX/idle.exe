@@ -104,6 +104,21 @@ func _build_scene() -> void:
 	_xymyx.chair_taken.connect(func(taken: bool) -> void: _desk.chair_visible = not taken)
 	Game.milestone.connect(func(_v: float) -> void: _xymyx.react("cheer"))
 
+	# Maus-Reaktionen (nur Mausposition, keine Tasten, kein Hook)
+	var watch := MouseWatch.new()
+	watch.to_game = func(screen: Vector2i) -> Vector2:
+		return Vector2(screen - get_window().position) / pixel_scale
+	watch.figure_center = func() -> Vector2: return _xymyx.position + Vector2(FIGURE, FIGURE) / 2.0
+	watch.figure_hit = func(g: Vector2) -> bool: return _xymyx.visible and _xymyx.hit(g)
+	watch.away.connect(_xymyx.fall_asleep)
+	watch.back.connect(_xymyx.wake_up)
+	watch.startled.connect(func() -> void:
+		if _press == Press.NONE:  # nicht beim eigenen Ziehen erschrecken
+			_xymyx.startle())
+	watch.hovered.connect(_xymyx.notice)
+	watch.sampled.connect(func(g: Vector2) -> void: _xymyx.face_toward(g.x))
+	add_child(watch)
+
 	_carry = CarryWindow.new()
 	_carry.setup(_xymyx.sprite_frames, pixel_scale, FIGURE)  # vor add_child: startet unsichtbar
 	add_child(_carry)
