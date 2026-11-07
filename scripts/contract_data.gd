@@ -10,15 +10,15 @@ extends RefCounted
 ## requires    = upgrade that unlocks the type ("" = always)
 
 const TYPES := [
-	{"id": "script", "name": "Script", "work_min": 3.0, "target_min": 5.0, "reward_mult": 1.5, "requires": "",
+	{"id": "script", "name": "Script", "work_min": 3.0, "target_min": 5.0, "reward_mult": 1.3, "requires": "",
 		"titles": ["Fix a broken Excel macro", "Write a backup script", "Discord bot for a gaming clan"]},
-	{"id": "website", "name": "Website", "work_min": 10.0, "target_min": 15.0, "reward_mult": 1.8, "requires": "monitor_2",
+	{"id": "website", "name": "Website", "work_min": 10.0, "target_min": 15.0, "reward_mult": 1.5, "requires": "monitor_2",
 		"titles": ["Website for a bakery", "Portfolio site for a photographer", "Fix a client's WordPress"]},
-	{"id": "app", "name": "App", "work_min": 30.0, "target_min": 45.0, "reward_mult": 2.2, "requires": "gaming_pc",
+	{"id": "app", "name": "App", "work_min": 30.0, "target_min": 45.0, "reward_mult": 1.8, "requires": "gaming_pc",
 		"titles": ["Inventory app for a bike shop", "Fitness tracker app", "Booking app for a hair salon"]},
-	{"id": "client", "name": "Client project", "work_min": 90.0, "target_min": 120.0, "reward_mult": 2.6, "requires": "homeserver",
+	{"id": "client", "name": "Client project", "work_min": 90.0, "target_min": 120.0, "reward_mult": 2.1, "requires": "homeserver",
 		"titles": ["Online shop for a watchmaker", "CRM for a small agency", "Data dashboard for a city"]},
-	{"id": "enterprise", "name": "Enterprise", "work_min": 240.0, "target_min": 360.0, "reward_mult": 3.0, "requires": "rack",
+	{"id": "enterprise", "name": "Enterprise", "work_min": 240.0, "target_min": 360.0, "reward_mult": 2.4, "requires": "rack",
 		"titles": ["Banking API migration", "Logistics platform", "Hospital scheduling system"]},
 ]
 

@@ -152,3 +152,39 @@ RGB sale,RGB sale,RGB-Sale
 "An online shop is dumping RGB fans. More light, more power?","An online shop is dumping RGB fans. More light, more power?","Ein Online-Shop verschleudert RGB-Lüfter. Mehr Licht, mehr Leistung?"
 Grab them,Grab them,Zuschlagen
 Stay sensible,Stay sensible,Vernünftig bleiben
+Contracts,Contracts,Aufträge
+CONTRACTS  ·  slots %d/%d,CONTRACTS  ·  slots %d/%d,AUFTRÄGE  ·  Slots %d/%d
+Running contracts take a share of the coding income and pay it back multiplied.,Running contracts take a share of the coding income and pay it back multiplied.,Laufende Aufträge nehmen einen Teil des Coding-Einkommens und zahlen ihn vervielfacht zurück.
+No running contracts.,No running contracts.,Keine laufenden Aufträge.
+OFFERS,OFFERS,ANGEBOTE
+No offers right now.,No offers right now.,Gerade keine Angebote.
+Work ~%s · Reward %s CHF · +25 %% if done within %s,Work ~%s · Reward %s CHF · +25 %% if done within %s,Arbeit ~%s · Lohn %s CHF · +25 %% bei Abgabe innert %s
+[DELIVER],[DELIVER],[ABLIEFERN]
+[ACCEPT],[ACCEPT],[ANNEHMEN]
+[NO FREE SLOT],[NO FREE SLOT],[KEIN SLOT FREI]
+"done, with bonus","done, with bonus","fertig, mit Bonus"
+done,done,fertig
+bonus %s,bonus %s,Bonus %s
+no bonus,no bonus,kein Bonus
+ETA %s,ETA %s,fertig in %s
+Next offer in %s,Next offer in %s,Nächstes Angebot in %s
+Script,Script,Skript
+Website,Website,Website
+App,App,App
+Client project,Client project,Kundenprojekt
+Enterprise,Enterprise,Enterprise
+Fix a broken Excel macro,Fix a broken Excel macro,Kaputtes Excel-Makro flicken
+Write a backup script,Write a backup script,Backup-Skript schreiben
+Discord bot for a gaming clan,Discord bot for a gaming clan,Discord-Bot für einen Gaming-Clan
+Website for a bakery,Website for a bakery,Website für eine Bäckerei
+Portfolio site for a photographer,Portfolio site for a photographer,Portfolio-Seite für eine Fotografin
+Fix a client's WordPress,Fix a client's WordPress,WordPress eines Kunden reparieren
+Inventory app for a bike shop,Inventory app for a bike shop,Lager-App für einen Veloladen
+Fitness tracker app,Fitness tracker app,Fitness-Tracker-App
+Booking app for a hair salon,Booking app for a hair salon,Buchungs-App für einen Coiffeursalon
+Online shop for a watchmaker,Online shop for a watchmaker,Onlineshop für einen Uhrmacher
+CRM for a small agency,CRM for a small agency,CRM für eine kleine Agentur
+Data dashboard for a city,Data dashboard for a city,Daten-Dashboard für eine Stadt
+Banking API migration,Banking API migration,Migration einer Banken-API
+Logistics platform,Logistics platform,Logistik-Plattform
+Hospital scheduling system,Hospital scheduling system,Dienstplan-System für ein Spital

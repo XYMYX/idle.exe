@@ -5,9 +5,10 @@ extends Node
 signal changed
 signal bought(id: String)
 signal milestone(value: float)  # total_earned reaches 1K, 10K, 100K, ...
+signal contract_delivered(reward: float)
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3  # 3 = contracts
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -20,6 +21,7 @@ var offline_gain := 0.0   # money earned while away (computed at start)
 var offline_sec := 0.0
 
 var buffs: Array = []      # timed effects: {target, mult, until, label}
+var contracts := Contracts.new()  # stage 5a: offers, running contracts, delivery
 ## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
 ## translated when shown). Old saves may contain {t, clock, text} instead.
 var event_log: Array = []
@@ -28,6 +30,7 @@ const LOG_MAX := 10
 
 var _income := {}  # cache of Economy.income() WITHOUT effects, recomputed on every purchase
 var _buffed_total := 0.0
+var _code_now := 0.0  # coding income incl. effects (contracts divert a share of it)
 var _buff_check := 0.0
 var _totals := {}
 var _autosave := 0.0
@@ -40,6 +43,8 @@ func _ready() -> void:
 	load_game()
 	_prune_buffs()
 	_recalc()
+	if contracts.offers.is_empty() and contracts.active.is_empty():
+		contracts.fill_offers(levels, _code_now)  # first start or old save without contracts
 	_apply_offline()
 	while _next_milestone <= total_earned:  # skip milestones already reached
 		_next_milestone *= 10.0
@@ -51,7 +56,9 @@ func _apply_offline() -> void:
 	if last_saved_at <= 0.0:
 		return  # no save yet
 	offline_sec = clampf(Time.get_unix_time_from_system() - last_saved_at, 0.0, OFFLINE_MAX_SEC)
-	offline_gain = income() * offline_sec
+	# Running contracts keep working offline and take their share of the coding income.
+	var diverted := contracts.tick(offline_sec, _code_now, levels)
+	offline_gain = income() * offline_sec - diverted
 	money += offline_gain
 	total_earned += offline_gain
 	print("idle.exe: offline %d s -> +%s CHF" % [int(offline_sec), BigNum.format_chf(offline_gain)])
@@ -59,7 +66,7 @@ func _apply_offline() -> void:
 
 func _process(delta: float) -> void:
 	if not paused:
-		var gain := income() * delta
+		var gain := income() * delta - contracts.tick(delta, _code_now, levels)
 		money += gain
 		total_earned += gain
 		if total_earned >= _next_milestone:
@@ -93,6 +100,21 @@ func quit() -> void:
 ## Total income in CHF/s, including active effects.
 func income() -> float:
 	return _buffed_total
+
+
+## Income that actually reaches the wallet right now (total minus the contracts' share).
+func wallet_income() -> float:
+	return income() - contract_rate()
+
+
+## CHF/s of coding income currently flowing into running contracts.
+func contract_rate() -> float:
+	return Contracts.share(contracts.running_count()) * _code_now
+
+
+## Coding income incl. effects (what contracts draw from).
+func code_income() -> float:
+	return _code_now
 
 
 ## Income without effects (base for «minutes of income» in events).
@@ -177,6 +199,26 @@ func _apply_buffs() -> void:
 			m[b["target"]] *= float(b["mult"])
 	_buffed_total = (_income["code"] * m["code"] + _income["storage"] * m["storage"]
 		+ _income["software"] * m["software"] + _income["mining"] * m["mining"]) * m["total"]
+	_code_now = _income["code"] * m["code"] * m["total"]
+
+
+# --- Contracts (stage 5a) -------------------------------------------------------
+
+func accept_contract(i: int) -> bool:
+	if not contracts.accept(i, levels):
+		return false
+	changed.emit()
+	return true
+
+
+## Deliver a finished contract: reward goes to the wallet.
+func deliver_contract(i: int) -> float:
+	var reward := contracts.deliver(i)
+	if reward > 0.0:
+		earn(reward)
+		contract_delivered.emit(reward)
+		save_game()
+	return reward
 
 
 func earn(amount: float) -> void:
@@ -214,6 +256,7 @@ func save_game() -> void:
 		"saved_at": last_saved_at,
 		"buffs": buffs,
 		"event_log": event_log,
+		"contracts": contracts.to_dict(),
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -272,6 +315,9 @@ func load_game() -> void:
 			event_log.append(e)
 		if event_log.size() > LOG_MAX:
 			event_log.resize(LOG_MAX)
+	var ct: Variant = data.get("contracts", {})  # missing in saves before version 3
+	if ct is Dictionary:
+		contracts.from_dict(ct)
 	print("idle.exe: save loaded from %s" % _abs(path))
 
 

@@ -3,7 +3,7 @@ extends PopupPanel
 ## Upgrade terminal: categories on the left, lines or upgrade tiers on the right.
 ## Per line: bought tiers collapsed, plus the current tier and the next two.
 ## Fully usable with the mouse. Closes on a click outside or Esc.
-## Also: «! Event» (only while one is pending) and «Log» in the category list.
+## Also: «! Event» (only while one is pending), «Contracts» and «Log» in the category list.
 ## All texts go through tr() (English source strings, German in i18n/translations.csv).
 ##
 ## Rows are only rebuilt when their content changes (signature comparison),
@@ -22,6 +22,8 @@ const C_WARN := Color("#e8c547")     # requirement missing
 
 const CAT_EVENT := "!event"
 const CAT_LOG := "!log"
+const CAT_CONTRACTS := "!contracts"
+const BAR_LEN := 20  # progress bar width in characters
 
 var hidden_msec := 0  # time of closing (prevents immediate reopening)
 
@@ -32,6 +34,8 @@ var _capacity: Label
 var _effects: Label
 var _cats_title: Label
 var _countdown: Label  # only in the event view, otherwise null
+var _contract_labels := {}  # active index -> progress Label (contracts view, updated in place)
+var _next_offer_label: Label
 var _events: EventDirector
 var _cat_box: VBoxContainer
 var _content: VBoxContainer
@@ -195,6 +199,7 @@ func _refresh_all() -> void:
 		if nav != _nav_sig:
 			_nav_sig = nav
 			_scroll.scroll_vertical = 0
+	_update_contract_labels()
 	# Event countdown: change the text in place (no rebuild, no hover flicker)
 	if _countdown and is_instance_valid(_countdown) and not _events.pending.is_empty():
 		var d: Dictionary = _events.pending["choices"][_events.default_index(_events.pending)]
@@ -217,6 +222,10 @@ func _cat_rows() -> Array:
 	if not _events.pending.is_empty():
 		rows.push_front({"id": CAT_EVENT, "name": tr("! Event"), "sel": _cat == CAT_EVENT and not _afford_mode,
 			"locked": false, "afford": false, "special": true})
+	var ct: Contracts = Game.contracts
+	var contracts_ready: bool = ct.finished_count() > 0 or (not ct.offers.is_empty() and ct.free_slots(Game.levels) > 0)
+	rows.insert(1 if not _events.pending.is_empty() else 0, {"id": CAT_CONTRACTS, "name": tr("Contracts"),
+		"sel": _cat == CAT_CONTRACTS and not _afford_mode, "locked": false, "afford": contracts_ready, "special": true})
 	rows.append({"id": CAT_LOG, "name": tr("Log"), "sel": _cat == CAT_LOG and not _afford_mode,
 		"locked": false, "afford": false, "special": true})
 	return rows
@@ -228,6 +237,8 @@ func _body_rows() -> Array:
 		return _event_rows()
 	if not _afford_mode and _cat == CAT_LOG:
 		return _log_rows()
+	if not _afford_mode and _cat == CAT_CONTRACTS:
+		return _contract_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -355,6 +366,8 @@ func _render_cats(rows: Array) -> void:
 func _render_body(rows: Array) -> void:
 	_clear(_content)
 	_countdown = null
+	_contract_labels = {}
+	_next_offer_label = null
 	for r: Dictionary in rows:
 		match r["t"]:
 			"title":
@@ -372,6 +385,13 @@ func _render_body(rows: Array) -> void:
 			"countdown":
 				_countdown = _label("", C_DIM)
 				_content.add_child(_countdown)
+			"contract":
+				_render_contract(r)
+			"offer":
+				_render_offer(r)
+			"next_offer":
+				_next_offer_label = _label("", C_DIM)
+				_content.add_child(_next_offer_label)
 
 
 func _render_entry(r: Dictionary) -> void:
@@ -398,6 +418,102 @@ func _render_entry(r: Dictionary) -> void:
 	_content.add_child(_label("  " + tr("Effect: %s") % r["fx"], C_DIM if bought else C_TEXT, true))
 	if not r["miss"].is_empty():
 		_content.add_child(_label("  " + tr("Requires: %s") % " + ".join(r["miss"]), C_WARN, true))
+
+
+# --- Contracts (stage 5a) -------------------------------------------------------
+
+## Rows for the contracts view. Progress texts are NOT part of the rows (they change every
+## refresh); they are written into labels in place by _update_contract_labels().
+func _contract_rows() -> Array:
+	var ct: Contracts = Game.contracts
+	var rows := []
+	rows.append({"t": "title", "text": tr("CONTRACTS  ·  slots %d/%d") % [ct.active.size(), Contracts.slots(Game.levels)]})
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("Running contracts take a share of the coding income and pay it back multiplied.")})
+	if ct.active.is_empty():
+		rows.append({"t": "text", "text": tr("No running contracts."), "c": C_DIM})
+	for i in ct.active.size():
+		var c: Dictionary = ct.active[i]
+		rows.append({"t": "contract", "i": i, "title": tr(c["title"]),
+			"type": tr(ContractData.get_type(c["type"]).get("name", c["type"])),
+			"finished": Contracts.is_finished(c),
+			"reward": BigNum.format_chf(Contracts.reward_of(c)) if Contracts.is_finished(c) else ""})
+	rows.append({"t": "text", "text": " ", "c": C_DIM})
+	rows.append({"t": "title", "text": tr("OFFERS")})
+	if ct.offers.is_empty():
+		rows.append({"t": "text", "text": tr("No offers right now."), "c": C_DIM})
+	var free := ct.free_slots(Game.levels) > 0
+	for i in ct.offers.size():
+		var o: Dictionary = ct.offers[i]
+		var alone_sec: float = o["work"] / maxf(Contracts.share(1) * Game.code_income(), 0.001)
+		rows.append({"t": "offer", "i": i, "title": tr(o["title"]),
+			"type": tr(ContractData.get_type(o["type"]).get("name", o["type"])), "can": free,
+			"info": tr("Work ~%s · Reward %s CHF · +25 %% if done within %s") % [
+				_dur(alone_sec), BigNum.format_chf(o["reward"]), _dur(o["target_sec"])]})
+	rows.append({"t": "next_offer"})
+	return rows
+
+
+func _render_contract(r: Dictionary) -> void:
+	_content.add_child(_label(" "))
+	var row := HBoxContainer.new()
+	var name_lbl := _label("%s: %s" % [r["type"], r["title"]])
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lbl)
+	if r["finished"]:
+		row.add_child(_button(tr("[DELIVER]"), C_OK, _deliver.bind(r["i"])))
+	_content.add_child(row)
+	var progress := _label("", C_OK if r["finished"] else C_TEXT)
+	_contract_labels[r["i"]] = progress
+	_content.add_child(progress)
+
+
+func _render_offer(r: Dictionary) -> void:
+	_content.add_child(_label(" "))
+	var row := HBoxContainer.new()
+	var name_lbl := _label("%s: %s" % [r["type"], r["title"]])
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lbl)
+	if r["can"]:
+		row.add_child(_button(tr("[ACCEPT]"), C_OK, _accept.bind(r["i"])))
+	else:
+		row.add_child(_label(tr("[NO FREE SLOT]") + " ", C_DIM))
+	_content.add_child(row)
+	_content.add_child(_label("  " + r["info"], C_TEXT if r["can"] else C_DIM, true))
+
+
+## Progress bars, ETA, bonus time and «next offer» – updated in place every refresh.
+func _update_contract_labels() -> void:
+	var ct: Contracts = Game.contracts
+	var running := ct.running_count()
+	var rate := Contracts.share(running) * Game.code_income() / maxf(running, 1)
+	for i: int in _contract_labels:
+		var lbl: Label = _contract_labels[i]
+		if not is_instance_valid(lbl) or i >= ct.active.size():
+			continue
+		var c: Dictionary = ct.active[i]
+		var frac := clampf(float(c["done"]) / maxf(float(c["work"]), 0.001), 0.0, 1.0)
+		var filled := int(frac * BAR_LEN)
+		var bar := "[" + "#".repeat(filled) + ".".repeat(BAR_LEN - filled) + "] %3d%%" % int(frac * 100.0)
+		if Contracts.is_finished(c):
+			var bonus := float(c["elapsed"]) <= float(c["target_sec"])
+			lbl.text = "  " + bar + "  " + (tr("done, with bonus") if bonus else tr("done"))
+		else:
+			var eta := (float(c["work"]) - float(c["done"])) / maxf(rate, 0.001)
+			var left := float(c["target_sec"]) - float(c["elapsed"])
+			var bonus_txt := tr("bonus %s") % _dur(left) if left > 0.0 else tr("no bonus")
+			lbl.text = "  " + bar + "  " + tr("ETA %s") % _dur(eta) + "  " + bonus_txt
+	if _next_offer_label and is_instance_valid(_next_offer_label):
+		_next_offer_label.text = "" if ct.offers.size() >= Contracts.OFFER_MAX \
+			else tr("Next offer in %s") % _dur(ct.next_offer_in)
+
+
+## 4:05 or 1:02:03
+func _dur(sec: float) -> String:
+	var s := maxi(0, int(sec))
+	if s >= 3600:
+		return "%d:%02d:%02d" % [s / 3600, (s / 60) % 60, s % 60]
+	return "%d:%02d" % [s / 60, s % 60]
 
 
 # --- Events, log, effects -------------------------------------------------------
@@ -480,6 +596,14 @@ func _mmss(sec: float) -> String:
 
 
 # --- Actions --------------------------------------------------------------------
+
+func _accept(i: int) -> void:
+	Game.accept_contract(i)  # triggers Game.changed -> _refresh_all
+
+
+func _deliver(i: int) -> void:
+	Game.deliver_contract(i)
+
 
 func _buy(id: String) -> void:
 	Game.buy(id)  # triggers Game.changed -> _refresh_all

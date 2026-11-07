@@ -23,13 +23,13 @@ As of 2026-11-07. Principle: everything runs on its own. Interacting is optional
 - Upgrade menu in terminal style.
 - Visible setup tiers: laptop → PC → monitors.
 
-### Stage 5 – Contracts and automation (PLAN, not implemented yet)
+### Stage 5 – Contracts and automation (5a done 2026-11-07, 5b planned)
 Split into **5a contracts** and **5b automation**, one commit each. Principles stay: no failure, no deadlines, offline-safe.
 
 #### 5a – Contracts
 - **Idea:** XYMYX can take on client work. A contract turns part of his coding output into a bigger one-off reward. Contracts are optional – without them the game runs exactly as now.
 - **How progress works:** while a contract is active, **50 % of the coding income** (`Game.base_income("code")`) goes into the contract instead of the wallet. The contract has a workload `W` in CHF of coding output. When `W` is reached, the reward is `W × reward_mult`.
-  - `reward_mult` is 1.5 (script) up to 3.0 (enterprise), so contracts always pay off, but you «invest» time.
+  - `reward_mult` is 1.3 (script) up to 2.4 (enterprise), so contracts always pay off, but you «invest» time.
   - **Speed bonus:** finished within `target_min` → reward ×1.25. Slower is fine, there is no failure.
   - Workload is scaled to the current coding income when the offer is created (`W = coding/s × 60 × work_min`), so contracts stay relevant late game.
   - Contracts progress **offline** too (same 8 h cap, same 50 % share).
@@ -37,11 +37,11 @@ Split into **5a contracts** and **5b automation**, one commit each. Principles s
 
   | Type | work_min | target_min | reward_mult | Requires |
   |---|---|---|---|---|
-  | Script | 3 | 5 | 1.5 | – |
-  | Website | 10 | 15 | 1.8 | `monitor_2` |
-  | App | 30 | 45 | 2.2 | `gaming_pc` |
-  | Client project | 90 | 120 | 2.6 | `homeserver` |
-  | Enterprise | 240 | 360 | 3.0 | `rack` |
+  | Script | 3 | 5 | 1.3 | – |
+  | Website | 10 | 15 | 1.5 | `monitor_2` |
+  | App | 30 | 45 | 1.8 | `gaming_pc` |
+  | Client project | 90 | 120 | 2.1 | `homeserver` |
+  | Enterprise | 240 | 360 | 2.4 | `rack` |
 
   Each type gets 3–4 flavour titles (e.g. «Fix a client's WordPress», «Discord bot», «Inventory app for a bakery»).
 - **Offers:** 3 offers on the board, a new one every 5 min (max. 3). Picked from the unlocked types, weighted towards the highest unlocked type.
@@ -77,9 +77,9 @@ From «Release pipeline» on, contracts run completely hands-off – the «first
 
 #### Order of work
 1. ✅ `contract_data.gd` + `contracts.gd` with offers, slots, progress, delivery (no UI) → headless test passed (offers, slots, progress, bonus, waiting, offline, save roundtrip, broken data).
-2. Income split and offline progress in `game.gd`, save version 3 + migration → headless test incl. old save.
-3. Terminal view «Contracts» + translations → `check_i18n` must report no missing keys.
-4. Extend the balancing simulation (greedy player also takes contracts): total time for everything should stay around 26–35 h → tune `reward_mult`.
+2. ✅ Income split and offline progress in `game.gd`, save version 3 (old saves get a fresh board) → headless test passed.
+3. ✅ Terminal view «Contracts» (progress bars, ETA, bonus countdown, [ACCEPT]/[DELIVER]) + 36 new translations → no missing keys.
+4. ✅ Balancing simulation (greedy player, best offer, instant delivery): without contracts 26.2 h, with the first draft multipliers 21.9 h (too fast), after lowering `reward_mult` by ~20 % **23.7 h**. A real player delivers less often and lands in the 26–35 h target. Contracts ≈ 10 % faster: worth it, not mandatory.
 5. Commit 5a. Then 5b (upgrades in `economy.gd`, effects in `contracts.gd`, translations, sim), commit 5b.
 
 #### Open questions for MYX
