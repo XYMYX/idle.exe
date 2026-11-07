@@ -37,6 +37,12 @@ Stand: 7.11.2026. Grundsatz: Alles läuft von allein. Eingreifen ist optional un
 - Regler «Tempo ↔ Qualität»: schnell = mehr Geld sofort, weniger Ertrag später (statt eines eigenen Bug-/Support-Systems).
 - GPU, Leitung (Uploads, Serverbetrieb) als weitere Hardware.
 
+### Ereignisse (umgesetzt 7.11.2026, Daten in `scripts/event_data.gd`)
+- Alle 10–25 min (nur wenn der User da ist) blinkt «!» über XYMYX. Klick auf ihn öffnet die Wahl im Terminal.
+- Ohne Wahl gilt nach 3 min die Standardwahl. Beträge in «Minuten Einkommen» der betroffenen Quelle.
+- Effekte laufen zeitlich begrenzt (Anzeige im Terminal-Kopf), alles landet im Logbuch.
+- 9 Ereignisse: Viral, fehlerhaftes Update, Sponsor, Kaffeemaschine, Stromausfall, Hitzewelle, CTF, Bug Bounty, RGB-Sale.
+
 ### Etappe 8 – Ereignisse und Meilensteine
 - Zufallsereignisse mit Entscheidungen erscheinen als kleines «!» über XYMYX, **kein Popup**. Klick = selbst entscheiden, sonst nach Zeitablauf Standardwahl.
 - CTFs und Bug Bounties (nur im Spiel, erlaubte Testumgebungen) als Meilensteine: Belohnung Geld, Ruf, seltene Tools.

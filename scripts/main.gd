@@ -27,6 +27,8 @@ var _counter: CommitCounter
 var _carry: CarryWindow
 var _menu: PopupMenu
 var _terminal: TerminalMenu
+var _watch: MouseWatch
+var _events: EventDirector
 var _last_bought := ""
 var _last_passthrough := PackedVector2Array()
 
@@ -105,19 +107,19 @@ func _build_scene() -> void:
 	Game.milestone.connect(func(_v: float) -> void: _xymyx.react("cheer"))
 
 	# Maus-Reaktionen (nur Mausposition, keine Tasten, kein Hook)
-	var watch := MouseWatch.new()
-	watch.to_game = func(screen: Vector2i) -> Vector2:
+	_watch = MouseWatch.new()
+	_watch.to_game = func(screen: Vector2i) -> Vector2:
 		return Vector2(screen - get_window().position) / pixel_scale
-	watch.figure_center = func() -> Vector2: return _xymyx.position + Vector2(FIGURE, FIGURE) / 2.0
-	watch.figure_hit = func(g: Vector2) -> bool: return _xymyx.visible and _xymyx.hit(g)
-	watch.away.connect(_xymyx.fall_asleep)
-	watch.back.connect(_xymyx.wake_up)
-	watch.startled.connect(func() -> void:
+	_watch.figure_center = func() -> Vector2: return _xymyx.position + Vector2(FIGURE, FIGURE) / 2.0
+	_watch.figure_hit = func(g: Vector2) -> bool: return _xymyx.visible and _xymyx.hit(g)
+	_watch.away.connect(_xymyx.fall_asleep)
+	_watch.back.connect(_xymyx.wake_up)
+	_watch.startled.connect(func() -> void:
 		if _press == Press.NONE:  # nicht beim eigenen Ziehen erschrecken
 			_xymyx.startle())
-	watch.hovered.connect(_xymyx.notice)
-	watch.sampled.connect(func(g: Vector2) -> void: _xymyx.face_toward(g.x))
-	add_child(watch)
+	_watch.hovered.connect(_xymyx.notice)
+	_watch.sampled.connect(func(g: Vector2) -> void: _xymyx.face_toward(g.x))
+	add_child(_watch)
 
 	_carry = CarryWindow.new()
 	_carry.setup(_xymyx.sprite_frames, pixel_scale, FIGURE)  # vor add_child: startet unsichtbar
@@ -142,9 +144,19 @@ func _build_menu() -> void:
 	_menu.id_pressed.connect(_on_menu_id)
 	add_child(_menu)
 
+	# Zufallsereignisse: «!» über XYMYX, Klick auf ihn öffnet die Wahl im Terminal
+	_events = EventDirector.new()
+	_events.is_away = func() -> bool: return _watch.is_away
+	_events.started.connect(func(_e: Dictionary) -> void: _xymyx.set_alert(true))
+	_events.resolved.connect(func(_e: Dictionary, c: Dictionary, _auto: bool) -> void:
+		_xymyx.set_alert(false)
+		if c.has("react"):
+			_xymyx.react(c["react"]))
+	add_child(_events)
+
 	_terminal = TerminalMenu.new()
 	add_child(_terminal)
-	_terminal.setup(pixel_scale)
+	_terminal.setup(pixel_scale, _events)
 
 	_build_tray()
 
@@ -159,7 +171,10 @@ func _build_tray() -> void:
 	tray.icon = load(TRAY_ICON) if ResourceLoader.exists(TRAY_ICON) else _placeholder_tray_icon()
 	tray.pressed.connect(func(button: int, _pos: Vector2i) -> void:
 		if button == MOUSE_BUTTON_LEFT:
-			_toggle_terminal()
+			if not _events.pending.is_empty():
+				_open_event()
+			else:
+				_toggle_terminal()
 		else:
 			_open_menu())
 	add_child(tray)
@@ -262,8 +277,10 @@ func _release() -> void:
 	if was == Press.FIGURE:
 		if dragged:
 			_xymyx.drop(_throw_vel)
+		elif not _events.pending.is_empty():
+			_open_event()  # offenes Ereignis: Klick auf XYMYX zeigt die Wahl
 		else:
-			_xymyx.hop()
+			_xymyx.bounce()  # je öfter, desto höher
 	elif was == Press.DESK:
 		if dragged:
 			_save_layout()
@@ -358,6 +375,11 @@ func _toggle_terminal() -> void:
 	# Rechte untere Ecke des Terminals = rechter Rand des Desk-Bereichs, Oberkante des Streifens
 	var right := int(_home_rect().end.x * pixel_scale)
 	_terminal.open_at(get_window().position + Vector2i(right, 0))
+
+
+func _open_event() -> void:
+	var right := int(_home_rect().end.x * pixel_scale)
+	_terminal.open_event(get_window().position + Vector2i(right, 0))
 
 
 func _open_menu() -> void:

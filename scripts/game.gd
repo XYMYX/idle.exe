@@ -19,7 +19,14 @@ var last_saved_at := 0.0  # Unix-Zeit des letzten Speicherns
 var offline_gain := 0.0   # Geld aus der Abwesenheit (beim Start berechnet)
 var offline_sec := 0.0
 
-var _income := {}  # Cache von Economy.income(), neu bei jedem Kauf
+var buffs: Array = []      # zeitlich begrenzte Effekte: {target, mult, until, label}
+var event_log: Array = []  # letzte Ereignisse: {t, text}, neuestes zuerst
+
+const LOG_MAX := 10
+
+var _income := {}  # Cache von Economy.income() OHNE Effekte, neu bei jedem Kauf
+var _buffed_total := 0.0
+var _buff_check := 0.0
 var _totals := {}
 var _autosave := 0.0
 var _next_milestone := 1000.0
@@ -29,6 +36,7 @@ func _ready() -> void:
 	for id in Economy.ids():
 		levels[id] = 0
 	load_game()
+	_prune_buffs()
 	_recalc()
 	_apply_offline()
 	while _next_milestone <= total_earned:  # schon erreichte Meilensteine überspringen
@@ -56,6 +64,12 @@ func _process(delta: float) -> void:
 			milestone.emit(_next_milestone)
 			while _next_milestone <= total_earned:
 				_next_milestone *= 10.0
+	_buff_check += delta
+	if _buff_check >= 1.0:
+		_buff_check = 0.0
+		if _prune_buffs():
+			_apply_buffs()
+			changed.emit()
 	_autosave += delta
 	if _autosave >= AUTOSAVE_SEC:
 		_autosave = 0.0
@@ -74,9 +88,15 @@ func quit() -> void:
 
 # --- Wirtschaft -------------------------------------------------------------
 
-## Einkommen gesamt in CHF/s.
+## Einkommen gesamt in CHF/s, inkl. laufender Effekte.
 func income() -> float:
-	return _income["total"]
+	return _buffed_total
+
+
+## Einkommen ohne Effekte (Basis für «Minuten Einkommen» bei Ereignissen).
+## part: total, code, storage, software, mining
+func base_income(part := "total") -> float:
+	return float(_income.get(part, _income["total"]))
 
 
 ## Einkommen pro Quelle: code, storage, software, mining, total.
@@ -129,6 +149,53 @@ func buy(id: String) -> bool:
 func _recalc() -> void:
 	_totals = Economy.totals(levels)
 	_income = Economy.income(levels)
+	_apply_buffs()
+
+
+# --- Effekte (Buffs) aus Ereignissen ------------------------------------------
+
+func add_buff(target: String, mult: float, sec: float, label: String) -> void:
+	buffs.append({"target": target, "mult": mult, "until": Time.get_unix_time_from_system() + sec, "label": label})
+	_apply_buffs()
+	changed.emit()
+
+
+## Abgelaufene Effekte entfernen. true, wenn sich etwas geändert hat.
+func _prune_buffs() -> bool:
+	var now := Time.get_unix_time_from_system()
+	var n := buffs.size()
+	buffs = buffs.filter(func(b: Dictionary) -> bool: return float(b["until"]) > now)
+	return buffs.size() != n
+
+
+func _apply_buffs() -> void:
+	var m := {"total": 1.0, "code": 1.0, "storage": 1.0, "software": 1.0, "mining": 1.0}
+	for b: Dictionary in buffs:
+		if m.has(b["target"]):
+			m[b["target"]] *= float(b["mult"])
+	_buffed_total = (_income["code"] * m["code"] + _income["storage"] * m["storage"]
+		+ _income["software"] * m["software"] + _income["mining"] * m["mining"]) * m["total"]
+
+
+func earn(amount: float) -> void:
+	money += amount
+	total_earned += amount
+	changed.emit()
+
+
+func spend(amount: float) -> bool:
+	if money < amount:
+		return false
+	money -= amount
+	changed.emit()
+	return true
+
+
+func log_event(text: String) -> void:
+	event_log.push_front({"t": Time.get_unix_time_from_system(),
+		"clock": Time.get_time_string_from_system().left(5), "text": text})
+	if event_log.size() > LOG_MAX:
+		event_log.resize(LOG_MAX)
 
 
 # --- Speichern / Laden ------------------------------------------------------
@@ -141,6 +208,8 @@ func save_game() -> void:
 		"total_earned": total_earned,
 		"levels": levels,
 		"saved_at": last_saved_at,
+		"buffs": buffs,
+		"event_log": event_log,
 	}
 	# Erst in eine Temp-Datei schreiben, dann umbenennen: ein Absturz
 	# mitten im Schreiben zerstört so nicht den alten Spielstand.
@@ -176,6 +245,20 @@ func load_game() -> void:
 		for id: String in levels:
 			var u := Economy.get_def(id)
 			levels[id] = clampi(int(lv.get(id, 0)), 0, Economy.max_level(u))
+	var b: Variant = data.get("buffs", [])
+	if b is Array:
+		for x: Variant in b:
+			if x is Dictionary and x.has_all(["target", "mult", "until"]):
+				buffs.append({"target": String(x["target"]), "mult": float(x["mult"]),
+					"until": float(x["until"]), "label": String(x.get("label", ""))})
+	var lg: Variant = data.get("event_log", [])
+	if lg is Array:
+		for x: Variant in lg:
+			if x is Dictionary and x.has("text"):
+				event_log.append({"t": float(x.get("t", 0.0)), "clock": String(x.get("clock", "--:--")),
+					"text": String(x["text"])})
+		if event_log.size() > LOG_MAX:
+			event_log.resize(LOG_MAX)
 	print("idle.exe: Spielstand geladen aus %s" % _abs(path))
 
 

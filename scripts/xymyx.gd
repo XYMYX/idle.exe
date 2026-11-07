@@ -44,7 +44,20 @@ const ACTIONS := {
 	"sleep": {"fps": 2.0, "seq": [0, 1, 2, 3], "loop": true},
 	"startle": {"fps": 8.0, "seq": [0, 1, 2, 2, 1, 0]},
 }
-const BUBBLE_POS := Vector2(26, -2)  # Zzz / ! über dem Kopf (relativ zur Sprite-Ecke)
+const BUBBLE_POS := Vector2(32, -8)  # Sprechblase vor/über dem Gesicht (relativ zur Sprite-Ecke)
+## Ab und zu ein Emote beim Tippen (Gewichte) und wie lange es steht
+const IDLE_EMOTES := {"note": 4, "dots": 3, "heart": 2, "angry": 1}
+const IDLE_EMOTE_TIME := Vector2(45.0, 120.0)
+const EMOTE_SEC := 3.0
+## Reaktion -> Emote (nach Ereignissen, Meilensteinen)
+const REACT_EMOTES := {"cheer": "heart", "headdesk": "angry", "drink": "heart", "stretch": "dots"}
+const HARD_LANDING := 300.0  # ab diesem Fall-Tempo ist er sauer
+## Klick-Sprünge: jeder Klick innerhalb von COMBO_SEC erhöht die Stufe (Höhe in Spielpixeln).
+## Bis TWEEN_MAX bleibt es ein kleiner Hüpfer in der Leiste (er tippt weiter),
+## darüber springt er wirklich (Tragefenster, kann über die Leiste hinaus).
+const JUMP_HEIGHTS := [4.0, 10.0, 18.0, 30.0, 45.0, 65.0, 90.0]
+const COMBO_SEC := 1.2
+const TWEEN_MAX := 8.0
 ## Zufällige Pausen beim Tippen mit Gewicht (headdesk später durch Bug-Ereignisse)
 const IDLE_ACTIONS := {"stretch": 3, "drink": 3, "roll": 1, "headdesk": 1, "look": 3}
 
@@ -71,8 +84,11 @@ var _roll_back := false
 var _repair_left := 0.0
 var _fall_pos := Vector2.ZERO
 var _vel := Vector2.ZERO
+var _combo := -1
+var _last_click_ms := -100000
 var _image_cache := {}  # Textur -> Image, für die pixelgenaue Treffer-Prüfung
 var _sleepy := false    # User weg: beim nächsten Hinsetzen einschlafen
+var _emote_timer := 60.0
 var _bubble: SpeechBubble
 
 
@@ -116,10 +132,13 @@ func _process(delta: float) -> void:
 		State.SITTING:
 			_timer -= delta
 			_idle_timer -= delta
+			_emote_timer -= delta
 			if _timer <= 0.0:
 				_walk_to(_pick_target(), State.WALKING_OUT)
 			elif _idle_timer <= 0.0:
 				_play_random_idle()
+			elif _emote_timer <= 0.0:
+				_random_emote()
 		State.STANDING:
 			_timer -= delta
 			if _timer <= 0.0:
@@ -143,8 +162,30 @@ func _process(delta: float) -> void:
 
 ## Sitz-Reaktion (cheer, headdesk, ...). Nur wenn er gerade am Desk sitzt.
 func react(anim: String) -> void:
+	if REACT_EMOTES.has(anim):
+		emote(REACT_EMOTES[anim])
 	if _state == State.SITTING and sprite_frames.has_animation(anim):
 		_play_action(anim)
+
+
+## Emote in der Sprechblase zeigen (heart, angry, note, dots, question, excl).
+func emote(kind: String, sec := EMOTE_SEC) -> void:
+	_bubble.flash(kind, sec)
+
+
+func _random_emote() -> void:
+	_emote_timer = randf_range(IDLE_EMOTE_TIME.x, IDLE_EMOTE_TIME.y)
+	if _bubble.is_busy():
+		return
+	var total := 0
+	for e: String in IDLE_EMOTES:
+		total += IDLE_EMOTES[e]
+	var r := randi() % total
+	for e: String in IDLE_EMOTES:
+		r -= IDLE_EMOTES[e]
+		if r < 0:
+			emote(e)
+			return
 
 
 ## Nach einem Kauf: zum PC laufen, knien, schrauben. Mehrere Käufe verlängern nur.
@@ -194,10 +235,16 @@ func wake_up() -> void:
 	if _state != State.SLEEPING:
 		return
 	_bubble.set_zzz(false)
+	emote("question", 2.0)
 	if sprite_frames.has_animation("stretch"):
 		_play_action("stretch")
 	else:
 		_sit()
+
+
+## Offenes Ereignis: blinkendes «!» über dem Kopf.
+func set_alert(on: bool) -> void:
+	_bubble.set_alert(on)
 
 
 ## Schnelle Maus nahe bei ihm: zusammenzucken, «!».
@@ -206,7 +253,7 @@ func startle() -> void:
 		wake_up()
 	elif is_airborne() or _state == State.LANDING:
 		return
-	_bubble.flash("!", 1.2)
+	emote("excl", 1.2)
 	if _state == State.SITTING and sprite_frames.has_animation("startle"):
 		_play_action("startle")
 	else:
@@ -215,6 +262,8 @@ func startle() -> void:
 
 ## Zeiger ruht auf ihm: zum User schauen.
 func notice() -> void:
+	if _state == State.SITTING or _state == State.STANDING:
+		emote("heart", 2.5)
 	match _state:
 		State.SITTING:
 			if sprite_frames.has_animation("look"):
@@ -294,6 +343,32 @@ func _flinch() -> void:
 	tw.tween_property(self, "offset", Vector2.ZERO, 0.15)
 
 
+## Klick auf XYMYX: je schneller hintereinander, desto höher der Sprung.
+func bounce() -> void:
+	if is_airborne():
+		return
+	var now := Time.get_ticks_msec()
+	_combo = mini(_combo + 1, JUMP_HEIGHTS.size() - 1) if now - _last_click_ms < COMBO_SEC * 1000.0 else 0
+	_last_click_ms = now
+	var h: float = JUMP_HEIGHTS[_combo]
+	if h <= TWEEN_MAX:
+		var tw := create_tween()
+		tw.tween_property(self, "offset:y", -h, 0.08 + h * 0.01)
+		tw.tween_property(self, "offset:y", 0.0, 0.12 + h * 0.01)
+		return
+	# Echter Sprung: hoch mit v = sqrt(2·g·h), Landung wie beim Fallenlassen
+	if _state == State.ACTION and _action == "roll":
+		chair_taken.emit(false)
+	_bubble.set_zzz(false)
+	offset = Vector2.ZERO
+	_vel = Vector2(0.0, -sqrt(2.0 * GRAVITY * h))
+	_fall_pos = position
+	_state = State.FALLING
+	_action = ""
+	flip_h = false
+	_play_or("fall", "dangle")
+
+
 ## Kleiner Hüpfer als Klick-Feedback.
 func hop() -> void:
 	var tw := create_tween()
@@ -360,6 +435,10 @@ func _process_fall(delta: float) -> void:
 
 
 func _land() -> void:
+	if _vel.y >= HARD_LANDING:
+		emote("angry")
+	_last_click_ms = Time.get_ticks_msec()  # Kombo-Fenster ab der Landung, nicht ab dem Klick
+	_vel = Vector2.ZERO
 	position.y = floor_y
 	_x = position.x
 	if sprite_frames.has_animation("land"):

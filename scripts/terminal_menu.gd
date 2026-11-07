@@ -3,6 +3,7 @@ extends PopupPanel
 ## Upgrade-Terminal: links Kategorien, rechts Linien bzw. Upgrade-Stufen.
 ## Pro Linie: gekaufte Stufen eingeklappt, dazu die aktuelle und die nächsten zwei.
 ## Alles mit der Maus bedienbar. Schliesst bei Klick daneben oder Esc.
+## Zusätzlich: «! Ereignis» (nur wenn eines offen ist) und «Logbuch» in der Kategorienliste.
 ##
 ## Neu gebaut werden die Zeilen nur, wenn sich ihr Inhalt ändert (Signatur-Vergleich),
 ## sonst flackert der Hover und es kostet unnötig CPU.
@@ -24,6 +25,9 @@ var _fs := 14
 var _money: Label
 var _income: Label
 var _capacity: Label
+var _effects: Label
+var _countdown: Label  # nur in der Ereignis-Ansicht, sonst null
+var _events: EventDirector
 var _cat_box: VBoxContainer
 var _content: VBoxContainer
 var _scroll: ScrollContainer
@@ -41,12 +45,32 @@ var _anchor := Vector2i.ZERO
 var _refresh := 0.0
 
 
-func setup(pixel_scale: int) -> void:
+const CAT_EVENT := "!event"
+const CAT_LOG := "!log"
+
+
+func setup(pixel_scale: int, events: EventDirector) -> void:
+	_events = events
+	_events.resolved.connect(func(_e: Dictionary, _c: Dictionary, _a: bool) -> void:
+		if _cat == CAT_EVENT:
+			_cat = CAT_LOG  # nach der Wahl das Ergebnis im Logbuch zeigen
+		_refresh_all())
+	_events.started.connect(func(_e: Dictionary) -> void: _refresh_all())
 	_fs = roundi(14.0 * pixel_scale / 3.0)  # 14 px bei 100 %
 	theme = _make_theme(_fs, maxi(1, roundi(pixel_scale / 3.0)))
 	_build_ui()
 	popup_hide.connect(func() -> void: hidden_msec = Time.get_ticks_msec())
 	Game.changed.connect(_refresh_all)
+
+
+## Öffnet direkt das offene Ereignis.
+func open_event(anchor: Vector2i) -> void:
+	_cat = CAT_EVENT
+	_afford_mode = false
+	if visible:
+		_refresh_all()
+	else:
+		open_at(anchor)
 
 
 ## Öffnet das Terminal so, dass seine rechte untere Ecke bei anchor liegt.
@@ -88,6 +112,8 @@ func _build_ui() -> void:
 	root.add_child(head)
 	_capacity = _label("", C_DIM)
 	root.add_child(_capacity)
+	_effects = _label("", C_OK, true)
+	root.add_child(_effects)
 	root.add_child(_rule())
 
 	var body := HBoxContainer.new()
@@ -135,6 +161,8 @@ func _refresh_all() -> void:
 		Economy._num(t["power"]), Economy._num(t["power_cap"]),
 		Economy._num(t["heat"]), Economy._num(t["cool_cap"]),
 		"  [pausiert]" if Game.paused else ""]
+	_effects.text = _effects_text()
+	_effects.visible = _effects.text != ""
 
 	_btn_afford.text = "[Alle zeigen]" if _afford_mode else "[Bezahlbare zeigen]"
 	_btn_back.disabled = not (_afford_mode or (_line != "" and Economy.lines(_cat).size() > 1))
@@ -154,6 +182,10 @@ func _refresh_all() -> void:
 		if nav != _nav_sig:
 			_nav_sig = nav
 			_scroll.scroll_vertical = 0
+	# Countdown im Ereignis: Text an Ort und Stelle ändern (kein Neuaufbau, kein Hover-Flackern)
+	if _countdown and is_instance_valid(_countdown) and not _events.pending.is_empty():
+		var d: Dictionary = _events.pending["choices"][_events.default_index(_events.pending)]
+		_countdown.text = "Ohne Wahl in %s: %s" % [_mmss(_events.pending_left), d["label"]]
 
 
 # --- Modell: was angezeigt wird (reine Daten, gut vergleichbar) ---------------
@@ -169,11 +201,20 @@ func _cat_rows() -> Array:
 				break
 		rows.append({"id": id, "name": c["name"], "sel": id == _cat and not _afford_mode,
 			"locked": not Economy.category_unlocked(id, Game.levels), "afford": afford})
+	if not _events.pending.is_empty():
+		rows.push_front({"id": CAT_EVENT, "name": "! Ereignis", "sel": _cat == CAT_EVENT and not _afford_mode,
+			"locked": false, "afford": false, "special": true})
+	rows.append({"id": CAT_LOG, "name": "Logbuch", "sel": _cat == CAT_LOG and not _afford_mode,
+		"locked": false, "afford": false, "special": true})
 	return rows
 
 
 func _body_rows() -> Array:
 	var rows := []
+	if not _afford_mode and _cat == CAT_EVENT:
+		return _event_rows()
+	if not _afford_mode and _cat == CAT_LOG:
+		return _log_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": "BEZAHLBAR"})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -286,7 +327,9 @@ func _render_cats(rows: Array) -> void:
 	for r: Dictionary in rows:
 		var text: String = (">" if r["sel"] else " ") + " " + String(r["name"]).rpad(10)
 		var c := C_TEXT
-		if r["locked"]:
+		if r.get("special", false) and r["id"] == CAT_EVENT:
+			c = C_WARN
+		elif r["locked"]:
 			text += "gesperrt"
 			c = C_DIM
 		elif r["afford"]:
@@ -297,6 +340,7 @@ func _render_cats(rows: Array) -> void:
 
 func _render_body(rows: Array) -> void:
 	_clear(_content)
+	_countdown = null
 	for r: Dictionary in rows:
 		match r["t"]:
 			"title":
@@ -309,6 +353,11 @@ func _render_body(rows: Array) -> void:
 				_content.add_child(_button(r["text"], C_DIM, _toggle_expand.bind(r["key"])))
 			"entry":
 				_render_entry(r)
+			"choice":
+				_render_choice(r)
+			"countdown":
+				_countdown = _label("", C_DIM)
+				_content.add_child(_countdown)
 
 
 func _render_entry(r: Dictionary) -> void:
@@ -335,6 +384,80 @@ func _render_entry(r: Dictionary) -> void:
 	_content.add_child(_label("  Effekt: " + r["fx"], C_DIM if bought else C_TEXT, true))
 	if not r["miss"].is_empty():
 		_content.add_child(_label("  Benötigt: " + " + ".join(r["miss"]), C_WARN, true))
+
+
+# --- Ereignisse, Logbuch, Effekte ---------------------------------------------
+
+func _event_rows() -> Array:
+	var rows := []
+	var ev := _events.pending
+	if ev.is_empty():
+		rows.append({"t": "title", "text": "EREIGNIS"})
+		rows.append({"t": "text", "text": "Gerade ist kein Ereignis offen.", "c": C_DIM})
+		return rows
+	rows.append({"t": "title", "text": "EREIGNIS: " + String(ev["title"]).to_upper()})
+	rows.append({"t": "text", "text": ev["text"], "c": C_TEXT})
+	var d := _events.default_index(ev)
+	var choices: Array = ev["choices"]
+	for i in choices.size():
+		var c: Dictionary = choices[i]
+		rows.append({"t": "choice", "i": i, "label": c["label"], "info": _choice_info(c),
+			"problem": _events.choice_problem(c), "default": i == d})
+	rows.append({"t": "text", "text": " ", "c": C_DIM})
+	rows.append({"t": "countdown"})
+	return rows
+
+
+func _log_rows() -> Array:
+	var rows := [{"t": "title", "text": "LOGBUCH"}]
+	if Game.event_log.is_empty():
+		rows.append({"t": "text", "text": "Noch keine Ereignisse.", "c": C_DIM})
+	for e: Dictionary in Game.event_log:
+		rows.append({"t": "text", "c": C_TEXT, "text": "%s  %s" % [e.get("clock", "--:--"), e["text"]]})
+	return rows
+
+
+func _render_choice(r: Dictionary) -> void:
+	_content.add_child(_label(" "))
+	var ok: bool = r["problem"] == ""
+	var text := "[%d] %s%s" % [r["i"] + 1, r["label"], "  (Standard)" if r["default"] else ""]
+	if ok:
+		_content.add_child(_button(text, C_OK, func() -> void: _events.choose(r["i"])))
+	else:
+		_content.add_child(_label(text, C_DIM))
+	_content.add_child(_label("    " + r["info"], C_TEXT if ok else C_DIM, true))
+	if not ok:
+		_content.add_child(_label("    " + r["problem"], C_WARN))
+
+
+## «kostet 12'000 CHF · Abos x2 für 15 min» usw.
+func _choice_info(c: Dictionary) -> String:
+	var parts: Array[String] = []
+	if c.has("cost_min"):
+		parts.append("kostet %s CHF" % BigNum.format_chf(_events.cost_of(c)))
+	if c.has("gain_min"):
+		parts.append("+%s CHF" % BigNum.format_chf(_events.gain_of(c)))
+	for b: Dictionary in c.get("buffs", []):
+		parts.append("%s %s für %d min" % [EventData.TARGET_NAMES.get(b["target"], b["target"]),
+			EventData.mult_text(b["mult"]), int(b["min"])])
+	return " · ".join(parts) if not parts.is_empty() else "keine Wirkung"
+
+
+## Laufende Effekte: «Effekte: Abos x2 (12:31) · Coding x0.9 (3:05)».
+func _effects_text() -> String:
+	if Game.buffs.is_empty():
+		return ""
+	var now := Time.get_unix_time_from_system()
+	var parts: Array[String] = []
+	for b: Dictionary in Game.buffs:
+		parts.append("%s %s (%s)" % [EventData.TARGET_NAMES.get(b["target"], b["target"]),
+			EventData.mult_text(b["mult"]), _mmss(float(b["until"]) - now)])
+	return "Effekte: " + " · ".join(parts)
+
+
+func _mmss(sec: float) -> String:
+	var s := maxi(0, int(sec))
+	return "%d:%02d" % [s / 60, s % 60]
 
 
 # --- Aktionen -----------------------------------------------------------------
