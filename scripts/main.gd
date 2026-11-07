@@ -15,7 +15,7 @@ const DRAG_START_PX := 3.0   # mouse travel (game pixels) after which a click be
 const SETTINGS_PATH := "user://settings.cfg"
 const LANGUAGES := ["de", "en"]
 
-enum MenuId { INFO, TERMINAL, PAUSE, RESET, LANGUAGE, QUIT }
+enum MenuId { INFO, TERMINAL, PAUSE, RESET, LANGUAGE, DEBUG_EVENT, QUIT }
 enum Press { NONE, FIGURE, DESK }
 
 var pixel_scale := BASE_SCALE
@@ -226,6 +226,10 @@ func _fill_menu(from_tray := false) -> void:
 	if from_tray:
 		# Always shows the OTHER language in its own words, so anyone can find it.
 		_menu.add_item("English" if TranslationServer.get_locale().begins_with("de") else "Deutsch", MenuId.LANGUAGE)
+	if from_tray and OS.is_debug_build():
+		# Only when started from the editor (debug build), never in an exported release
+		_menu.add_item("[debug] Trigger event", MenuId.DEBUG_EVENT)
+		_menu.set_item_disabled(_menu.get_item_index(MenuId.DEBUG_EVENT), not _events.pending.is_empty())
 	_menu.add_separator()
 	_menu.add_item(tr("Quit"), MenuId.QUIT)
 
@@ -425,6 +429,8 @@ func _on_menu_id(id: int) -> void:
 			_reset_layout()
 		MenuId.LANGUAGE:
 			_toggle_language()
+		MenuId.DEBUG_EVENT:
+			_events.trigger_now()
 		MenuId.QUIT:
 			Game.quit()
 

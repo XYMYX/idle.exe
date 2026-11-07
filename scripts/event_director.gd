@@ -54,6 +54,12 @@ func trigger(id := "") -> void:
 	started.emit(ev)
 
 
+## Debug: start a random fitting event right now, ignoring the no-repeat list.
+func trigger_now() -> void:
+	_recent.clear()
+	trigger()
+
+
 ## Apply choice i. auto = chosen automatically after the timeout.
 func choose(i: int, auto := false) -> void:
 	if pending.is_empty():
