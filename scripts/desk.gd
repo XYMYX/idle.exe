@@ -223,6 +223,20 @@ func _draw_board() -> void:
 		_draw_sprite("res://art/icon_%s.png" % owned[i], _board_slot(i), Vector2(8, 8), BOARD_FPS)
 
 
+## Everything the desk draws, as rectangles relative to the desk's top-left corner.
+## main.gd builds the clickable outline («skyline») from these.
+func outline_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = [Rect2(Vector2.ZERO, SIZE)]  # base image incl. chair
+	out.append(Rect2(8, -6, 60, 14))  # money counter above the laptop (+ gain line), room for wide numbers
+	for part: Dictionary in PARTS:
+		if _shown(part):
+			out.append(Rect2(part["pos"], part["size"]))
+	if _board_count() > 0:
+		var r := _board_rect()
+		out.append(Rect2(r.position.x - 1, r.position.y, r.size.x + 2, r.size.y + BOARD_TRAY))
+	return out
+
+
 func _board_owned() -> Array[String]:
 	var out: Array[String] = []
 	for id: String in BOARD_ITEMS:

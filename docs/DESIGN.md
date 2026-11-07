@@ -263,7 +263,7 @@ On a company sale **skills stay** (knowledge), everything else of these stages r
 ## Backlog (smaller items, as of 2026-11-07)
 - Screenshot for the README (`docs/screenshot.png`, then uncomment the line in README.md).
 - Settings in the terminal: scale, mouse reactions on/off, sleep delay, event frequency.
-- Click area as an outline of rectangles instead of one bounding box (a full room blocks up to ~197 game px of desktop clicks).
+- ~~Click area as an outline~~ done 2026-11-08: union of all drawn rectangles (`Desk.outline_rects`, `main._outline`), hanging parts connected by 1 px strings to a bridge at the bottom. Blocks about 20 % less desktop than the old bounding box; falls back to the box if the union ever loses a part.
 - First release: export preset, include `*.ico` in the non-resource export filter, GitHub release with download.
 - Mention Claude at the end of README.md shortly before the first release.
 - Multi-monitor support (currently primary screen only) and reacting to resolution changes at runtime.

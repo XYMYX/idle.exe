@@ -32,6 +32,7 @@ var _watch: MouseWatch
 var _events: EventDirector
 var _last_bought := ""
 var _last_passthrough := PackedVector2Array()
+var _last_rects: Array[Rect2] = []
 
 var _usable := Rect2i()
 var _desk_from_right := float(DESK_FROM_RIGHT)
@@ -479,26 +480,69 @@ func _home_rect() -> Rect2:
 	return Rect2(left, 0, right - left, GAME_HEIGHT)
 
 
-## Clickable polygon = desk area + figure. On Windows everything outside this
-## polygon is NOT drawn, so it must cover everything visible. If figure and desk
-## are apart, a 1 game pixel high bridge at the bottom connects them (it has to be
-## a single polygon). While XYMYX is carried or falling, only the desk area counts.
+const OUTLINE_MARGIN := 1.0  # extra px around every part (anti-cut-off)
+
+
+## One polygon covering all rectangles exactly (their union). The window takes only a
+## single polygon, so everything gets connected: a 1 px bridge along the bottom edge and
+## a 1 px string from every hanging part (board, AC, ...) down to it. Holes in the union
+## are simply filled (covering a bit more is safe, cutting off a sprite is not).
+func _outline(rects: Array[Rect2]) -> PackedVector2Array:
+	var h := float(GAME_HEIGHT)
+	var grown: Array[Rect2] = []
+	var x0 := INF
+	var x1 := -INF
+	for r: Rect2 in rects:
+		var g := Rect2(r.position - Vector2.ONE * OUTLINE_MARGIN, r.size + Vector2.ONE * 2.0 * OUTLINE_MARGIN)
+		var top := clampf(floorf(g.position.y), 0.0, h)
+		var left := floorf(g.position.x)
+		g = Rect2(left, top, ceilf(g.end.x) - left, minf(ceilf(g.end.y), h) - top)
+		x0 = minf(x0, g.position.x)
+		x1 = maxf(x1, g.end.x)
+		if g.end.y < h - 1.0:  # hanging part: string down to the bridge (merged first, so it connects)
+			grown.append(Rect2(floorf(g.get_center().x), g.end.y - 1.0, 1.0, h - g.end.y + 1.0))
+		grown.append(g)
+	var acc := _rect_poly(Rect2(x0, h - 1.0, x1 - x0, 1.0))
+	for g: Rect2 in grown:
+		var merged := Geometry2D.merge_polygons(acc, _rect_poly(g))
+		# connected shapes -> one outer polygon, the rest are holes (always smaller)
+		var best := 0.0
+		for poly: PackedVector2Array in merged:
+			var ar := absf(_poly_area(poly))
+			if ar > best:
+				best = ar
+				acc = poly
+		if not Geometry2D.is_point_in_polygon(g.get_center(), acc):
+			# should never happen: fall back to the plain bounding box rather than cut off a sprite
+			return _rect_poly(Rect2(x0, 0.0, x1 - x0, h))
+	return acc
+
+
+func _rect_poly(r: Rect2) -> PackedVector2Array:
+	return PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+
+
+func _poly_area(p: PackedVector2Array) -> float:
+	var a := 0.0
+	for i in p.size():
+		var q := p[(i + 1) % p.size()]
+		a += p[i].x * q.y - q.x * p[i].y
+	return a / 2.0
+
+
+## Clickable polygon = outline of everything the desk draws + the figure (full height,
+## snapped to 24 px). On Windows everything outside this polygon is NOT drawn, so it
+## must cover everything visible. While XYMYX is carried or falling, only the desk counts.
 func _update_passthrough(force := false) -> void:
-	var a := _home_rect()
-	var b := a if _xymyx.is_airborne() else _figure_region()
-	var pts: PackedVector2Array
-	if a.intersects(b, true):
-		var m := a.merge(b)
-		pts = PackedVector2Array([m.position, Vector2(m.end.x, m.position.y), m.end, Vector2(m.position.x, m.end.y)])
-	else:
-		var l := a if a.position.x < b.position.x else b
-		var r := b if l == a else a
-		var h := float(GAME_HEIGHT)
-		pts = PackedVector2Array([
-			Vector2(l.position.x, 0), Vector2(l.end.x, 0), Vector2(l.end.x, h - 1),
-			Vector2(r.position.x, h - 1), Vector2(r.position.x, 0), Vector2(r.end.x, 0),
-			Vector2(r.end.x, h), Vector2(l.position.x, h),
-		])
+	var rects: Array[Rect2] = []
+	for r: Rect2 in _desk.outline_rects():
+		rects.append(Rect2(r.position + _desk.position, r.size))
+	if not _xymyx.is_airborne():
+		rects.append(_figure_region())  # full height: jumps, speech bubble, emotes
+	if rects == _last_rects and not force:
+		return  # nothing moved far enough (called on every step while walking)
+	_last_rects = rects
+	var pts := _outline(rects)
 	for i in pts.size():
 		pts[i] *= pixel_scale
 	# Only set it when the area changes: on Windows every call redraws the window,
