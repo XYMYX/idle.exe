@@ -112,14 +112,17 @@ func finished_count() -> int:
 ## Advance by delta seconds. Returns the amount of coding income diverted into contracts
 ## (the caller subtracts it from what goes to the wallet). Works for frame steps and for
 ## one big offline step: a contract never takes more than it still needs.
-func tick(delta: float, code_income: float, levels: Dictionary) -> float:
+## speed (automation upgrades): each diverted CHF counts as `speed` CHF of work.
+func tick(delta: float, code_income: float, levels: Dictionary, speed := 1.0) -> float:
 	var running := active.filter(func(c: Dictionary) -> bool: return not is_finished(c))
 	var diverted := 0.0
 	if not running.is_empty():
 		var each := share(running.size()) * code_income * delta / running.size()
 		for c: Dictionary in running:
-			var take := minf(each, float(c["work"]) - float(c["done"]))
-			c["done"] = float(c["done"]) + take
+			var need := (float(c["work"]) - float(c["done"])) / speed
+			var take := minf(each, need)
+			# On the last step set it to exactly the full work (avoids 999.9999 < 1000 float leftovers)
+			c["done"] = float(c["work"]) if take >= need else float(c["done"]) + take * speed
 			diverted += take
 			# Only count the time actually spent working: if it finished halfway through
 			# this step (e.g. offline), only that part counts. Waiting for delivery is free.
@@ -133,6 +136,22 @@ func tick(delta: float, code_income: float, levels: Dictionary) -> float:
 			if not o.is_empty():
 				offers.append(o)
 	return diverted
+
+
+## Index of the most lucrative offer (highest reward per work, then highest reward), -1 if none.
+func best_offer() -> int:
+	var best := -1
+	for i in offers.size():
+		if best < 0:
+			best = i
+			continue
+		var a: Dictionary = offers[i]
+		var b: Dictionary = offers[best]
+		var ra := float(a["reward"]) / float(a["work"])
+		var rb := float(b["reward"]) / float(b["work"])
+		if ra > rb + 0.0001 or (absf(ra - rb) <= 0.0001 and float(a["reward"]) > float(b["reward"])):
+			best = i
+	return best
 
 
 ## Reward for a contract incl. speed bonus (only meaningful once finished).

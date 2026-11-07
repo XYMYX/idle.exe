@@ -25,12 +25,14 @@ const CATEGORIES := [
 	{"id": "network", "name": "Network", "requires": ["ssd"]},
 	{"id": "software", "name": "Software", "requires": ["gaming_pc"]},
 	{"id": "mining", "name": "Mining", "requires": ["ups", "fan"]},
+	{"id": "automation", "name": "Automation", "requires": ["homeserver"]},
 ]
 
 ## Upgrades. Within a line (cat + line) the order is the build order:
 ## a tier can only be bought once the previous one is owned.
 ## cost = price (if max > 1: cost * growth^level)
-## fx   = effect per level: code_add, code_mult, storage, software, mining, net_mult, power_cap, cool_cap
+## fx   = effect per level: code_add, code_mult, storage, software, mining, net_mult, power_cap, cool_cap,
+##        contract_speed (mult), auto_accept, auto_deliver, event_shield (flags, 1 = on)
 ## uses = consumption per level: power (kW), heat
 ## requires = additional upgrades you must own
 const UPGRADES := [
@@ -133,10 +135,23 @@ const UPGRADES := [
 		"fx": {"mining": 14000.0}, "uses": {"power": 40.0, "heat": 50.0}},
 	{"id": "mining_farm", "cat": "mining", "line": "Mining", "name": "Mining farm", "cost": 1.0e9,
 		"fx": {"mining": 160000.0}, "uses": {"power": 250.0, "heat": 300.0}},
+
+	# --- Automation (stage 5b: contracts run by themselves) --------------------
+	{"id": "unit_tests", "cat": "automation", "line": "Automation", "name": "Unit tests", "cost": 80000.0,
+		"fx": {"contract_speed": 1.1}},
+	{"id": "ci_builds", "cat": "automation", "line": "Automation", "name": "CI builds", "cost": 600000.0,
+		"fx": {"contract_speed": 1.15}, "uses": {"power": 0.5, "heat": 1.0}},
+	{"id": "auto_accept", "cat": "automation", "line": "Automation", "name": "Auto-accept", "cost": 3.0e6,
+		"fx": {"auto_accept": 1.0}},
+	{"id": "release_pipeline", "cat": "automation", "line": "Automation", "name": "Release pipeline", "cost": 15.0e6,
+		"fx": {"auto_deliver": 1.0}, "requires": ["rack"]},
+	{"id": "nightly_backups", "cat": "automation", "line": "Automation", "name": "Nightly backups", "cost": 60.0e6,
+		"fx": {"event_shield": 1.0}, "requires": ["nas"]},
 ]
 
-const FX_ADD := ["code_add", "storage", "software", "mining", "power_cap", "cool_cap"]
-const FX_MULT := ["code_mult", "net_mult"]
+const FX_ADD := ["code_add", "storage", "software", "mining", "power_cap", "cool_cap",
+	"auto_accept", "auto_deliver", "event_shield"]
+const FX_MULT := ["code_mult", "net_mult", "contract_speed"]
 
 static var _index := {}
 
@@ -205,7 +220,8 @@ static func tx(text: String) -> String:
 static func totals(levels: Dictionary) -> Dictionary:
 	var t := {"code_add": 0.0, "storage": 0.0, "software": 0.0, "mining": 0.0,
 		"power_cap": BASE_POWER, "cool_cap": BASE_COOL,
-		"code_mult": 1.0, "net_mult": 1.0, "power": 0.0, "heat": 0.0}
+		"code_mult": 1.0, "net_mult": 1.0, "power": 0.0, "heat": 0.0,
+		"contract_speed": 1.0, "auto_accept": 0.0, "auto_deliver": 0.0, "event_shield": 0.0}
 	for u: Dictionary in UPGRADES:
 		var lv: int = levels.get(u["id"], 0)
 		if lv <= 0:
@@ -287,6 +303,10 @@ static func effect_text(u: Dictionary) -> String:
 			"net_mult": parts.append(tx("Storage+subscriptions %s") % _mult(v))
 			"power_cap": parts.append(tx("+%s kW power") % _num(v))
 			"cool_cap": parts.append(tx("+%s cooling") % _num(v))
+			"contract_speed": parts.append(tx("Contracts %s") % _mult(v))
+			"auto_accept": parts.append(tx("Free slots take the best offer"))
+			"auto_deliver": parts.append(tx("Finished contracts deliver themselves"))
+			"event_shield": parts.append(tx("Halves penalties from bad events"))
 	var text := ", ".join(parts)
 	var uses: Dictionary = u.get("uses", {})
 	if not uses.is_empty():

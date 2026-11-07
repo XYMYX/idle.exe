@@ -188,3 +188,13 @@ Data dashboard for a city,Data dashboard for a city,Daten-Dashboard für eine St
 Banking API migration,Banking API migration,Migration einer Banken-API
 Logistics platform,Logistics platform,Logistik-Plattform
 Hospital scheduling system,Hospital scheduling system,Dienstplan-System für ein Spital
+Automation,Automation,Automatisierung
+Unit tests,Unit tests,Unit-Tests
+CI builds,CI builds,CI-Builds
+Auto-accept,Auto-accept,Auto-Annahme
+Release pipeline,Release pipeline,Release-Pipeline
+Nightly backups,Nightly backups,Nächtliche Backups
+Contracts %s,Contracts %s,Aufträge %s
+Free slots take the best offer,Free slots take the best offer,Freie Slots nehmen das beste Angebot
+Finished contracts deliver themselves,Finished contracts deliver themselves,Fertige Aufträge liefern sich selbst ab
+Halves penalties from bad events,Halves penalties from bad events,Halbiert Nachteile schlechter Ereignisse

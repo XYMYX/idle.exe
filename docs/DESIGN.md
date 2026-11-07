@@ -23,7 +23,7 @@ As of 2026-11-07. Principle: everything runs on its own. Interacting is optional
 - Upgrade menu in terminal style.
 - Visible setup tiers: laptop → PC → monitors.
 
-### Stage 5 – Contracts and automation (5a done 2026-11-07, 5b planned)
+### Stage 5 – Contracts and automation (done 2026-11-07)
 Split into **5a contracts** and **5b automation**, one commit each. Principles stay: no failure, no deadlines, offline-safe.
 
 #### 5a – Contracts
@@ -55,16 +55,19 @@ Split into **5a contracts** and **5b automation**, one commit each. Principles s
 - **Save:** `save.json` version 3 with `contracts: {active: [...], offers: [...], next_offer_in}`; loading a version 2 save starts with an empty board.
 - **New/changed files:** `scripts/contract_data.gd`, `scripts/contracts.gd` (Node, owned by `Game` or a child of main), `game.gd` (income split, save/load, offline), `terminal_menu.gd` (new view), `i18n/translations.csv`.
 
-#### 5b – Automation
-New upgrade category **«Automation»** (unlocked by owning `homeserver`), one line, tiers in order:
+#### 5b – Automation (done)
+Upgrade category **«Automation»** (unlocked by owning `homeserver`), one line, tiers in order:
 
-| Tier | Effect |
-|---|---|
-| Unit tests | contract progress +25 % |
-| CI builds | contract progress +50 % (stacks) |
-| Auto-accept | free slots automatically take the best offer |
-| Release pipeline | finished contracts deliver themselves |
-| Nightly backups | halves the penalty of bad events (e.g. «Broken update») |
+| Tier | Cost | Effect |
+|---|---|---|
+| Unit tests | 80K | contract progress +10 % |
+| CI builds | 600K | contract progress +15 % (stacks, needs 0.5 kW and 1 cooling) |
+| Auto-accept | 3M | free slots automatically take the best offer (once per second) |
+| Release pipeline | 15M, needs `rack` | finished contracts deliver themselves, also after offline time |
+| Nightly backups | 60M, needs `nas` | penalty effects of events are halved (x0.5 → x0.75) |
+
+The first draft had +25 %/+50 % speed: the simulation dropped to 18 h, because speed multiplies the reward per diverted CHF. Automation is meant for convenience, not as a speed boost, so it was lowered to +10 %/+15 %.
+**Balancing after 5b** (greedy player, perfect contract handling): 27.0 h without contracts, **22.2 h** with contracts. A real player handles contracts less perfectly before the release pipeline (~5 h in) and should land around 23–24 h.
 
 From «Release pipeline» on, contracts run completely hands-off – the «first manual, later watch your infrastructure do it» moment.
 
@@ -80,7 +83,7 @@ From «Release pipeline» on, contracts run completely hands-off – the «first
 2. ✅ Income split and offline progress in `game.gd`, save version 3 (old saves get a fresh board) → headless test passed.
 3. ✅ Terminal view «Contracts» (progress bars, ETA, bonus countdown, [ACCEPT]/[DELIVER]) + 36 new translations → no missing keys.
 4. ✅ Balancing simulation (greedy player, best offer, instant delivery): without contracts 26.2 h, with the first draft multipliers 21.9 h (too fast), after lowering `reward_mult` by ~20 % **23.7 h**. A real player delivers less often and lands in the 26–35 h target. Contracts ≈ 10 % faster: worth it, not mandatory.
-5. Commit 5a. Then 5b (upgrades in `economy.gd`, effects in `contracts.gd`, translations, sim), commit 5b.
+5. ✅ Commit 5a. 5b: upgrades in `economy.gd`, effects in `contracts.gd`/`game.gd`/`event_director.gd`, 10 translations, simulation, headless tests – done.
 
 #### Open questions for MYX
 - Is 50 % of the coding income the right share, or should contracts use a separate «developer time» resource?

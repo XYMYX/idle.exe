@@ -75,7 +75,10 @@ func choose(i: int, auto := false) -> void:
 	if c.has("gain_min"):
 		Game.earn(gain_of(c))
 	for b: Dictionary in c.get("buffs", []):
-		Game.add_buff(b["target"], b["mult"], float(b["min"]) * 60.0, ev["title"])
+		var mult := float(b["mult"])
+		if mult < 1.0 and Game.totals()["event_shield"] > 0.0:
+			mult = 1.0 - (1.0 - mult) / 2.0  # nightly backups halve the penalty
+		Game.add_buff(b["target"], mult, float(b["min"]) * 60.0, ev["title"])
 	Game.log_event(ev["title"], c["label"], auto)
 	pending = {}
 	resolved.emit(ev, c, auto)

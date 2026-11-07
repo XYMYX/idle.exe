@@ -57,8 +57,12 @@ func _apply_offline() -> void:
 		return  # no save yet
 	offline_sec = clampf(Time.get_unix_time_from_system() - last_saved_at, 0.0, OFFLINE_MAX_SEC)
 	# Running contracts keep working offline and take their share of the coding income.
-	var diverted := contracts.tick(offline_sec, _code_now, levels)
+	var diverted := contracts.tick(offline_sec, _code_now, levels, _totals["contract_speed"])
 	offline_gain = income() * offline_sec - diverted
+	# With the release pipeline, contracts finished while away are delivered right away.
+	if _totals["auto_deliver"] > 0.0:
+		for i in range(contracts.active.size() - 1, -1, -1):
+			offline_gain += contracts.deliver(i)
 	money += offline_gain
 	total_earned += offline_gain
 	print("idle.exe: offline %d s -> +%s CHF" % [int(offline_sec), BigNum.format_chf(offline_gain)])
@@ -66,7 +70,7 @@ func _apply_offline() -> void:
 
 func _process(delta: float) -> void:
 	if not paused:
-		var gain := income() * delta - contracts.tick(delta, _code_now, levels)
+		var gain := income() * delta - contracts.tick(delta, _code_now, levels, _totals["contract_speed"])
 		money += gain
 		total_earned += gain
 		if total_earned >= _next_milestone:
@@ -79,6 +83,7 @@ func _process(delta: float) -> void:
 		if _prune_buffs():
 			_apply_buffs()
 			changed.emit()
+		_automate_contracts()
 	_autosave += delta
 	if _autosave >= AUTOSAVE_SEC:
 		_autosave = 0.0
@@ -209,6 +214,18 @@ func accept_contract(i: int) -> bool:
 		return false
 	changed.emit()
 	return true
+
+
+## Stage 5b automation: deliver finished contracts and fill free slots by themselves.
+func _automate_contracts() -> void:
+	if _totals["auto_deliver"] > 0.0:
+		for i in range(contracts.active.size() - 1, -1, -1):
+			if Contracts.is_finished(contracts.active[i]):
+				deliver_contract(i)
+	if _totals["auto_accept"] > 0.0:
+		while contracts.free_slots(levels) > 0 and not contracts.offers.is_empty():
+			if not accept_contract(contracts.best_offer()):
+				break
 
 
 ## Deliver a finished contract: reward goes to the wallet.
