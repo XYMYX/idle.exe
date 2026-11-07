@@ -1,21 +1,21 @@
 class_name Desk
 extends Node2D
-## Desk mit dem gekauften Setup. Grund-Bild je nach Stufe (Laptop oder Gaming-PC),
-## darüber die einzelnen Teile. Fehlt ein PNG, wird ein grauer Platzhalter-Kasten
-## in genau der Grösse gezeichnet, die das Sprite haben muss.
+## Desk with the purchased setup. Base image depends on the tier (laptop or gaming PC),
+## the individual parts are drawn on top. If a PNG is missing, a grey placeholder box
+## is drawn in exactly the size the sprite needs to have.
 
-const SIZE := Vector2(61, 48)  # Grund-Bild (Stuhl + Tisch)
+const SIZE := Vector2(61, 48)  # base image (chair + table)
 
 const BASE_LAPTOP := "res://art/desk_laptop.png"
 const BASE_PC := "res://art/desk_pc.png"
 
-## Teile in Zeichen-Reihenfolge. Koordinaten relativ zur linken oberen Ecke des Desks
-## (Boden = y 48, Fenster-Oberkante = y -10, Bildschirmrand rechts = x 118).
-## needs = Upgrade, das man besitzen muss; hide_if = wird ausgeblendet, wenn das besessen wird.
-## behind = hinter dem Grund-Bild zeichnen (Tower unter dem Tisch, Tischplatte verdeckt ihn).
-## fps = Animation: das PNG ist ein horizontales Sheet, Frames = Breite / size.x.
+## Parts in drawing order. Coordinates relative to the desk's top-left corner
+## (floor = y 48, window top = y -10, right screen edge = x 118).
+## needs = upgrade you must own; hide_if = hidden once that upgrade is owned.
+## behind = drawn behind the base image (tower under the table, the tabletop covers it).
+## fps = animation: the PNG is a horizontal sheet, frames = width / size.x.
 const PARTS := [
-	# Am Desk
+	# At the desk
 	{"tex": "res://art/pc_tower.png", "pos": Vector2(40, 29), "size": Vector2(12, 18), "needs": "gaming_pc", "hide_if": "water", "behind": true},
 	{"tex": "res://art/pc_tower_water.png", "pos": Vector2(40, 29), "size": Vector2(12, 18), "needs": "water", "hide_if": "workstation", "behind": true},
 	{"tex": "res://art/pc_workstation.png", "pos": Vector2(40, 29), "size": Vector2(12, 18), "needs": "workstation", "behind": true, "fps": 2.0},
@@ -23,13 +23,13 @@ const PARTS := [
 	{"tex": "res://art/monitor_2.png", "pos": Vector2(16, 11), "size": Vector2(14, 17), "needs": "monitor_2"},
 	{"tex": "res://art/monitor_3.png", "pos": Vector2(46, 11), "size": Vector2(14, 17), "needs": "monitor_3"},
 	{"tex": "res://art/keyboard_mech.png", "pos": Vector2(18, 24), "size": Vector2(16, 4), "needs": "keyboard"},
-	# Rechts vom Desk
+	# Right of the desk
 	{"tex": "res://art/rack.png", "pos": Vector2(63, 0), "size": Vector2(24, 48), "needs": "rack"},
 	{"tex": "res://art/rack_cooling.png", "pos": Vector2(63, 0), "size": Vector2(24, 48), "needs": "rack_cooling", "fps": 2.0},
 	{"tex": "res://art/fan.png", "pos": Vector2(90, 24), "size": Vector2(12, 24), "needs": "fan", "fps": 8.0},
 	{"tex": "res://art/ups.png", "pos": Vector2(104, 36), "size": Vector2(10, 12), "needs": "ups", "fps": 1.0},
 	{"tex": "res://art/ac.png", "pos": Vector2(90, -8), "size": Vector2(24, 10), "needs": "ac", "fps": 3.0},
-	# Links vom Stuhl (XYMYX läuft davor durch)
+	# Left of the chair (XYMYX walks in front of these)
 	{"tex": "res://art/homeserver.png", "pos": Vector2(-36, 26), "size": Vector2(14, 22), "needs": "homeserver", "fps": 2.0},
 	{"tex": "res://art/router.png", "pos": Vector2(-35, 20), "size": Vector2(12, 6), "needs": "router", "fps": 4.0},
 	{"tex": "res://art/fiber.png", "pos": Vector2(-46, 10), "size": Vector2(8, 10), "needs": "fiber", "fps": 1.0},
@@ -42,39 +42,39 @@ const PARTS := [
 	{"tex": "res://art/mining_rack.png", "pos": Vector2(-110, 0), "size": Vector2(24, 48), "needs": "mining_rack", "fps": 4.0},
 ]
 
-## Standort-Tafel an der Wand: grosse Anlagen, die nicht ins Zimmer passen,
-## erscheinen als 8x8-Symbole (art/icon_<id>.png, optional 2 Frames = 16x8).
-## Die Tafel ist nur so gross wie nötig (bis 8 Symbole pro Reihe) und hängt direkt
-## links neben dem linkesten Teil im Zimmer. Rahmen- und Füllfarbe aus board.png.
+## Location board on the wall: big installations that don't fit into the room
+## appear as 8x8 icons (art/icon_<id>.png, optionally 2 frames = 16x8).
+## The board is only as big as needed (up to 8 icons per row) and hangs right next to
+## the leftmost part in the room. Border and fill color come from board.png.
 const BOARD_TEX := "res://art/board.png"
 const BOARD_TOP := -8.0
 const BOARD_COLS := 8
-const BOARD_GAP := 3.0       # Abstand zum nächsten Teil rechts
-const BOARD_PAD := 2         # Innenrand zwischen Rahmen und Symbolen
-const BOARD_ICON_GAP := 2    # Abstand zwischen den Symbolen
-const BOARD_TRAY := 2.0      # Höhe der Ablage-Leiste unter der Tafel
-const BOARD_MAX_RIGHT := -18.0  # nie näher an den Stuhl
+const BOARD_GAP := 3.0       # gap to the next part on the right
+const BOARD_PAD := 2         # padding between border and icons
+const BOARD_ICON_GAP := 2    # gap between icons
+const BOARD_TRAY := 2.0      # height of the tray below the board
+const BOARD_MAX_RIGHT := -18.0  # never closer to the chair
 const BOARD_FPS := 2.0
 const BOARD_ITEMS := [
 	"plugin", "desktop_app", "saas", "platform", "ecosystem", "storage_server",
 	"storage_cloud", "leased", "dc_link", "solar", "battery", "own_grid",
 	"cool_loop", "industrial_cooling", "mining_container", "mining_farm",
 ]
-const ANIM_TICK := 0.125  # höchstens 8 Prüfungen pro Sekunde für Animationen
+const ANIM_TICK := 0.125  # at most 8 animation checks per second
 
 const CHAIR := "res://art/chair.png"
 const CHAIR_POS := Vector2(0, 14)
 const FLASH_SEC := 0.6
-const LAPTOP_RECT := Rect2(30, 10, 16, 17)  # Aufblink-Fläche, solange es keinen Tower gibt
+const LAPTOP_RECT := Rect2(30, 10, 16, 17)  # flash area while there is no tower
 const TOWER_RECT := Rect2(40, 29, 12, 18)
 
-## Aus, solange XYMYX mit dem Stuhl rollt (der Stuhl steckt dann in seinem Sprite).
+## Off while XYMYX rolls on the chair (the chair is then part of his sprite).
 var chair_visible := true:
 	set(value):
 		chair_visible = value
 		queue_redraw()
 
-var _cache := {}  # Pfad -> Texture2D oder null
+var _cache := {}  # path -> Texture2D or null
 var _flash_rect := Rect2()
 var _flash_left := 0.0
 
@@ -87,7 +87,7 @@ func _ready() -> void:
 	Game.changed.connect(queue_redraw)
 
 
-## Kurzes weisses Aufblinken am gekauften Teil (Einbau-Effekt).
+## Short white flash on the purchased part (installation effect).
 func flash(id: String) -> void:
 	_flash_rect = TOWER_RECT if Game.has("gaming_pc") else LAPTOP_RECT
 	for part: Dictionary in PARTS:
@@ -98,7 +98,7 @@ func flash(id: String) -> void:
 	_flash_left = FLASH_SEC
 
 
-## Neu zeichnen nur, wenn ein Animations-Frame wechselt oder gerade etwas blinkt.
+## Only redraw when an animation frame changes or something is flashing.
 func _process(delta: float) -> void:
 	if _flash_left > 0.0:
 		_flash_left -= delta
@@ -119,7 +119,7 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
-## Breite inkl. Teilen, die über den Tisch hinausragen (Rack). Für den Klickbereich.
+## Width incl. parts sticking out past the table (rack). Used for the click area.
 func width() -> float:
 	var w := SIZE.x
 	for part: Dictionary in PARTS:
@@ -128,14 +128,14 @@ func width() -> float:
 	return w
 
 
-## Linkeste x-Koordinate (negativ, wenn Teile links vom Stuhl stehen). Für den Klickbereich.
+## Leftmost x coordinate (negative if parts stand left of the chair). Used for the click area.
 func left_extent() -> float:
 	var x := 0.0
 	for part: Dictionary in PARTS:
 		if _shown(part):
 			x = minf(x, part["pos"].x)
 	if _board_count() > 0:
-		x = minf(x, _board_rect().position.x - 1)  # -1: Ablage-Leiste ragt 1 px hinaus
+		x = minf(x, _board_rect().position.x - 1)  # -1: the tray sticks out by 1 px
 	return x
 
 
@@ -145,7 +145,7 @@ func _draw() -> void:
 	var base := BASE_PC if Game.has("gaming_pc") else BASE_LAPTOP
 	var t := _tex(base)
 	if t == null and base == BASE_PC:
-		t = _tex(BASE_LAPTOP)  # bis desk_pc.png existiert
+		t = _tex(BASE_LAPTOP)  # until desk_pc.png exists
 	if t:
 		draw_texture(t, Vector2.ZERO)
 	else:
@@ -155,7 +155,7 @@ func _draw() -> void:
 		if c:
 			draw_texture(c, CHAIR_POS)
 	_draw_parts(false)
-	# Blinken: 3× an/aus in FLASH_SEC
+	# Flash: 3× on/off within FLASH_SEC
 	if _flash_left > 0.0 and int(_flash_left / FLASH_SEC * 6.0) % 2 == 1:
 		draw_rect(_flash_rect, Color(1, 1, 1, 0.75))
 
@@ -167,7 +167,7 @@ func _draw_parts(behind: bool) -> void:
 		_draw_sprite(part["tex"], part["pos"], part["size"], part.get("fps", 0.0))
 
 
-## Zeichnet ein (evtl. animiertes) Sprite oder den Platzhalter in Sollgrösse.
+## Draws a (possibly animated) sprite or the placeholder in its target size.
 func _draw_sprite(path: String, pos: Vector2, size: Vector2, fps: float) -> void:
 	var t := _tex(path)
 	if t == null:
@@ -193,7 +193,7 @@ func _draw_board() -> void:
 	var cols := _board_colors()
 	draw_rect(r, cols[0])
 	draw_rect(r.grow(-1), cols[1])
-	# Ablage-Leiste unter der Tafel (wie bei einer Wandtafel), 1 px breiter auf jeder Seite
+	# Tray below the board (like a chalkboard), 1 px wider on each side
 	draw_rect(Rect2(r.position.x - 1, r.end.y, r.size.x + 2, BOARD_TRAY), cols[0])
 	for i in owned.size():
 		_draw_sprite("res://art/icon_%s.png" % owned[i], _board_slot(i), Vector2(8, 8), BOARD_FPS)
@@ -211,12 +211,12 @@ func _board_count() -> int:
 	return _board_owned().size()
 
 
-## Rechteck der Tafel: wächst mit den Symbolen, rechts bündig vor dem linkesten Teil.
+## Board rectangle: grows with the icons, right-aligned before the leftmost part.
 func _board_rect() -> Rect2:
 	var n := _board_count()
 	var cols := mini(n, BOARD_COLS)
 	var rows := ceili(n / float(BOARD_COLS))
-	# 1 px Rahmen + Innenrand auf beiden Seiten, Symbole 8 px mit Abstand dazwischen
+	# 1 px border + padding on both sides, 8 px icons with gaps between them
 	var size := Vector2(2 + 2 * BOARD_PAD + cols * 8 + (cols - 1) * BOARD_ICON_GAP,
 		2 + 2 * BOARD_PAD + rows * 8 + (rows - 1) * BOARD_ICON_GAP)
 	var right := BOARD_MAX_RIGHT
@@ -227,14 +227,14 @@ func _board_rect() -> Rect2:
 	return Rect2(Vector2(right - size.x, BOARD_TOP), size)
 
 
-## Platz i (nur gekaufte Symbole, lückenlos).
+## Slot i (owned icons only, no gaps).
 func _board_slot(i: int) -> Vector2:
 	var pitch := 8 + BOARD_ICON_GAP
 	return _board_rect().position + Vector2(1 + BOARD_PAD + (i % BOARD_COLS) * pitch,
 		1 + BOARD_PAD + (i / BOARD_COLS) * pitch)
 
 
-## [Rahmen, Füllung] aus board.png (Rand links Mitte, Mitte). Ohne PNG: Grautöne.
+## [border, fill] from board.png (left edge middle, center). Without the PNG: grey tones.
 var _board_cols: Array[Color] = []
 
 func _board_colors() -> Array[Color]:
@@ -259,7 +259,7 @@ func _tex(path: String) -> Texture2D:
 	return _cache[path]
 
 
-## Grauer Kasten mit hellem Rand: zeigt Position und Grösse des fehlenden Sprites.
+## Grey box with a light border: shows position and size of the missing sprite.
 func _placeholder(r: Rect2) -> void:
 	draw_rect(r, Color("#d6d9ee"))
 	draw_rect(r.grow(-1), Color("#3a3a48"))

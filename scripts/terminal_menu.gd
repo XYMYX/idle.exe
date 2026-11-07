@@ -1,37 +1,43 @@
 class_name TerminalMenu
 extends PopupPanel
-## Upgrade-Terminal: links Kategorien, rechts Linien bzw. Upgrade-Stufen.
-## Pro Linie: gekaufte Stufen eingeklappt, dazu die aktuelle und die nächsten zwei.
-## Alles mit der Maus bedienbar. Schliesst bei Klick daneben oder Esc.
-## Zusätzlich: «! Ereignis» (nur wenn eines offen ist) und «Logbuch» in der Kategorienliste.
+## Upgrade terminal: categories on the left, lines or upgrade tiers on the right.
+## Per line: bought tiers collapsed, plus the current tier and the next two.
+## Fully usable with the mouse. Closes on a click outside or Esc.
+## Also: «! Event» (only while one is pending) and «Log» in the category list.
+## All texts go through tr() (English source strings, German in i18n/translations.csv).
 ##
-## Neu gebaut werden die Zeilen nur, wenn sich ihr Inhalt ändert (Signatur-Vergleich),
-## sonst flackert der Hover und es kostet unnötig CPU.
+## Rows are only rebuilt when their content changes (signature comparison),
+## otherwise the hover flickers and it wastes CPU.
 
 const REFRESH_SEC := 0.25
-const COLS := 76        # Breite in Zeichen
-const ROWS := 28        # Höhe in Zeilen
+const COLS := 76        # width in characters
+const ROWS := 28        # height in lines
 const CAT_COLS := 20
-const SHOW_NEXT := 3    # aktuelle + nächste zwei Stufen
+const SHOW_NEXT := 3    # current + next two tiers
 
 const C_TEXT := Color.WHITE
-const C_DIM := Color(1, 1, 1, 0.45)  # gekauft / Nebeninfo
-const C_OK := Color("#6fdc6f")       # bezahlbar
-const C_WARN := Color("#e8c547")     # Voraussetzung fehlt
+const C_DIM := Color(1, 1, 1, 0.45)  # bought / secondary info
+const C_OK := Color("#6fdc6f")       # affordable
+const C_WARN := Color("#e8c547")     # requirement missing
 
-var hidden_msec := 0  # Zeitpunkt des Schliessens (gegen sofortiges Wiederöffnen)
+const CAT_EVENT := "!event"
+const CAT_LOG := "!log"
+
+var hidden_msec := 0  # time of closing (prevents immediate reopening)
 
 var _fs := 14
 var _money: Label
 var _income: Label
 var _capacity: Label
 var _effects: Label
-var _countdown: Label  # nur in der Ereignis-Ansicht, sonst null
+var _cats_title: Label
+var _countdown: Label  # only in the event view, otherwise null
 var _events: EventDirector
 var _cat_box: VBoxContainer
 var _content: VBoxContainer
 var _scroll: ScrollContainer
 var _btn_afford: Button
+var _btn_next: Button
 var _btn_back: Button
 
 var _cat := "hardware"
@@ -45,25 +51,28 @@ var _anchor := Vector2i.ZERO
 var _refresh := 0.0
 
 
-const CAT_EVENT := "!event"
-const CAT_LOG := "!log"
-
-
 func setup(pixel_scale: int, events: EventDirector) -> void:
 	_events = events
 	_events.resolved.connect(func(_e: Dictionary, _c: Dictionary, _a: bool) -> void:
 		if _cat == CAT_EVENT:
-			_cat = CAT_LOG  # nach der Wahl das Ergebnis im Logbuch zeigen
+			_cat = CAT_LOG  # after the choice, show the outcome in the log
 		_refresh_all())
 	_events.started.connect(func(_e: Dictionary) -> void: _refresh_all())
-	_fs = roundi(14.0 * pixel_scale / 3.0)  # 14 px bei 100 %
+	_fs = roundi(14.0 * pixel_scale / 3.0)  # 14 px at 100 %
 	theme = _make_theme(_fs, maxi(1, roundi(pixel_scale / 3.0)))
 	_build_ui()
 	popup_hide.connect(func() -> void: hidden_msec = Time.get_ticks_msec())
 	Game.changed.connect(_refresh_all)
 
 
-## Öffnet direkt das offene Ereignis.
+## Language switched: rebuild everything with the new texts.
+func refresh_language() -> void:
+	_cat_sig = ""
+	_body_sig = ""
+	_refresh_all()
+
+
+## Opens the pending event directly.
 func open_event(anchor: Vector2i) -> void:
 	_cat = CAT_EVENT
 	_afford_mode = false
@@ -73,7 +82,7 @@ func open_event(anchor: Vector2i) -> void:
 		open_at(anchor)
 
 
-## Öffnet das Terminal so, dass seine rechte untere Ecke bei anchor liegt.
+## Opens the terminal so that its bottom-right corner is at anchor.
 func open_at(anchor: Vector2i) -> void:
 	_anchor = anchor
 	_refresh_all()
@@ -90,7 +99,7 @@ func _process(delta: float) -> void:
 		_refresh_all()
 
 
-# --- Aufbau -------------------------------------------------------------------
+# --- Building -------------------------------------------------------------------
 
 func _build_ui() -> void:
 	var font: Font = theme.default_font
@@ -123,7 +132,8 @@ func _build_ui() -> void:
 
 	var left := _vbox()
 	left.custom_minimum_size.x = cw * CAT_COLS
-	left.add_child(_label("KATEGORIEN", C_DIM))
+	_cats_title = _label("", C_DIM)
+	left.add_child(_cats_title)
 	_cat_box = _vbox()
 	left.add_child(_cat_box)
 	body.add_child(left)
@@ -145,26 +155,29 @@ func _build_ui() -> void:
 	var foot := HBoxContainer.new()
 	_btn_afford = _button("", C_TEXT, _toggle_afford)
 	foot.add_child(_btn_afford)
-	foot.add_child(_button("[Nächstes Upgrade]", C_TEXT, _goto_next))
-	_btn_back = _button("[Zurück]", C_TEXT, _go_back)
+	_btn_next = _button("", C_TEXT, _goto_next)
+	foot.add_child(_btn_next)
+	_btn_back = _button("", C_TEXT, _go_back)
 	foot.add_child(_btn_back)
 	root.add_child(foot)
 
 
-# --- Aktualisieren ------------------------------------------------------------
+# --- Refreshing -----------------------------------------------------------------
 
 func _refresh_all() -> void:
-	_money.text = "Geld: %s CHF" % BigNum.format_chf(Game.money)
-	_income.text = "Einkommen: %s CHF/s" % BigNum.format_chf(Game.income())
+	_money.text = tr("Money: %s CHF") % BigNum.format_chf(Game.money)
+	_income.text = tr("Income: %s CHF/s") % BigNum.format_chf(Game.income())
 	var t := Game.totals()
-	_capacity.text = "Strom %s / %s kW · Kühlung %s / %s%s" % [
+	_capacity.text = tr("Power %s / %s kW · Cooling %s / %s") % [
 		Economy._num(t["power"]), Economy._num(t["power_cap"]),
-		Economy._num(t["heat"]), Economy._num(t["cool_cap"]),
-		"  [pausiert]" if Game.paused else ""]
+		Economy._num(t["heat"]), Economy._num(t["cool_cap"])] + (tr("  [paused]") if Game.paused else "")
 	_effects.text = _effects_text()
 	_effects.visible = _effects.text != ""
 
-	_btn_afford.text = "[Alle zeigen]" if _afford_mode else "[Bezahlbare zeigen]"
+	_cats_title.text = tr("CATEGORIES")
+	_btn_afford.text = tr("[Show all]") if _afford_mode else tr("[Show affordable]")
+	_btn_next.text = tr("[Next upgrade]")
+	_btn_back.text = tr("[Back]")
 	_btn_back.disabled = not (_afford_mode or (_line != "" and Economy.lines(_cat).size() > 1))
 
 	var cats := _cat_rows()
@@ -182,13 +195,13 @@ func _refresh_all() -> void:
 		if nav != _nav_sig:
 			_nav_sig = nav
 			_scroll.scroll_vertical = 0
-	# Countdown im Ereignis: Text an Ort und Stelle ändern (kein Neuaufbau, kein Hover-Flackern)
+	# Event countdown: change the text in place (no rebuild, no hover flicker)
 	if _countdown and is_instance_valid(_countdown) and not _events.pending.is_empty():
 		var d: Dictionary = _events.pending["choices"][_events.default_index(_events.pending)]
-		_countdown.text = "Ohne Wahl in %s: %s" % [_mmss(_events.pending_left), d["label"]]
+		_countdown.text = tr("No choice in %s: %s") % [_mmss(_events.pending_left), tr(d["label"])]
 
 
-# --- Modell: was angezeigt wird (reine Daten, gut vergleichbar) ---------------
+# --- Model: what is shown (plain data, easy to compare) ------------------------
 
 func _cat_rows() -> Array:
 	var rows := []
@@ -199,12 +212,12 @@ func _cat_rows() -> Array:
 			if u["cat"] == id and Game.can_buy(u["id"]):
 				afford = true
 				break
-		rows.append({"id": id, "name": c["name"], "sel": id == _cat and not _afford_mode,
+		rows.append({"id": id, "name": tr(c["name"]), "sel": id == _cat and not _afford_mode,
 			"locked": not Economy.category_unlocked(id, Game.levels), "afford": afford})
 	if not _events.pending.is_empty():
-		rows.push_front({"id": CAT_EVENT, "name": "! Ereignis", "sel": _cat == CAT_EVENT and not _afford_mode,
+		rows.push_front({"id": CAT_EVENT, "name": tr("! Event"), "sel": _cat == CAT_EVENT and not _afford_mode,
 			"locked": false, "afford": false, "special": true})
-	rows.append({"id": CAT_LOG, "name": "Logbuch", "sel": _cat == CAT_LOG and not _afford_mode,
+	rows.append({"id": CAT_LOG, "name": tr("Log"), "sel": _cat == CAT_LOG and not _afford_mode,
 		"locked": false, "afford": false, "special": true})
 	return rows
 
@@ -216,38 +229,39 @@ func _body_rows() -> Array:
 	if not _afford_mode and _cat == CAT_LOG:
 		return _log_rows()
 	if _afford_mode:
-		rows.append({"t": "title", "text": "BEZAHLBAR"})
+		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
 		ids.sort_custom(func(a: String, b: String) -> bool: return Game.cost(a) < Game.cost(b))
 		if ids.is_empty():
-			rows.append({"t": "text", "text": "Gerade ist nichts bezahlbar.", "c": C_DIM})
+			rows.append({"t": "text", "text": tr("Nothing is affordable right now."), "c": C_DIM})
 		for id: String in ids:
 			var u := Economy.get_def(id)
-			rows.append(_entry_row(id, "%s / %s" % [Economy.get_category(u["cat"])["name"], u["line"]]))
+			rows.append(_entry_row(id, "%s / %s" % [tr(Economy.get_category(u["cat"])["name"]), tr(u["line"])]))
 		return rows
 
 	var cat := Economy.get_category(_cat)
+	var cat_name := tr(cat["name"]).to_upper()
 	var lines := Economy.lines(_cat)
 	if not Economy.category_unlocked(_cat, Game.levels):
-		rows.append({"t": "title", "text": "%s  [GESPERRT]" % String(cat["name"]).to_upper()})
+		rows.append({"t": "title", "text": tr("%s  [LOCKED]") % cat_name})
 		var names: Array[String] = []
 		for req: String in cat["requires"]:
 			if not Game.has(req):
-				names.append(Economy.name_of(req))
-		rows.append({"t": "text", "text": "Benötigt: " + " + ".join(names), "c": C_WARN})
+				names.append(tr(Economy.name_of(req)))
+		rows.append({"t": "text", "text": tr("Requires: %s") % " + ".join(names), "c": C_WARN})
 		return rows
 
-	# Mehrere Linien: erst auswählen (z. B. Hardware -> CPU, RAM, GPU ...)
+	# Several lines: choose one first (e.g. Hardware -> CPU, RAM, GPU ...)
 	if lines.size() > 1 and _line == "":
-		rows.append({"t": "title", "text": String(cat["name"]).to_upper()})
+		rows.append({"t": "title", "text": cat_name})
 		for line in lines:
 			rows.append(_line_row(line))
 		return rows
 
 	var line: String = lines[0] if lines.size() == 1 else _line
-	var title := String(cat["name"]).to_upper()
+	var title := cat_name
 	if lines.size() > 1:
-		title += " / " + line.to_upper()
+		title += " / " + tr(line).to_upper()
 	rows.append({"t": "title", "text": title})
 
 	var items := Economy.line_items(_cat, line)
@@ -263,16 +277,16 @@ func _body_rows() -> Array:
 	if not bought.is_empty():
 		var is_open: bool = _expanded.get(key, false)
 		rows.append({"t": "toggle", "key": key,
-			"text": ("[-] gekaufte ausblenden" if is_open else "[+] %d gekauft anzeigen" % bought.size())})
+			"text": (tr("[-] hide bought") if is_open else tr("[+] show %d bought") % bought.size())})
 		if is_open:
 			for id in bought:
 				rows.append(_entry_row(id))
 	for i in mini(SHOW_NEXT, open.size()):
 		rows.append(_entry_row(open[i]))
 	if open.size() > SHOW_NEXT:
-		rows.append({"t": "text", "text": "... %d weitere Stufen" % (open.size() - SHOW_NEXT), "c": C_DIM})
+		rows.append({"t": "text", "text": tr("... %d more tiers") % (open.size() - SHOW_NEXT), "c": C_DIM})
 	if open.is_empty():
-		rows.append({"t": "text", "text": "Alle Stufen gekauft.", "c": C_DIM})
+		rows.append({"t": "text", "text": tr("All tiers bought."), "c": C_DIM})
 	return rows
 
 
@@ -295,14 +309,14 @@ func _line_row(line: String) -> Dictionary:
 		summary = "%d/%d" % [done, items.size()]
 	var c := C_OK if afford else (C_DIM if all_done else C_TEXT)
 	return {"t": "line", "line": line, "c": c,
-		"text": "> %s %s%s" % [line.rpad(18), summary.rpad(10), "*" if afford else ""]}
+		"text": "> %s %s%s" % [tr(line).rpad(18), summary.rpad(10), "*" if afford else ""]}
 
 
-## Ein Upgrade-Eintrag. sub = optionale Herkunfts-Zeile (im Bezahlbar-Modus).
+## One upgrade entry. sub = optional origin line (in affordable mode).
 func _entry_row(id: String, sub := "") -> Dictionary:
 	var u := Economy.get_def(id)
 	var maxl := Economy.max_level(u)
-	var title: String = u["name"]
+	var title := tr(u["name"])
 	if maxl > 1:
 		title += "  (lvl %d/%d)" % [Game.level(id), maxl]
 	var state := "buy"
@@ -320,7 +334,7 @@ func _entry_row(id: String, sub := "") -> Dictionary:
 		"fx": Economy.effect_text(u), "miss": miss}
 
 
-# --- Darstellung ----------------------------------------------------------------
+# --- Rendering ------------------------------------------------------------------
 
 func _render_cats(rows: Array) -> void:
 	_clear(_cat_box)
@@ -330,7 +344,7 @@ func _render_cats(rows: Array) -> void:
 		if r.get("special", false) and r["id"] == CAT_EVENT:
 			c = C_WARN
 		elif r["locked"]:
-			text += "gesperrt"
+			text += tr("locked")
 			c = C_DIM
 		elif r["afford"]:
 			text += "*"
@@ -369,39 +383,39 @@ func _render_entry(r: Dictionary) -> void:
 	row.add_child(name_lbl)
 	match r["state"]:
 		"buy":
-			row.add_child(_button("[KAUFEN]", C_OK, _buy.bind(r["id"])))
+			row.add_child(_button(tr("[BUY]"), C_OK, _buy.bind(r["id"])))
 		"bought":
-			row.add_child(_label("[GEKAUFT] ", C_DIM))
+			row.add_child(_label(tr("[BOUGHT]") + " ", C_DIM))
 		"locked":
-			row.add_child(_label("[GESPERRT] ", C_WARN))
+			row.add_child(_label(tr("[LOCKED]") + " ", C_WARN))
 		"poor":
-			row.add_child(_label("[ZU TEUER] ", C_DIM))
+			row.add_child(_label(tr("[TOO EXPENSIVE]") + " ", C_DIM))
 	_content.add_child(row)
 	if r["sub"] != "":
 		_content.add_child(_label("  " + r["sub"], C_DIM))
 	if not bought:
-		_content.add_child(_label("  Kosten: %s CHF" % r["cost"]))
-	_content.add_child(_label("  Effekt: " + r["fx"], C_DIM if bought else C_TEXT, true))
+		_content.add_child(_label("  " + tr("Cost: %s CHF") % r["cost"]))
+	_content.add_child(_label("  " + tr("Effect: %s") % r["fx"], C_DIM if bought else C_TEXT, true))
 	if not r["miss"].is_empty():
-		_content.add_child(_label("  Benötigt: " + " + ".join(r["miss"]), C_WARN, true))
+		_content.add_child(_label("  " + tr("Requires: %s") % " + ".join(r["miss"]), C_WARN, true))
 
 
-# --- Ereignisse, Logbuch, Effekte ---------------------------------------------
+# --- Events, log, effects -------------------------------------------------------
 
 func _event_rows() -> Array:
 	var rows := []
 	var ev := _events.pending
 	if ev.is_empty():
-		rows.append({"t": "title", "text": "EREIGNIS"})
-		rows.append({"t": "text", "text": "Gerade ist kein Ereignis offen.", "c": C_DIM})
+		rows.append({"t": "title", "text": tr("EVENT")})
+		rows.append({"t": "text", "text": tr("No event is pending right now."), "c": C_DIM})
 		return rows
-	rows.append({"t": "title", "text": "EREIGNIS: " + String(ev["title"]).to_upper()})
-	rows.append({"t": "text", "text": ev["text"], "c": C_TEXT})
+	rows.append({"t": "title", "text": tr("EVENT: %s") % tr(ev["title"]).to_upper()})
+	rows.append({"t": "text", "text": tr(ev["text"]), "c": C_TEXT})
 	var d := _events.default_index(ev)
 	var choices: Array = ev["choices"]
 	for i in choices.size():
 		var c: Dictionary = choices[i]
-		rows.append({"t": "choice", "i": i, "label": c["label"], "info": _choice_info(c),
+		rows.append({"t": "choice", "i": i, "label": tr(c["label"]), "info": _choice_info(c),
 			"problem": _events.choice_problem(c), "default": i == d})
 	rows.append({"t": "text", "text": " ", "c": C_DIM})
 	rows.append({"t": "countdown"})
@@ -409,18 +423,23 @@ func _event_rows() -> Array:
 
 
 func _log_rows() -> Array:
-	var rows := [{"t": "title", "text": "LOGBUCH"}]
+	var rows := [{"t": "title", "text": tr("LOG")}]
 	if Game.event_log.is_empty():
-		rows.append({"t": "text", "text": "Noch keine Ereignisse.", "c": C_DIM})
+		rows.append({"t": "text", "text": tr("No events yet."), "c": C_DIM})
 	for e: Dictionary in Game.event_log:
-		rows.append({"t": "text", "c": C_TEXT, "text": "%s  %s" % [e.get("clock", "--:--"), e["text"]]})
+		var text: String
+		if e.has("title"):
+			text = "%s: %s%s" % [tr(e["title"]), tr(e["label"]), tr(" (automatic)") if e.get("auto", false) else ""]
+		else:
+			text = e.get("text", "")  # old save format, stored as is
+		rows.append({"t": "text", "c": C_TEXT, "text": "%s  %s" % [e.get("clock", "--:--"), text]})
 	return rows
 
 
 func _render_choice(r: Dictionary) -> void:
 	_content.add_child(_label(" "))
 	var ok: bool = r["problem"] == ""
-	var text := "[%d] %s%s" % [r["i"] + 1, r["label"], "  (Standard)" if r["default"] else ""]
+	var text := "[%d] %s%s" % [r["i"] + 1, r["label"], tr("  (default)") if r["default"] else ""]
 	if ok:
 		_content.add_child(_button(text, C_OK, func() -> void: _events.choose(r["i"])))
 	else:
@@ -430,29 +449,29 @@ func _render_choice(r: Dictionary) -> void:
 		_content.add_child(_label("    " + r["problem"], C_WARN))
 
 
-## «kostet 12'000 CHF · Abos x2 für 15 min» usw.
+## «costs 12,000 CHF · Subscriptions x2 for 15 min» etc.
 func _choice_info(c: Dictionary) -> String:
 	var parts: Array[String] = []
 	if c.has("cost_min"):
-		parts.append("kostet %s CHF" % BigNum.format_chf(_events.cost_of(c)))
+		parts.append(tr("costs %s CHF") % BigNum.format_chf(_events.cost_of(c)))
 	if c.has("gain_min"):
 		parts.append("+%s CHF" % BigNum.format_chf(_events.gain_of(c)))
 	for b: Dictionary in c.get("buffs", []):
-		parts.append("%s %s für %d min" % [EventData.TARGET_NAMES.get(b["target"], b["target"]),
+		parts.append(tr("%s %s for %d min") % [tr(EventData.TARGET_NAMES.get(b["target"], b["target"])),
 			EventData.mult_text(b["mult"]), int(b["min"])])
-	return " · ".join(parts) if not parts.is_empty() else "keine Wirkung"
+	return " · ".join(parts) if not parts.is_empty() else tr("no effect")
 
 
-## Laufende Effekte: «Effekte: Abos x2 (12:31) · Coding x0.9 (3:05)».
+## Active effects: «Effects: Subscriptions x2 (12:31) · Coding x0.9 (3:05)».
 func _effects_text() -> String:
 	if Game.buffs.is_empty():
 		return ""
 	var now := Time.get_unix_time_from_system()
 	var parts: Array[String] = []
 	for b: Dictionary in Game.buffs:
-		parts.append("%s %s (%s)" % [EventData.TARGET_NAMES.get(b["target"], b["target"]),
+		parts.append("%s %s (%s)" % [tr(EventData.TARGET_NAMES.get(b["target"], b["target"])),
 			EventData.mult_text(b["mult"]), _mmss(float(b["until"]) - now)])
-	return "Effekte: " + " · ".join(parts)
+	return tr("Effects: %s") % " · ".join(parts)
 
 
 func _mmss(sec: float) -> String:
@@ -460,10 +479,10 @@ func _mmss(sec: float) -> String:
 	return "%d:%02d" % [s / 60, s % 60]
 
 
-# --- Aktionen -----------------------------------------------------------------
+# --- Actions --------------------------------------------------------------------
 
 func _buy(id: String) -> void:
-	Game.buy(id)  # löst Game.changed -> _refresh_all aus
+	Game.buy(id)  # triggers Game.changed -> _refresh_all
 
 
 func _select_cat(id: String) -> void:
@@ -488,8 +507,8 @@ func _toggle_afford() -> void:
 	_refresh_all()
 
 
-## Springt zum günstigsten Upgrade ohne fehlende Voraussetzungen.
-## Einmal-Käufe haben Vorrang vor RAM/CPU (die sind fast immer am billigsten).
+## Jumps to the cheapest upgrade without missing requirements.
+## One-off purchases take priority over RAM/CPU (those are almost always the cheapest).
 func _goto_next() -> void:
 	var best := ""
 	var best_rep := ""
@@ -520,11 +539,12 @@ func _go_back() -> void:
 	_refresh_all()
 
 
-# --- Bausteine ----------------------------------------------------------------
+# --- Building blocks ------------------------------------------------------------
 
 func _label(text: String, c := C_TEXT, wrap := false) -> Label:
 	var l := Label.new()
 	l.text = text
+	l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED  # texts are translated in code
 	l.add_theme_color_override("font_color", c)
 	if wrap:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -534,6 +554,7 @@ func _label(text: String, c := C_TEXT, wrap := false) -> Label:
 func _button(text: String, c: Color, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
+	b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_color_override("font_color", c)
@@ -573,7 +594,7 @@ func _make_theme(fs: int, border: int) -> Theme:
 	panel.set_content_margin_all(fs * 0.6)
 	t.set_stylebox("panel", "PopupPanel", panel)
 
-	# Buttons sehen aus wie Textzeilen, Hover = invertiert (schwarz auf weiss)
+	# Buttons look like text lines, hover = inverted (black on white)
 	var pad := fs * 0.1
 	var plain := StyleBoxEmpty.new()
 	plain.set_content_margin_all(pad)

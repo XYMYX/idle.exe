@@ -1,8 +1,8 @@
 class_name CommitCounter
 extends Node2D
-## Zeigt das Geld als Pixelzahl, zentriert über position.
-## Nach dem Start steht darüber kurz der Offline-Gewinn («+1.23K»).
-## Zeichnet nur neu, wenn sich der angezeigte Text ändert (spart CPU/GPU).
+## Shows the money as a pixel number, centered on position.
+## Right after start, the offline gain is shown above it for a moment («+1.23K»).
+## Only redraws when the displayed text changes (saves CPU/GPU).
 
 const OFFLINE_SHOW_SEC := 10.0
 

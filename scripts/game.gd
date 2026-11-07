@@ -1,10 +1,10 @@
 extends Node
-## Autoload «Game»: Spielstand (Geld, Upgrade-Level), Speichern und Laden.
-## Die Upgrade-Daten und die Rechnung stehen in economy.gd.
+## Autoload «Game»: game state (money, upgrade levels), saving and loading.
+## Upgrade data and the economy math live in economy.gd.
 
 signal changed
 signal bought(id: String)
-signal milestone(value: float)  # total_earned erreicht 1K, 10K, 100K, ...
+signal milestone(value: float)  # total_earned reaches 1K, 10K, 100K, ...
 
 const SAVE_PATH := "user://save.json"
 const SAVE_VERSION := 2
@@ -15,16 +15,18 @@ var money := 0.0         # CHF
 var total_earned := 0.0
 var levels := {}
 var paused := false
-var last_saved_at := 0.0  # Unix-Zeit des letzten Speicherns
-var offline_gain := 0.0   # Geld aus der Abwesenheit (beim Start berechnet)
+var last_saved_at := 0.0  # Unix time of the last save
+var offline_gain := 0.0   # money earned while away (computed at start)
 var offline_sec := 0.0
 
-var buffs: Array = []      # zeitlich begrenzte Effekte: {target, mult, until, label}
-var event_log: Array = []  # letzte Ereignisse: {t, text}, neuestes zuerst
+var buffs: Array = []      # timed effects: {target, mult, until, label}
+## Recent events, newest first: {t, clock, title, label, auto} (English source strings,
+## translated when shown). Old saves may contain {t, clock, text} instead.
+var event_log: Array = []
 
 const LOG_MAX := 10
 
-var _income := {}  # Cache von Economy.income() OHNE Effekte, neu bei jedem Kauf
+var _income := {}  # cache of Economy.income() WITHOUT effects, recomputed on every purchase
 var _buffed_total := 0.0
 var _buff_check := 0.0
 var _totals := {}
@@ -39,15 +41,15 @@ func _ready() -> void:
 	_prune_buffs()
 	_recalc()
 	_apply_offline()
-	while _next_milestone <= total_earned:  # schon erreichte Meilensteine überspringen
+	while _next_milestone <= total_earned:  # skip milestones already reached
 		_next_milestone *= 10.0
 
 
-## Geld für die Zeit seit dem letzten Speichern, höchstens 8 Stunden.
-## Uhr zurückgestellt (negative Zeit) = nichts.
+## Money for the time since the last save, at most 8 hours.
+## Clock set back (negative time) = nothing.
 func _apply_offline() -> void:
 	if last_saved_at <= 0.0:
-		return  # kein Spielstand
+		return  # no save yet
 	offline_sec = clampf(Time.get_unix_time_from_system() - last_saved_at, 0.0, OFFLINE_MAX_SEC)
 	offline_gain = income() * offline_sec
 	money += offline_gain
@@ -86,25 +88,25 @@ func quit() -> void:
 	get_tree().quit()
 
 
-# --- Wirtschaft -------------------------------------------------------------
+# --- Economy ------------------------------------------------------------------
 
-## Einkommen gesamt in CHF/s, inkl. laufender Effekte.
+## Total income in CHF/s, including active effects.
 func income() -> float:
 	return _buffed_total
 
 
-## Einkommen ohne Effekte (Basis für «Minuten Einkommen» bei Ereignissen).
+## Income without effects (base for «minutes of income» in events).
 ## part: total, code, storage, software, mining
 func base_income(part := "total") -> float:
 	return float(_income.get(part, _income["total"]))
 
 
-## Einkommen pro Quelle: code, storage, software, mining, total.
+## Income per source: code, storage, software, mining, total.
 func income_parts() -> Dictionary:
 	return _income
 
 
-## Summen inkl. Strom (power/power_cap) und Kühlung (heat/cool_cap).
+## Sums incl. power (power/power_cap) and cooling (heat/cool_cap).
 func totals() -> Dictionary:
 	return _totals
 
@@ -125,7 +127,7 @@ func is_maxed(id: String) -> bool:
 	return level(id) >= Economy.max_level(Economy.get_def(id))
 
 
-## Fehlende Voraussetzungen (ohne Geld). Leer = kaufbar, sobald bezahlbar.
+## Missing requirements (not counting money), translated. Empty = buyable once affordable.
 func missing(id: String) -> Array[String]:
 	return Economy.missing(Economy.get_def(id), levels, _totals)
 
@@ -152,7 +154,7 @@ func _recalc() -> void:
 	_apply_buffs()
 
 
-# --- Effekte (Buffs) aus Ereignissen ------------------------------------------
+# --- Effects (buffs) from events ----------------------------------------------
 
 func add_buff(target: String, mult: float, sec: float, label: String) -> void:
 	buffs.append({"target": target, "mult": mult, "until": Time.get_unix_time_from_system() + sec, "label": label})
@@ -160,7 +162,7 @@ func add_buff(target: String, mult: float, sec: float, label: String) -> void:
 	changed.emit()
 
 
-## Abgelaufene Effekte entfernen. true, wenn sich etwas geändert hat.
+## Remove expired effects. true if something changed.
 func _prune_buffs() -> bool:
 	var now := Time.get_unix_time_from_system()
 	var n := buffs.size()
@@ -191,14 +193,16 @@ func spend(amount: float) -> bool:
 	return true
 
 
-func log_event(text: String) -> void:
+## Log an event outcome. title/label are English source strings (translated when shown).
+func log_event(title: String, label: String, auto: bool) -> void:
 	event_log.push_front({"t": Time.get_unix_time_from_system(),
-		"clock": Time.get_time_string_from_system().left(5), "text": text})
+		"clock": Time.get_time_string_from_system().left(5),
+		"title": title, "label": label, "auto": auto})
 	if event_log.size() > LOG_MAX:
 		event_log.resize(LOG_MAX)
 
 
-# --- Speichern / Laden ------------------------------------------------------
+# --- Save / load --------------------------------------------------------------
 
 func save_game() -> void:
 	last_saved_at = Time.get_unix_time_from_system()
@@ -211,32 +215,32 @@ func save_game() -> void:
 		"buffs": buffs,
 		"event_log": event_log,
 	}
-	# Erst in eine Temp-Datei schreiben, dann umbenennen: ein Absturz
-	# mitten im Schreiben zerstört so nicht den alten Spielstand.
+	# Write to a temp file first, then rename: a crash in the middle of
+	# writing can't destroy the previous save this way.
 	var tmp := SAVE_PATH + ".tmp"
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
-		push_error("Speichern fehlgeschlagen: %s" % error_string(FileAccess.get_open_error()))
+		push_error("Saving failed: %s" % error_string(FileAccess.get_open_error()))
 		return
 	f.store_string(JSON.stringify(data, "\t"))
 	f.close()
 	var err := DirAccess.rename_absolute(_abs(tmp), _abs(SAVE_PATH))
 	if err != OK:
-		push_error("Speichern (Umbenennen) fehlgeschlagen: %s" % error_string(err))
+		push_error("Saving (rename) failed: %s" % error_string(err))
 
 
 func load_game() -> void:
 	var path := SAVE_PATH
 	if not FileAccess.file_exists(path):
 		if not FileAccess.file_exists(SAVE_PATH + ".tmp"):
-			return  # erster Start
+			return  # first start
 		path = SAVE_PATH + ".tmp"
 	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if typeof(data) != TYPE_DICTIONARY:
-		push_warning("Spielstand defekt, Kopie unter user://save.bad.json, starte neu.")
+		push_warning("Save file is broken, copy kept at user://save.bad.json, starting fresh.")
 		DirAccess.copy_absolute(_abs(path), _abs("user://save.bad.json"))
 		return
-	# Version 1 hiess die Währung «commits»: 1:1 in CHF übernehmen.
+	# In version 1 the currency was called «commits»: carried over 1:1 as CHF.
 	money = maxf(0.0, float(data.get("money", data.get("commits", 0.0))))
 	total_earned = maxf(money, float(data.get("total_earned", data.get("total_commits", 0.0))))
 	last_saved_at = float(data.get("saved_at", 0.0))
@@ -254,12 +258,21 @@ func load_game() -> void:
 	var lg: Variant = data.get("event_log", [])
 	if lg is Array:
 		for x: Variant in lg:
-			if x is Dictionary and x.has("text"):
-				event_log.append({"t": float(x.get("t", 0.0)), "clock": String(x.get("clock", "--:--")),
-					"text": String(x["text"])})
+			if not x is Dictionary:
+				continue
+			var e := {"t": float(x.get("t", 0.0)), "clock": String(x.get("clock", "--:--"))}
+			if x.has("title"):
+				e["title"] = String(x["title"])
+				e["label"] = String(x.get("label", ""))
+				e["auto"] = bool(x.get("auto", false))
+			elif x.has("text"):
+				e["text"] = String(x["text"])  # old format, shown as is
+			else:
+				continue
+			event_log.append(e)
 		if event_log.size() > LOG_MAX:
 			event_log.resize(LOG_MAX)
-	print("idle.exe: Spielstand geladen aus %s" % _abs(path))
+	print("idle.exe: save loaded from %s" % _abs(path))
 
 
 func _abs(path: String) -> String:

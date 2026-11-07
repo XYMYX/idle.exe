@@ -1,0 +1,154 @@
+keys,en,de
+Money: %s CHF  (+%s CHF/s),Money: %s CHF  (+%s CHF/s),Geld: %s CHF  (+%s CHF/s)
+Open terminal,Open terminal,Terminal öffnen
+Pause,Pause,Pause
+Reset strip,Reset strip,Leiste zurücksetzen
+Quit,Quit,Beenden
+CATEGORIES,CATEGORIES,KATEGORIEN
+[Show all],[Show all],[Alle zeigen]
+[Show affordable],[Show affordable],[Bezahlbare zeigen]
+[Next upgrade],[Next upgrade],[Nächstes Upgrade]
+[Back],[Back],[Zurück]
+Money: %s CHF,Money: %s CHF,Geld: %s CHF
+Income: %s CHF/s,Income: %s CHF/s,Einkommen: %s CHF/s
+Power %s / %s kW · Cooling %s / %s,Power %s / %s kW · Cooling %s / %s,Strom %s / %s kW · Kühlung %s / %s
+  [paused],  [paused],  [pausiert]
+! Event,! Event,! Ereignis
+Log,Log,Logbuch
+AFFORDABLE,AFFORDABLE,BEZAHLBAR
+Nothing is affordable right now.,Nothing is affordable right now.,Gerade ist nichts bezahlbar.
+%s  [LOCKED],%s  [LOCKED],%s  [GESPERRT]
+Requires: %s,Requires: %s,Benötigt: %s
+[-] hide bought,[-] hide bought,[-] gekaufte ausblenden
+[+] show %d bought,[+] show %d bought,[+] %d gekauft anzeigen
+... %d more tiers,... %d more tiers,... %d weitere Stufen
+All tiers bought.,All tiers bought.,Alle Stufen gekauft.
+locked,locked,gesperrt
+[BUY],[BUY],[KAUFEN]
+[BOUGHT],[BOUGHT],[GEKAUFT]
+[LOCKED],[LOCKED],[GESPERRT]
+[TOO EXPENSIVE],[TOO EXPENSIVE],[ZU TEUER]
+Cost: %s CHF,Cost: %s CHF,Kosten: %s CHF
+Effect: %s,Effect: %s,Effekt: %s
+EVENT,EVENT,EREIGNIS
+No event is pending right now.,No event is pending right now.,Gerade ist kein Ereignis offen.
+EVENT: %s,EVENT: %s,EREIGNIS: %s
+LOG,LOG,LOGBUCH
+No events yet.,No events yet.,Noch keine Ereignisse.
+ (automatic), (automatic), (automatisch)
+  (default),  (default),  (Standard)
+costs %s CHF,costs %s CHF,kostet %s CHF
+%s %s for %d min,%s %s for %d min,%s %s für %d min
+no effect,no effect,keine Wirkung
+Effects: %s,Effects: %s,Effekte: %s
+No choice in %s: %s,No choice in %s: %s,Ohne Wahl in %s: %s
+Not enough money,Not enough money,Zu wenig Geld
+missed,missed,verpasst
+%s kW power (free: %s),%s kW power (free: %s),%s kW Strom (frei: %s)
+%s cooling (free: %s),%s cooling (free: %s),%s Kühlleistung (frei: %s)
++%s CHF/s coding,+%s CHF/s coding,+%s CHF/s Coding
+Coding %s,Coding %s,Coding %s
++%s CHF/s storage,+%s CHF/s storage,+%s CHF/s Speicher
++%s CHF/s subscriptions,+%s CHF/s subscriptions,+%s CHF/s Abos
++%s CHF/s mining,+%s CHF/s mining,+%s CHF/s Mining
+Storage+subscriptions %s,Storage+subscriptions %s,Speicher+Abos %s
++%s kW power,+%s kW power,+%s kW Strom
++%s cooling,+%s cooling,+%s Kühlleistung
+%s heat,%s heat,%s Hitze
+needs %s,needs %s,braucht %s
+Hardware,Hardware,Hardware
+Cooling,Cooling,Kühlung
+Power,Power,Strom
+Storage,Storage,Speicher
+Network,Network,Netzwerk
+Software,Software,Software
+Mining,Mining,Mining
+PC,PC,PC
+CPU,CPU,CPU
+RAM,RAM,RAM
+GPU,GPU,GPU
+Monitors & more,Monitors & more,Monitore & Co.
+Server,Server,Server
+Products,Products,Produkte
+Gaming PC,Gaming PC,Gaming-PC
+Workstation,Workstation,Workstation
+CPU upgrade,CPU upgrade,CPU-Upgrade
+RAM stick,RAM stick,RAM-Riegel
+Mid-range GPU,Mid-range GPU,Mittelklasse-GPU
+High-end GPU,High-end GPU,High-End-GPU
+Mechanical keyboard,Mechanical keyboard,Mech. Tastatur
+Second monitor,Second monitor,Zweiter Monitor
+Third monitor,Third monitor,Dritter Monitor
+Monitor wall,Monitor wall,Monitorwand
+Home server,Home server,Heimserver
+Server rack,Server rack,Server-Rack
+Standing fan,Standing fan,Standventilator
+Water cooling,Water cooling,Wasserkühlung
+Air conditioning,Air conditioning,Klimaanlage
+Rack cooling,Rack cooling,Rack-Kühlung
+Custom cooling loop,Custom cooling loop,Eigener Kühlkreislauf
+Industrial cooling plant,Industrial cooling plant,Industrielle Kühlanlage
+Backup battery,Backup battery,Notstrombatterie
+Bigger power connection,Bigger power connection,Grösserer Stromanschluss
+Solar panels,Solar panels,Solaranlage
+Battery storage,Battery storage,Batteriespeicher
+Own power grid,Own power grid,Eigenes Energienetz
+NVMe SSD,NVMe SSD,NVMe-SSD
+SSD array,SSD array,SSD-Verbund
+NAS,NAS,NAS
+Storage server,Storage server,Storage-Server
+Own storage cloud,Own storage cloud,Eigene Speicher-Cloud
+Better router,Better router,Besserer Router
+Fiber connection,Fiber connection,Glasfaseranschluss
+Second internet line,Second internet line,Zweite Internetleitung
+Business leased line,Business leased line,Firmen-Standleitung
+Data center link,Data center link,Rechenzentrumsanbindung
+Small plugin,Small plugin,Kleines Plugin
+Desktop app,Desktop app,Desktop-App
+Subscription software,Subscription software,Abo-Software
+Developer platform,Developer platform,Entwicklerplattform
+Software ecosystem,Software ecosystem,Software-Ökosystem
+Single ASIC,Single ASIC,Einzelner ASIC
+ASIC shelf,ASIC shelf,ASIC-Regal
+Mining rack,Mining rack,Mining-Rack
+Mining container,Mining container,Mining-Container
+Mining farm,Mining farm,Mining-Farm
+Everything,Everything,Alles
+Coding,Coding,Coding
+Subscriptions,Subscriptions,Abos
+Viral!,Viral!,Viral!
+One of your products goes viral. The servers groan under the rush.,One of your products goes viral. The servers groan under the rush.,Eines deiner Produkte geht viral. Die Server ächzen unter dem Ansturm.
+Scale up the servers,Scale up the servers,Server hochfahren
+Throttle and wait,Throttle and wait,Drosseln und abwarten
+Broken update,Broken update,Fehlerhaftes Update
+An update takes down your subscribers. The support inbox overflows.,An update takes down your subscribers. The support inbox overflows.,Ein Update legt die Abo-Kunden lahm. Das Support-Postfach läuft über.
+Hotfix right now,Hotfix right now,Sofort Hotfix
+Fix it tomorrow,Fix it tomorrow,Morgen fixen
+Sponsor offer,Sponsor offer,Sponsor-Angebot
+A sponsor offers money but wants exclusivity for your subscriptions.,A sponsor offers money but wants exclusivity for your subscriptions.,"Ein Sponsor bietet Geld, verlangt aber Exklusivität für deine Abos."
+Accept,Accept,Annehmen
+Decline,Decline,Ablehnen
+Coffee machine broken,Coffee machine broken,Kaffeemaschine kaputt
+The coffee machine gives up. XYMYX stares sadly into his empty cup.,The coffee machine gives up. XYMYX stares sadly into his empty cup.,Die Kaffeemaschine gibt den Geist auf. XYMYX schaut traurig in die leere Tasse.
+Buy a new one,Buy a new one,Neue kaufen
+Drink tea,Drink tea,Tee trinken
+Power outage,Power outage,Stromausfall
+The power goes out in the whole neighbourhood.,The power goes out in the whole neighbourhood.,Im ganzen Quartier fällt der Strom aus.
+Backup power takes over,Backup power takes over,Notstrom übernimmt
+Wait it out,Wait it out,Abwarten
+Heatwave,Heatwave,Hitzewelle
+35 degrees outside. The hardware is running hot.,35 degrees outside. The hardware is running hot.,Draussen 35 Grad. Die Hardware läuft heiss.
+Turn the AC up to max,Turn the AC up to max,Klimaanlage voll aufdrehen
+Throttle performance,Throttle performance,Leistung drosseln
+CTF starting,CTF starting,CTF beginnt
+A capture-the-flag contest begins. Joining costs time but pays prize money.,A capture-the-flag contest begins. Joining costs time but pays prize money.,"Ein Capture-the-Flag-Wettbewerb startet. Mitmachen kostet Zeit, bringt aber Preisgeld."
+Join,Join,Mitmachen
+Not this time,Not this time,Diesmal nicht
+Vulnerability found,Vulnerability found,Sicherheitslücke gefunden
+You find a vulnerability in an authorized test environment.,You find a vulnerability in an authorized test environment.,In einer erlaubten Testumgebung findest du eine Lücke.
+Report it (bug bounty),Report it (bug bounty),Melden (Bug Bounty)
+Ignore it,Ignore it,Ignorieren
+RGB sale,RGB sale,RGB-Sale
+"An online shop is dumping RGB fans. More light, more power?","An online shop is dumping RGB fans. More light, more power?","Ein Online-Shop verschleudert RGB-Lüfter. Mehr Licht, mehr Leistung?"
+Grab them,Grab them,Zuschlagen
+Stay sensible,Stay sensible,Vernünftig bleiben

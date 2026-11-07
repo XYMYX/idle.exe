@@ -1,23 +1,23 @@
 class_name MouseWatch
 extends Node
-## Beobachtet NUR die Mausposition (DisplayServer.mouse_get_position, kein Hook,
-## keine Tasten) und meldet daraus einfache Ereignisse für XYMYX.
-## Prüft 10× pro Sekunde, das kostet praktisch nichts.
+## Watches ONLY the mouse position (DisplayServer.mouse_get_position, no hook,
+## no keys) and derives simple events for XYMYX from it.
+## Samples 10× per second, which costs practically nothing.
 
-signal away      # Maus seit AWAY_SEC unbewegt
-signal back      # Maus bewegt sich wieder
-signal startled  # schnelle Bewegung nahe bei XYMYX
-signal hovered   # Zeiger ruht HOVER_SEC lang auf XYMYX
-signal sampled(game_pos: Vector2)  # Zeigerposition in Spielpixeln (für Nachschauen)
+signal away      # mouse has not moved for AWAY_SEC
+signal back      # mouse moves again
+signal startled  # fast movement close to XYMYX
+signal hovered   # cursor rests on XYMYX for HOVER_SEC
+signal sampled(game_pos: Vector2)  # cursor position in game pixels (for looking after it)
 
 const SAMPLE_SEC := 0.1
-const AWAY_SEC := 600.0          # 10 Minuten
+const AWAY_SEC := 600.0          # 10 minutes
 const HOVER_SEC := 1.5
-const STARTLE_SPEED := 2500.0    # Bildschirm-Pixel pro Sekunde
-const STARTLE_RADIUS := 60.0     # Spielpixel um die Mitte der Figur
+const STARTLE_SPEED := 2500.0    # screen pixels per second
+const STARTLE_RADIUS := 60.0     # game pixels around the figure's center
 const STARTLE_COOLDOWN := 6.0
 
-## Von main gesetzt: Bildschirm-Pixel -> Spielpixel, Mittelpunkt der Figur, Treffer-Test.
+## Set by main: screen pixels -> game pixels, figure center, hit test.
 var to_game: Callable
 var figure_center: Callable
 var figure_hit: Callable

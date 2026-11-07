@@ -1,20 +1,20 @@
 class_name SpeechBubble
 extends Node2D
-## Sprechblase von XYMYX: weisses Kästchen mit schwarzem Rand und Zipfel zum Kopf,
-## darin ein 7×7-Pixel-Emote. Dazu frei schwebende «Z Z Z» beim Schlafen.
+## XYMYX's speech bubble: white box with a black outline and a tail towards the head,
+## containing a 7×7 pixel emote. Plus free-floating «Z Z Z» while sleeping.
 ##
-## Vorrang: kurzes Emote (flash) > offenes Ereignis (alert, wippt) > Zzz.
-## Zeichnet nur neu, wenn sich etwas ändert.
+## Priority: short emote (flash) > pending event (alert, bobbing) > Zzz.
+## Only redraws when something changes.
 
-const ZZZ_FPS := 1.5    # neues Z pro Sekunde (bis 3, dann von vorne)
-const ALERT_HZ := 2.0   # Wippen pro Sekunde beim offenen Ereignis
+const ZZZ_FPS := 1.5    # new Z per second (up to 3, then start over)
+const ALERT_HZ := 2.0   # bobs per second while an event is pending
 
-const BOX := Vector2(11, 11)   # Blase: 1 px Rand + 1 px Luft + 7 px Emote + 1 + 1
-const TAIL := [Vector2(1, 11), Vector2(2, 11), Vector2(0, 12)]  # Zipfel unten links, zeigt zum Kopf
+const BOX := Vector2(11, 11)   # bubble: 1 px border + 1 px padding + 7 px emote + 1 + 1
+const TAIL := [Vector2(1, 11), Vector2(2, 11), Vector2(0, 12)]  # tail at the bottom left, points to the head
 const C_LINE := Color.BLACK
 const C_FILL := Color.WHITE
 
-## Emotes 7×7: «#» = Pixel in der Farbe des Emotes.
+## Emotes 7×7: «#» = pixel in the emote's color.
 const EMOTES := {
 	"heart": {"c": Color.BLACK, "px": [
 		".##.##.",
@@ -24,7 +24,7 @@ const EMOTES := {
 		".#####.",
 		"..###..",
 		"...#..."]},
-	"angry": {"c": Color("#d62828"), "px": [  # Zornesader wie im Manga
+	"angry": {"c": Color("#d62828"), "px": [  # anger vein like in manga
 		".#...#.",
 		"##...##",
 		".......",
@@ -79,7 +79,7 @@ func _ready() -> void:
 	set_process(false)
 
 
-## Schlaf-Anzeige ein/aus.
+## Sleep indicator on/off.
 func set_zzz(on: bool) -> void:
 	_zzz = on
 	_zzz_t = 0.0
@@ -87,14 +87,14 @@ func set_zzz(on: bool) -> void:
 	_changed()
 
 
-## Offenes Ereignis: «!»-Blase, wippt, bleibt bis set_alert(false).
+## Pending event: «!» bubble, bobbing, stays until set_alert(false).
 func set_alert(on: bool) -> void:
 	_alert = on
 	_alert_up = true
 	_changed()
 
 
-## Emote kurz zeigen: heart, angry, note, dots, question, excl.
+## Show an emote briefly: heart, angry, note, dots, question, excl.
 func flash(emote: String, sec: float) -> void:
 	if not EMOTES.has(emote):
 		return
@@ -120,7 +120,7 @@ func _process(delta: float) -> void:
 			queue_redraw()
 	if _zzz:
 		_zzz_t += delta
-		var n := int(_zzz_t * ZZZ_FPS) % 4  # 0..3 Z sichtbar
+		var n := int(_zzz_t * ZZZ_FPS) % 4  # 0..3 Z visible
 		if n != _zzz_n:
 			_zzz_n = n
 			queue_redraw()
@@ -138,7 +138,7 @@ func _draw() -> void:
 	elif _alert:
 		_draw_bubble("excl", Vector2(0, 0 if _alert_up else 1))
 	elif _zzz:
-		for i in _zzz_n:  # steigen schräg nach rechts oben
+		for i in _zzz_n:  # rise diagonally up to the right
 			PixelFont.draw_text(self, "Z", Vector2(i * 4, 4 - i * 3))
 
 

@@ -1,136 +1,137 @@
 class_name Economy
 extends RefCounted
-## Alle Upgrades und die Wirtschafts-Rechnung. Reine Daten + statische Funktionen,
-## kein Zustand: der Spielstand (levels) wird jeweils übergeben.
+## All upgrades and the economy math. Pure data + static functions,
+## no state: the game state (levels) is passed in each time.
+## Names are English source strings; translations live in i18n/translations.csv.
 ##
-## Einkommen (CHF/s) =
-##     Coding   (BASE_CODE + Summe code_add) * Produkt code_mult
-##   + Speicher  Summe storage  * Netz-Multiplikator
-##   + Software  Summe software * Netz-Multiplikator
-##   + Mining    Summe mining
-## Maschinen brauchen Strom (kW) und erzeugen Hitze: Kauf nur, wenn genug
-## Stromanschluss (power_cap) und Kühlung (cool_cap) frei ist.
+## Income (CHF/s) =
+##     Coding    (BASE_CODE + sum code_add) * product code_mult
+##   + Storage   sum storage  * network multiplier
+##   + Software  sum software * network multiplier
+##   + Mining    sum mining
+## Machines need power (kW) and produce heat: buying is only possible if enough
+## power capacity (power_cap) and cooling (cool_cap) is free.
 
-const BASE_CODE := 1.0   # CHF/s mit dem alten Laptop
-const BASE_POWER := 1.5  # kW Hausanschluss
+const BASE_CODE := 1.0   # CHF/s with the old laptop
+const BASE_POWER := 1.5  # kW household connection
 const BASE_COOL := 0.0
 
-## Kategorien in Menü-Reihenfolge. requires = Upgrades, die man besitzen muss.
+## Categories in menu order. requires = upgrades you must own.
 const CATEGORIES := [
 	{"id": "hardware", "name": "Hardware", "requires": []},
-	{"id": "kuehlung", "name": "Kühlung", "requires": []},
-	{"id": "strom", "name": "Strom", "requires": []},
-	{"id": "speicher", "name": "Speicher", "requires": []},
-	{"id": "netzwerk", "name": "Netzwerk", "requires": ["ssd"]},
+	{"id": "cooling", "name": "Cooling", "requires": []},
+	{"id": "power", "name": "Power", "requires": []},
+	{"id": "storage", "name": "Storage", "requires": []},
+	{"id": "network", "name": "Network", "requires": ["ssd"]},
 	{"id": "software", "name": "Software", "requires": ["gaming_pc"]},
 	{"id": "mining", "name": "Mining", "requires": ["ups", "fan"]},
 ]
 
-## Upgrades. Innerhalb einer Linie (cat + line) ist die Reihenfolge die Ausbau-Reihenfolge:
-## eine Stufe ist erst kaufbar, wenn die vorherige gekauft ist.
-## cost = Preis (bei max > 1: cost * growth^Level)
-## fx   = Wirkung pro Level: code_add, code_mult, storage, software, mining, net_mult, power_cap, cool_cap
-## uses = Verbrauch pro Level: power (kW), heat
-## requires = zusätzliche Upgrades, die man besitzen muss
+## Upgrades. Within a line (cat + line) the order is the build order:
+## a tier can only be bought once the previous one is owned.
+## cost = price (if max > 1: cost * growth^level)
+## fx   = effect per level: code_add, code_mult, storage, software, mining, net_mult, power_cap, cool_cap
+## uses = consumption per level: power (kW), heat
+## requires = additional upgrades you must own
 const UPGRADES := [
 	# --- Hardware --------------------------------------------------------------
-	{"id": "gaming_pc", "cat": "hardware", "line": "PC", "name": "Gaming-PC", "cost": 2500.0,
+	{"id": "gaming_pc", "cat": "hardware", "line": "PC", "name": "Gaming PC", "cost": 2500.0,
 		"fx": {"code_mult": 2.0}},
 	{"id": "workstation", "cat": "hardware", "line": "PC", "name": "Workstation", "cost": 2.0e6,
 		"fx": {"code_mult": 2.0}, "uses": {"power": 1.0, "heat": 2.0}, "requires": ["water", "monitor_3"]},
-	{"id": "cpu", "cat": "hardware", "line": "CPU", "name": "CPU-Upgrade", "cost": 100.0, "growth": 1.6, "max": 25,
+	{"id": "cpu", "cat": "hardware", "line": "CPU", "name": "CPU upgrade", "cost": 100.0, "growth": 1.6, "max": 25,
 		"fx": {"code_mult": 1.05}},
-	{"id": "ram", "cat": "hardware", "line": "RAM", "name": "RAM-Riegel", "cost": 10.0, "growth": 1.15, "max": 999,
+	{"id": "ram", "cat": "hardware", "line": "RAM", "name": "RAM stick", "cost": 10.0, "growth": 1.15, "max": 999,
 		"fx": {"code_add": 0.5}},
-	{"id": "gpu_mid", "cat": "hardware", "line": "GPU", "name": "Mittelklasse-GPU", "cost": 8000.0,
+	{"id": "gpu_mid", "cat": "hardware", "line": "GPU", "name": "Mid-range GPU", "cost": 8000.0,
 		"fx": {"code_mult": 1.25}, "uses": {"power": 0.3, "heat": 1.0}, "requires": ["gaming_pc"]},
-	{"id": "gpu_high", "cat": "hardware", "line": "GPU", "name": "High-End-GPU", "cost": 300000.0,
+	{"id": "gpu_high", "cat": "hardware", "line": "GPU", "name": "High-end GPU", "cost": 300000.0,
 		"fx": {"code_mult": 1.5}, "uses": {"power": 0.5, "heat": 2.0}},
-	{"id": "keyboard", "cat": "hardware", "line": "Monitore & Co.", "name": "Mech. Tastatur", "cost": 50.0,
+	{"id": "keyboard", "cat": "hardware", "line": "Monitors & more", "name": "Mechanical keyboard", "cost": 50.0,
 		"fx": {"code_add": 2.0}},
-	{"id": "monitor_2", "cat": "hardware", "line": "Monitore & Co.", "name": "Zweiter Monitor", "cost": 500.0,
+	{"id": "monitor_2", "cat": "hardware", "line": "Monitors & more", "name": "Second monitor", "cost": 500.0,
 		"fx": {"code_mult": 1.2}},
-	{"id": "monitor_3", "cat": "hardware", "line": "Monitore & Co.", "name": "Dritter Monitor", "cost": 10000.0,
+	{"id": "monitor_3", "cat": "hardware", "line": "Monitors & more", "name": "Third monitor", "cost": 10000.0,
 		"fx": {"code_mult": 1.2}, "requires": ["gaming_pc"]},
-	{"id": "monitor_wall", "cat": "hardware", "line": "Monitore & Co.", "name": "Monitorwand", "cost": 5.0e6,
+	{"id": "monitor_wall", "cat": "hardware", "line": "Monitors & more", "name": "Monitor wall", "cost": 5.0e6,
 		"fx": {"code_mult": 1.5}, "uses": {"power": 0.5}, "requires": ["workstation"]},
-	{"id": "homeserver", "cat": "hardware", "line": "Server", "name": "Heimserver", "cost": 50000.0,
+	{"id": "homeserver", "cat": "hardware", "line": "Server", "name": "Home server", "cost": 50000.0,
 		"fx": {"code_mult": 1.25}, "uses": {"power": 0.5, "heat": 1.0}, "requires": ["gaming_pc"]},
-	{"id": "rack", "cat": "hardware", "line": "Server", "name": "Server-Rack", "cost": 250000.0,
+	{"id": "rack", "cat": "hardware", "line": "Server", "name": "Server rack", "cost": 250000.0,
 		"fx": {"code_mult": 2.0}, "uses": {"power": 2.0, "heat": 3.0}, "requires": ["water"]},
 
-	# --- Kühlung ---------------------------------------------------------------
-	{"id": "fan", "cat": "kuehlung", "line": "Kühlung", "name": "Standventilator", "cost": 300.0,
+	# --- Cooling ---------------------------------------------------------------
+	{"id": "fan", "cat": "cooling", "line": "Cooling", "name": "Standing fan", "cost": 300.0,
 		"fx": {"cool_cap": 2.0}},
-	{"id": "water", "cat": "kuehlung", "line": "Kühlung", "name": "Wasserkühlung", "cost": 40000.0,
+	{"id": "water", "cat": "cooling", "line": "Cooling", "name": "Water cooling", "cost": 40000.0,
 		"fx": {"cool_cap": 4.0, "code_mult": 1.5}, "requires": ["gaming_pc"]},
-	{"id": "ac", "cat": "kuehlung", "line": "Kühlung", "name": "Klimaanlage", "cost": 150000.0,
+	{"id": "ac", "cat": "cooling", "line": "Cooling", "name": "Air conditioning", "cost": 150000.0,
 		"fx": {"cool_cap": 10.0}},
-	{"id": "rack_cooling", "cat": "kuehlung", "line": "Kühlung", "name": "Rack-Kühlung", "cost": 3.0e6,
+	{"id": "rack_cooling", "cat": "cooling", "line": "Cooling", "name": "Rack cooling", "cost": 3.0e6,
 		"fx": {"cool_cap": 30.0}, "requires": ["rack"]},
-	{"id": "cool_loop", "cat": "kuehlung", "line": "Kühlung", "name": "Eigener Kühlkreislauf", "cost": 50.0e6,
+	{"id": "cool_loop", "cat": "cooling", "line": "Cooling", "name": "Custom cooling loop", "cost": 50.0e6,
 		"fx": {"cool_cap": 120.0}},
-	{"id": "industrial_cooling", "cat": "kuehlung", "line": "Kühlung", "name": "Industrielle Kühlanlage", "cost": 800.0e6,
+	{"id": "industrial_cooling", "cat": "cooling", "line": "Cooling", "name": "Industrial cooling plant", "cost": 800.0e6,
 		"fx": {"cool_cap": 500.0}},
 
-	# --- Strom -----------------------------------------------------------------
-	{"id": "ups", "cat": "strom", "line": "Strom", "name": "Notstrombatterie", "cost": 1000.0,
+	# --- Power -----------------------------------------------------------------
+	{"id": "ups", "cat": "power", "line": "Power", "name": "Backup battery", "cost": 1000.0,
 		"fx": {"power_cap": 1.0}},
-	{"id": "grid", "cat": "strom", "line": "Strom", "name": "Grösserer Stromanschluss", "cost": 60000.0,
+	{"id": "grid", "cat": "power", "line": "Power", "name": "Bigger power connection", "cost": 60000.0,
 		"fx": {"power_cap": 5.0}},
-	{"id": "solar", "cat": "strom", "line": "Strom", "name": "Solaranlage", "cost": 1.0e6,
+	{"id": "solar", "cat": "power", "line": "Power", "name": "Solar panels", "cost": 1.0e6,
 		"fx": {"power_cap": 15.0}},
-	{"id": "battery", "cat": "strom", "line": "Strom", "name": "Batteriespeicher", "cost": 20.0e6,
+	{"id": "battery", "cat": "power", "line": "Power", "name": "Battery storage", "cost": 20.0e6,
 		"fx": {"power_cap": 60.0}},
-	{"id": "own_grid", "cat": "strom", "line": "Strom", "name": "Eigenes Energienetz", "cost": 400.0e6,
+	{"id": "own_grid", "cat": "power", "line": "Power", "name": "Own power grid", "cost": 400.0e6,
 		"fx": {"power_cap": 300.0}},
 
-	# --- Speicher (Backups, vermieteter Speicher) ------------------------------
-	{"id": "ssd", "cat": "speicher", "line": "Speicher", "name": "NVMe-SSD", "cost": 800.0,
+	# --- Storage (backups, rented storage) -------------------------------------
+	{"id": "ssd", "cat": "storage", "line": "Storage", "name": "NVMe SSD", "cost": 800.0,
 		"fx": {"code_mult": 1.1}},
-	{"id": "ssd_raid", "cat": "speicher", "line": "Speicher", "name": "SSD-Verbund", "cost": 18000.0,
+	{"id": "ssd_raid", "cat": "storage", "line": "Storage", "name": "SSD array", "cost": 18000.0,
 		"fx": {"storage": 25.0}},
-	{"id": "nas", "cat": "speicher", "line": "Speicher", "name": "NAS", "cost": 200000.0,
+	{"id": "nas", "cat": "storage", "line": "Storage", "name": "NAS", "cost": 200000.0,
 		"fx": {"storage": 150.0}, "uses": {"power": 0.3, "heat": 0.5}, "requires": ["homeserver"]},
-	{"id": "storage_server", "cat": "speicher", "line": "Speicher", "name": "Storage-Server", "cost": 4.0e6,
+	{"id": "storage_server", "cat": "storage", "line": "Storage", "name": "Storage server", "cost": 4.0e6,
 		"fx": {"storage": 1500.0}, "uses": {"power": 3.0, "heat": 4.0}, "requires": ["rack", "fiber"]},
-	{"id": "storage_cloud", "cat": "speicher", "line": "Speicher", "name": "Eigene Speicher-Cloud", "cost": 80.0e6,
+	{"id": "storage_cloud", "cat": "storage", "line": "Storage", "name": "Own storage cloud", "cost": 80.0e6,
 		"fx": {"storage": 15000.0}, "uses": {"power": 20.0, "heat": 25.0}, "requires": ["line2"]},
 
-	# --- Netzwerk (mehr Hosting-Kunden: wirkt auf Speicher und Software) -------
-	{"id": "router", "cat": "netzwerk", "line": "Netzwerk", "name": "Besserer Router", "cost": 5000.0,
+	# --- Network (more hosting customers: boosts storage and software) ---------
+	{"id": "router", "cat": "network", "line": "Network", "name": "Better router", "cost": 5000.0,
 		"fx": {"net_mult": 1.25}},
-	{"id": "fiber", "cat": "netzwerk", "line": "Netzwerk", "name": "Glasfaseranschluss", "cost": 120000.0,
+	{"id": "fiber", "cat": "network", "line": "Network", "name": "Fiber connection", "cost": 120000.0,
 		"fx": {"net_mult": 1.5}},
-	{"id": "line2", "cat": "netzwerk", "line": "Netzwerk", "name": "Zweite Internetleitung", "cost": 2.0e6,
+	{"id": "line2", "cat": "network", "line": "Network", "name": "Second internet line", "cost": 2.0e6,
 		"fx": {"net_mult": 1.25}},
-	{"id": "leased", "cat": "netzwerk", "line": "Netzwerk", "name": "Firmen-Standleitung", "cost": 40.0e6,
+	{"id": "leased", "cat": "network", "line": "Network", "name": "Business leased line", "cost": 40.0e6,
 		"fx": {"net_mult": 1.5}},
-	{"id": "dc_link", "cat": "netzwerk", "line": "Netzwerk", "name": "Rechenzentrumsanbindung", "cost": 1.0e9,
+	{"id": "dc_link", "cat": "network", "line": "Network", "name": "Data center link", "cost": 1.0e9,
 		"fx": {"net_mult": 2.0}, "requires": ["storage_cloud"]},
 
-	# --- Software (eigene Produkte, Abos) --------------------------------------
-	{"id": "plugin", "cat": "software", "line": "Produkte", "name": "Kleines Plugin", "cost": 3000.0,
+	# --- Software (own products, subscriptions) --------------------------------
+	{"id": "plugin", "cat": "software", "line": "Products", "name": "Small plugin", "cost": 3000.0,
 		"fx": {"software": 5.0}},
-	{"id": "desktop_app", "cat": "software", "line": "Produkte", "name": "Desktop-App", "cost": 60000.0,
+	{"id": "desktop_app", "cat": "software", "line": "Products", "name": "Desktop app", "cost": 60000.0,
 		"fx": {"software": 50.0}},
-	{"id": "saas", "cat": "software", "line": "Produkte", "name": "Abo-Software", "cost": 1.0e6,
+	{"id": "saas", "cat": "software", "line": "Products", "name": "Subscription software", "cost": 1.0e6,
 		"fx": {"software": 450.0}, "requires": ["homeserver", "router"]},
-	{"id": "platform", "cat": "software", "line": "Produkte", "name": "Entwicklerplattform", "cost": 20.0e6,
+	{"id": "platform", "cat": "software", "line": "Products", "name": "Developer platform", "cost": 20.0e6,
 		"fx": {"software": 5000.0}, "requires": ["rack", "fiber"]},
-	{"id": "ecosystem", "cat": "software", "line": "Produkte", "name": "Software-Ökosystem", "cost": 500.0e6,
+	{"id": "ecosystem", "cat": "software", "line": "Products", "name": "Software ecosystem", "cost": 500.0e6,
 		"fx": {"software": 60000.0}, "requires": ["storage_cloud", "leased"]},
 
-	# --- Mining (eigene Geräte, der Coding-PC bleibt frei) ---------------------
-	{"id": "asic", "cat": "mining", "line": "Mining", "name": "Einzelner ASIC", "cost": 5000.0,
+	# --- Mining (dedicated devices, the coding PC stays free) ------------------
+	{"id": "asic", "cat": "mining", "line": "Mining", "name": "Single ASIC", "cost": 5000.0,
 		"fx": {"mining": 8.0}, "uses": {"power": 0.5, "heat": 1.0}},
-	{"id": "asic_shelf", "cat": "mining", "line": "Mining", "name": "ASIC-Regal", "cost": 100000.0,
+	{"id": "asic_shelf", "cat": "mining", "line": "Mining", "name": "ASIC shelf", "cost": 100000.0,
 		"fx": {"mining": 90.0}, "uses": {"power": 2.0, "heat": 3.0}},
-	{"id": "mining_rack", "cat": "mining", "line": "Mining", "name": "Mining-Rack", "cost": 2.0e6,
+	{"id": "mining_rack", "cat": "mining", "line": "Mining", "name": "Mining rack", "cost": 2.0e6,
 		"fx": {"mining": 1000.0}, "uses": {"power": 8.0, "heat": 10.0}, "requires": ["rack"]},
-	{"id": "mining_container", "cat": "mining", "line": "Mining", "name": "Mining-Container", "cost": 50.0e6,
+	{"id": "mining_container", "cat": "mining", "line": "Mining", "name": "Mining container", "cost": 50.0e6,
 		"fx": {"mining": 14000.0}, "uses": {"power": 40.0, "heat": 50.0}},
-	{"id": "mining_farm", "cat": "mining", "line": "Mining", "name": "Mining-Farm", "cost": 1.0e9,
+	{"id": "mining_farm", "cat": "mining", "line": "Mining", "name": "Mining farm", "cost": 1.0e9,
 		"fx": {"mining": 160000.0}, "uses": {"power": 250.0, "heat": 300.0}},
 ]
 
@@ -140,7 +141,7 @@ const FX_MULT := ["code_mult", "net_mult"]
 static var _index := {}
 
 
-# --- Nachschlagen -------------------------------------------------------------
+# --- Lookup -------------------------------------------------------------------
 
 static func get_def(id: String) -> Dictionary:
 	if _index.is_empty():
@@ -163,7 +164,7 @@ static func get_category(cat_id: String) -> Dictionary:
 	return {}
 
 
-## Linien einer Kategorie in Reihenfolge des ersten Auftretens.
+## Lines of a category in order of first appearance.
 static func lines(cat_id: String) -> Array[String]:
 	var out: Array[String] = []
 	for u: Dictionary in UPGRADES:
@@ -188,13 +189,19 @@ static func cost(u: Dictionary, level: int) -> float:
 	return float(u["cost"]) * pow(float(u.get("growth", 1.0)), level)
 
 
+## English source name (translate for display).
 static func name_of(id: String) -> String:
 	return get_def(id)["name"]
 
 
-# --- Rechnen ------------------------------------------------------------------
+## Translate a source string (static functions have no tr()).
+static func tx(text: String) -> String:
+	return String(TranslationServer.translate(text))
 
-## Summen aller Wirkungen und Verbräuche.
+
+# --- Math ---------------------------------------------------------------------
+
+## Sums of all effects and consumption.
 static func totals(levels: Dictionary) -> Dictionary:
 	var t := {"code_add": 0.0, "storage": 0.0, "software": 0.0, "mining": 0.0,
 		"power_cap": BASE_POWER, "cool_cap": BASE_COOL,
@@ -215,7 +222,7 @@ static func totals(levels: Dictionary) -> Dictionary:
 	return t
 
 
-## Einkommen pro Quelle und gesamt (CHF/s).
+## Income per source and in total (CHF/s).
 static func income(levels: Dictionary) -> Dictionary:
 	var t := totals(levels)
 	var code: float = (BASE_CODE + t["code_add"]) * t["code_mult"]
@@ -233,53 +240,53 @@ static func category_unlocked(cat_id: String, levels: Dictionary) -> bool:
 	return true
 
 
-## Fehlende Voraussetzungen (ohne Geld) als lesbare Texte. Leer = kaufbar, sobald bezahlbar.
-static func missing(u: Dictionary, levels: Dictionary, t: Dictionary = {}) -> Array[String]:
+## Missing requirements (not counting money) as translated, readable texts.
+## Empty = buyable as soon as affordable.
+static func missing(u: Dictionary, levels: Dictionary, totals_now: Dictionary = {}) -> Array[String]:
 	var out: Array[String] = []
 	if not category_unlocked(u["cat"], levels):
 		for req: String in get_category(u["cat"])["requires"]:
 			if levels.get(req, 0) <= 0:
-				out.append(name_of(req))
-	# Vorherige Stufe derselben Linie
+				out.append(tx(name_of(req)))
+	# Previous tier of the same line
 	var items := line_items(u["cat"], u["line"])
 	var i := items.find(u)
 	if i > 0 and max_level(items[i - 1]) == 1 and levels.get(items[i - 1]["id"], 0) <= 0:
-		var prev: String = items[i - 1]["name"]
+		var prev := tx(items[i - 1]["name"])
 		if not out.has(prev):
 			out.append(prev)
 	for req: String in u.get("requires", []):
-		if levels.get(req, 0) <= 0 and not out.has(name_of(req)):
-			out.append(name_of(req))
-	# Strom und Kühlung
-	if t.is_empty():
-		t = totals(levels)
+		if levels.get(req, 0) <= 0 and not out.has(tx(name_of(req))):
+			out.append(tx(name_of(req)))
+	# Power and cooling
+	var tot := totals_now if not totals_now.is_empty() else totals(levels)
 	var uses: Dictionary = u.get("uses", {})
 	var need_p := float(uses.get("power", 0.0))
-	var free_p: float = t["power_cap"] - t["power"]
+	var free_p: float = tot["power_cap"] - tot["power"]
 	if need_p > 0.0 and need_p > free_p + 0.0001:
-		out.append("%s kW Strom (frei: %s)" % [_num(need_p), _num(maxf(free_p, 0.0))])
+		out.append(tx("%s kW power (free: %s)") % [_num(need_p), _num(maxf(free_p, 0.0))])
 	var need_h := float(uses.get("heat", 0.0))
-	var free_h: float = t["cool_cap"] - t["heat"]
+	var free_h: float = tot["cool_cap"] - tot["heat"]
 	if need_h > 0.0 and need_h > free_h + 0.0001:
-		out.append("%s Kühlleistung (frei: %s)" % [_num(need_h), _num(maxf(free_h, 0.0))])
+		out.append(tx("%s cooling (free: %s)") % [_num(need_h), _num(maxf(free_h, 0.0))])
 	return out
 
 
-## Wirkung als Text, z. B. «Coding x1.5, +40 CHF/s Speicher · braucht 2 kW, 3 Kühlung».
+## Translated effect text, e.g. «Coding x1.5, +40 CHF/s storage · needs 2 kW, 3 heat».
 static func effect_text(u: Dictionary) -> String:
 	var parts: Array[String] = []
 	var fx: Dictionary = u.get("fx", {})
 	for k: String in fx:
 		var v := float(fx[k])
 		match k:
-			"code_add": parts.append("+%s CHF/s Coding" % BigNum.format_rate(v))
-			"code_mult": parts.append("Coding %s" % _mult(v))
-			"storage": parts.append("+%s CHF/s Speicher" % BigNum.format_chf(v))
-			"software": parts.append("+%s CHF/s Abos" % BigNum.format_chf(v))
-			"mining": parts.append("+%s CHF/s Mining" % BigNum.format_chf(v))
-			"net_mult": parts.append("Speicher+Abos %s" % _mult(v))
-			"power_cap": parts.append("+%s kW Strom" % _num(v))
-			"cool_cap": parts.append("+%s Kühlleistung" % _num(v))
+			"code_add": parts.append(tx("+%s CHF/s coding") % BigNum.format_rate(v))
+			"code_mult": parts.append(tx("Coding %s") % _mult(v))
+			"storage": parts.append(tx("+%s CHF/s storage") % BigNum.format_chf(v))
+			"software": parts.append(tx("+%s CHF/s subscriptions") % BigNum.format_chf(v))
+			"mining": parts.append(tx("+%s CHF/s mining") % BigNum.format_chf(v))
+			"net_mult": parts.append(tx("Storage+subscriptions %s") % _mult(v))
+			"power_cap": parts.append(tx("+%s kW power") % _num(v))
+			"cool_cap": parts.append(tx("+%s cooling") % _num(v))
 	var text := ", ".join(parts)
 	var uses: Dictionary = u.get("uses", {})
 	if not uses.is_empty():
@@ -287,8 +294,8 @@ static func effect_text(u: Dictionary) -> String:
 		if uses.has("power"):
 			u_parts.append("%s kW" % _num(uses["power"]))
 		if uses.has("heat"):
-			u_parts.append("%s Hitze" % _num(uses["heat"]))
-		text += " · braucht " + ", ".join(u_parts)
+			u_parts.append(tx("%s heat") % _num(uses["heat"]))
+		text += " · " + tx("needs %s") % ", ".join(u_parts)
 	return text
 
 

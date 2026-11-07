@@ -1,17 +1,17 @@
 extends SceneTree
-## Erzeugt Start-Sprites (Seitenansicht, XYMYX schaut nach rechts).
-## Aufruf: godot --headless --path . -s tools/make_sprites.gd
-## Ausgabe: tools/generated/xymyx_walk.png, art/xymyx_sit.png, art/desk_laptop.png
-## und 8×-Vorschauen auf grauem Grund in tools/preview/.
+## Generates starter sprites (side view, XYMYX facing right).
+## Usage: godot --headless --path . -s tools/make_sprites.gd
+## Output: tools/generated/xymyx_walk.png, art/xymyx_sit.png, art/desk_laptop.png
+## and 8× previews on a grey background in tools/preview/.
 
-const S := 48          # Figur-Frame 48×48
+const S := 48          # figure frame 48×48
 const DESK := Vector2i(61, 48)
 
 # Palette
-const OUT := Color("#d6d9ee")   # heller Lichtrand (Pflicht für dunkle Desktops)
-const BODY := Color("#121218")  # glänzend schwarz
-const SHINE := Color("#4b4b63") # Glanzlicht oben
-const RIM := Color("#2c2c3a")   # Glanz vorne
+const OUT := Color("#d6d9ee")   # light rim (required for dark desktops)
+const BODY := Color("#121218")  # glossy black
+const SHINE := Color("#4b4b63") # highlight on top
+const RIM := Color("#2c2c3a")   # highlight at the front
 const JOINT := Color("#7a7a92")
 const JOINT_HI := Color("#a8a8c0")
 const MECH := Color("#3a3a48")
@@ -25,7 +25,7 @@ func _init() -> void:
 	_sheet("xymyx_walk", [_walk(0), _walk(1), _walk(2), _walk(3)])
 	_sheet("xymyx_sit", [_sit(0), _sit(1)])
 	_sheet("desk_laptop", [_desk()])
-	print("Sprites geschrieben nach res://tools/generated/ (art/ bleibt unberührt)")
+	print("Sprites written to res://tools/generated/ (art/ stays untouched)")
 	quit()
 
 
@@ -55,7 +55,7 @@ func _walk(f: int) -> Image:
 	return img
 
 
-## Sitzend auf dem Stuhl im Desk-Sprite, Hände auf der Laptop-Tastatur.
+## Sitting on the chair in the desk sprite, hands on the laptop keyboard.
 func _sit(f: int) -> Image:
 	var hip := Vector2i(22, 30)
 	var sh := Vector2i(23, 18)
@@ -69,37 +69,37 @@ func _sit(f: int) -> Image:
 	return img
 
 
-## Kopf, Hals, Oberkörper. Rückgabe: {mask, joints}
+## Head, neck, torso. Returns: {mask, joints}
 func _body(hip: Vector2i, sh: Vector2i) -> Dictionary:
 	var m := {}
 	var top := sh.y - 12
 	var c := sh.x
-	# Kopf: glatte Kugel, leicht nach vorne
+	# Head: smooth sphere, tilted slightly forward
 	for y in range(top, top + 10):
 		for x in range(c - 5, c + 7):
 			var dx := (x - (c + 0.7)) / 4.7
 			var dy := (y - (top + 4.6)) / 5.0
 			if dx * dx + dy * dy <= 1.0:
 				m[Vector2i(x, y)] = BODY
-	# Kinn/Kiefer vorne
+	# chin/jaw at the front
 	m[Vector2i(c + 3, top + 9)] = BODY
-	# Hals: sichtbare Mechanik (Kabel/Kolben)
+	# Neck: visible mechanics (cables/pistons)
 	for y in range(top + 9, sh.y + 1):
 		m[Vector2i(c - 1, y)] = MECH
 		m[Vector2i(c, y)] = JOINT
 		m[Vector2i(c + 1, y)] = MECH
-	# Oberkörper: breite Brust, schmale Taille, Hüfte
+	# Torso: broad chest, narrow waist, hips
 	for y in range(sh.y, hip.y + 1):
 		var x0 := c - 3
 		var x1 := c + 3
 		if y >= sh.y + 1 and y <= sh.y + 5:
-			x1 = c + 4  # Brust
+			x1 = c + 4  # chest
 		elif y >= sh.y + 7 and y < hip.y - 1:
-			x0 = c - 2  # Taille
+			x0 = c - 2  # waist
 			x1 = c + 2
 		for x in range(x0, x1 + 1):
 			m[Vector2i(x, y)] = BODY
-	# Naht Brustmitte (dezent)
+	# seam in the middle of the chest (subtle)
 	for y in range(sh.y + 1, sh.y + 7):
 		m[Vector2i(c + 2, y)] = RIM
 	return {"mask": m, "joints": []}
@@ -109,7 +109,7 @@ func _arm(sh: Vector2i, hand: Vector2i) -> Dictionary:
 	var elbow := Vector2i(roundi(lerpf(sh.x, hand.x, 0.5)) + 1, roundi(lerpf(sh.y, hand.y, 0.55)))
 	var m := {}
 	_stroke(m, [sh, elbow, hand], 1)
-	m[hand + Vector2i(1, 0)] = BODY  # Hand
+	m[hand + Vector2i(1, 0)] = BODY  # hand
 	m[hand + Vector2i(1, 1)] = BODY
 	return {"mask": m, "joints": [sh, elbow]}
 
@@ -117,7 +117,7 @@ func _arm(sh: Vector2i, hand: Vector2i) -> Dictionary:
 func _leg(hip: Vector2i, knee: Vector2i, foot: Vector2i) -> Dictionary:
 	var m := {}
 	_stroke(m, [hip, knee, foot], 1)
-	for dx in range(-1, 4):  # Fuss nach vorne
+	for dx in range(-1, 4):  # foot pointing forward
 		m[foot + Vector2i(dx, 1)] = BODY
 	return {"mask": m, "joints": [knee, foot + Vector2i(-1, -1)]}
 
@@ -127,12 +127,12 @@ func _face(img: Image, sh: Vector2i) -> void:
 	var eye := Vector2i(sh.x + 3, top + 4)
 	img.set_pixelv(eye, EYE)
 	img.set_pixelv(eye + Vector2i(1, 0), EYE)
-	img.set_pixelv(eye + Vector2i(2, 0), GLOW)  # Leuchten nach vorne
+	img.set_pixelv(eye + Vector2i(2, 0), GLOW)  # glow towards the front
 	img.set_pixelv(eye + Vector2i(0, 1), GLOW)
 
 
-## Malt eine Ebene: Lichtrand, Füllung, Glanz oben/vorne, Gelenkscheiben.
-## soft = Rand nicht über schon gemalte Teile (Arme vor dem Körper).
+## Paints one layer: light rim, fill, highlight top/front, joint discs.
+## soft = no rim over already painted parts (arms in front of the body).
 func _layer(img: Image, part: Dictionary, soft: bool) -> void:
 	var m: Dictionary = part["mask"]
 	for p: Vector2i in m:
@@ -167,11 +167,11 @@ func _stroke(m: Dictionary, pts: Array, r: int) -> void:
 						m[p + Vector2i(dx, dy)] = BODY
 
 
-# --- Desk mit Start-Setup -----------------------------------------------------
+# --- Desk with the starter setup ---------------------------------------------
 
 func _desk() -> Image:
 	var img := _blank(DESK)
-	# Stuhl (Gaming-Stuhl, dunkles Lila)
+	# Chair (gaming chair, dark purple)
 	var chair := Color("#2b1d3a")
 	var chair_hi := Color("#4a3366")
 	_rect(img, Rect2i(1, 14, 4, 17), chair)
@@ -183,7 +183,7 @@ func _desk() -> Image:
 	for x in [2, 13]:
 		_rect(img, Rect2i(x - 1, 45, 2, 2), Color("#111114"))
 
-	# Tisch (Holz) mit Lila-LED-Streifen
+	# Table (wood) with a purple LED strip
 	var wood := Color("#6b4428")
 	_rect(img, Rect2i(13, 31, 3, 16), Color("#4a2e1b"))
 	_rect(img, Rect2i(55, 31, 3, 16), Color("#4a2e1b"))
@@ -192,7 +192,7 @@ func _desk() -> Image:
 	_rect(img, Rect2i(16, 31, 39, 1), Color("#9b4dff"))
 	_rect(img, Rect2i(18, 32, 35, 1), Color("#4a2577"))
 
-	# Alter Laptop: Unterteil mit Tasten, Bildschirm mit grünem Code
+	# Old laptop: base with keys, screen with green code
 	_rect(img, Rect2i(18, 26, 28, 2), Color("#3a3a46"))
 	for x in range(19, 33, 2):
 		_px(img, Vector2i(x, 26), Color("#6a6a7a"))
@@ -203,16 +203,16 @@ func _desk() -> Image:
 		var y: int = 13 + i * 2
 		var x0: int = 32 + code[i][0]
 		_rect(img, Rect2i(x0, y, code[i][1], 1), Color("#3cff7a") if i % 2 == 0 else Color("#2aa858"))
-	_px(img, Vector2i(37, 23), Color("#3cff7a"))  # Cursor
+	_px(img, Vector2i(37, 23), Color("#3cff7a"))  # cursor
 
-	# Tasse mit Dampf
+	# Cup with steam
 	_rect(img, Rect2i(47, 23, 4, 5), Color("#e8e0d0"))
 	_rect(img, Rect2i(47, 23, 4, 1), Color("#5a3a20"))
 	_rect(img, Rect2i(51, 24, 1, 3), Color("#e8e0d0"))
 	for p in [Vector2i(48, 21), Vector2i(49, 20), Vector2i(48, 19)]:
 		_px(img, p, Color("#8a8a98"))
 
-	# Pflanze
+	# Plant
 	_rect(img, Rect2i(54, 24, 5, 4), Color("#a0522d"))
 	_rect(img, Rect2i(54, 24, 5, 1), Color("#c06a3a"))
 	for p in [Vector2i(56, 23), Vector2i(56, 22), Vector2i(55, 21), Vector2i(57, 21), Vector2i(54, 20),
@@ -225,7 +225,7 @@ func _desk() -> Image:
 	return img
 
 
-## Heller Rand um alles Sichtbare (nur aussen).
+## Light rim around everything visible (outside only).
 func _outline(img: Image) -> void:
 	var edge: Array[Vector2i] = []
 	for y in img.get_height():
@@ -242,7 +242,7 @@ func _outline(img: Image) -> void:
 		img.set_pixelv(p, OUT)
 
 
-# --- Hilfen -----------------------------------------------------------------
+# --- Helpers ----------------------------------------------------------------
 
 func _blank(size: Vector2i) -> Image:
 	var img := Image.create_empty(size.x, size.y, false, Image.FORMAT_RGBA8)

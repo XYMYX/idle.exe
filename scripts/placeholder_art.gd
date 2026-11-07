@@ -1,13 +1,13 @@
 class_name PlaceholderArt
 extends RefCounted
-## Lädt Sprite-Sheets aus res://art/ oder erzeugt Platzhalter,
-## solange die echten Grafiken fehlen.
+## Loads sprite sheets from res://art/ or creates placeholders
+## while the real graphics are missing.
 
 const SIZE := 48
 
 
-## Liefert die Frames eines horizontalen Sprite-Sheets (32×32 pro Frame).
-## Fehlt die Datei, werden Platzhalter-Frames erzeugt.
+## Returns the frames of a horizontal sprite sheet (SIZE×SIZE per frame).
+## If the file is missing, the fallback frames are returned.
 static func load_frames(path: String, fallback: Array[Texture2D]) -> Array[Texture2D]:
 	if not ResourceLoader.exists(path):
 		return fallback
@@ -21,8 +21,8 @@ static func load_frames(path: String, fallback: Array[Texture2D]) -> Array[Textu
 	return frames
 
 
-## Schwarzes Quadrat mit weissem 1-px-Umriss und zwei weissen Augen-Pixeln.
-## bob verschiebt den Körper um n Pixel nach unten (Wipp-Bewegung).
+## Black square with a white 1 px outline and two white eye pixels.
+## bob moves the body down by n pixels (bobbing motion).
 static func box(eye_a: Vector2i, eye_b: Vector2i, bob: int = 0) -> Texture2D:
 	var img := Image.create_empty(SIZE, SIZE, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
@@ -34,12 +34,12 @@ static func box(eye_a: Vector2i, eye_b: Vector2i, bob: int = 0) -> Texture2D:
 
 
 static func sit_frames() -> Array[Texture2D]:
-	# Blick nach rechts unten auf den Laptop, wippt beim Tippen
+	# Looking down-right at the laptop, bobbing while typing
 	return [box(Vector2i(20, 9), Vector2i(25, 9)), box(Vector2i(21, 10), Vector2i(26, 10), 1)]
 
 
 static func walk_frames() -> Array[Texture2D]:
-	# Blick nach rechts, wippt beim Laufen
+	# Looking right, bobbing while walking
 	var up := box(Vector2i(19, 8), Vector2i(24, 8))
 	var down := box(Vector2i(19, 8), Vector2i(24, 8), 1)
 	return [up, down, up, down]

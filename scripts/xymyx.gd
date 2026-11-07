@@ -1,31 +1,31 @@
 class_name Xymyx
 extends AnimatedSprite2D
-## XYMYX: sitzt am Desk und tippt, macht kleine Pausen-Animationen,
-## läuft ab und zu herum, reagiert auf Ereignisse und schraubt nach Käufen.
-## Kann mit der Maus gepackt, herumgetragen und fallen gelassen werden.
+## XYMYX: sits at the desk and types, plays small idle animations,
+## walks around now and then, reacts to events and tinkers after purchases.
+## Can be picked up with the mouse, carried around and dropped.
 
 signal moved
-signal chair_taken(taken: bool)  # true = Stuhl steckt im Roll-Sprite, Desk blendet seinen aus
-signal repair_started            # Desk lässt das gekaufte Teil aufblinken
-signal landed                    # nach dem Fallenlassen wieder auf dem Boden
+signal chair_taken(taken: bool)  # true = the chair is part of the roll sprite, the desk hides its own
+signal repair_started            # the desk flashes the purchased part
+signal landed                    # back on the ground after being dropped
 
 enum State { SITTING, WALKING_OUT, STANDING, WALKING_HOME, WALKING_TO_REPAIR, ACTION,
 	GRABBED, FALLING, LANDING, SLEEPING }
 
-const WALK_SPEED := 18.0                     # Spielpixel pro Sekunde
-const SIT_TIME := Vector2(25.0, 70.0)        # Sekunden am Desk bis zum Spaziergang
-const STAND_TIME := Vector2(2.0, 5.0)        # Pause unterwegs
-const IDLE_ACTION_TIME := Vector2(12.0, 30.0) # Abstand der Pausen-Animationen beim Tippen
+const WALK_SPEED := 18.0                     # game pixels per second
+const SIT_TIME := Vector2(25.0, 70.0)        # seconds at the desk before a walk
+const STAND_TIME := Vector2(2.0, 5.0)        # pause while out walking
+const IDLE_ACTION_TIME := Vector2(12.0, 30.0) # gap between idle animations while typing
 const MIN_WALK := 40.0
 const REPAIR_SEC := 2.5
 const ROLL_DIST := 12.0
 const ROLL_SPEED := 16.0
-const GRAVITY := 600.0       # Spielpixel pro Sekunde²
-const MAX_THROW := 250.0     # höchstes Wurf-Tempo (Spielpixel pro Sekunde)
-const FRONT_CHANCE := 0.5    # Anteil der Steh-Pausen mit Blick zum User
+const GRAVITY := 600.0       # game pixels per second²
+const MAX_THROW := 250.0     # highest throw speed (game pixels per second)
+const FRONT_CHANCE := 0.5    # share of standing pauses with a look at the user
 
-## Sonder-Animationen aus art/xymyx_<name>.png: Tempo und Frame-Folge (Indizes im Sheet).
-## Fehlt eine Datei, wird die Animation einfach übersprungen.
+## Special animations from art/xymyx_<name>.png: speed and frame sequence (indices in the sheet).
+## If a file is missing, the animation is simply skipped.
 const ACTIONS := {
 	"cheer": {"fps": 8.0, "seq": [0, 1, 2, 3, 2, 3, 2, 3, 2, 1, 0]},
 	"stretch": {"fps": 4.0, "seq": [0, 1, 2, 3, 3, 3, 2, 1, 0]},
@@ -33,39 +33,39 @@ const ACTIONS := {
 	"drink": {"fps": 4.0, "seq": [0, 1, 2, 3, 3, 3, 2, 1, 0]},
 	"roll": {"fps": 6.0, "seq": [0, 1, 2, 3], "loop": true},
 	"repair": {"fps": 8.0, "seq": [0, 1, 2, 3], "loop": true},
-	# Frontansicht: sitzend kurz zum User schauen / stehend umdrehen, blinzeln, winken
+	# Front view: seated quick look at the user / standing turn around, blink, wave
 	"look": {"fps": 4.0, "seq": [0, 1, 1, 2, 1, 1, 1, 0]},
 	"front": {"fps": 4.0, "seq": [0, 1, 1, 2, 1, 3, 3, 1, 0]},
-	# Gepackt (zappelt, schaut zum User), Fallen, Landen
+	# Grabbed (wriggles, looks at the user), falling, landing
 	"dangle": {"fps": 6.0, "seq": [0, 1, 2, 3], "loop": true},
 	"fall": {"fps": 8.0, "seq": [0, 1], "loop": true},
 	"land": {"fps": 8.0, "seq": [0, 1, 2, 3]},
-	# Maus-Reaktionen (optional): am Desk einschlafen, zusammenzucken
+	# Mouse reactions (optional): fall asleep at the desk, flinch
 	"sleep": {"fps": 2.0, "seq": [0, 1, 2, 3], "loop": true},
 	"startle": {"fps": 8.0, "seq": [0, 1, 2, 2, 1, 0]},
 }
-const BUBBLE_POS := Vector2(32, -8)  # Sprechblase vor/über dem Gesicht (relativ zur Sprite-Ecke)
-## Ab und zu ein Emote beim Tippen (Gewichte) und wie lange es steht
+const BUBBLE_POS := Vector2(32, -8)  # speech bubble in front of/above the face (relative to the sprite corner)
+## Occasional emote while typing (weights) and how long it stays
 const IDLE_EMOTES := {"note": 4, "dots": 3, "heart": 2, "angry": 1}
 const IDLE_EMOTE_TIME := Vector2(45.0, 120.0)
 const EMOTE_SEC := 3.0
-## Reaktion -> Emote (nach Ereignissen, Meilensteinen)
+## Reaction -> emote (after events, milestones)
 const REACT_EMOTES := {"cheer": "heart", "headdesk": "angry", "drink": "heart", "stretch": "dots"}
-const HARD_LANDING := 300.0  # ab diesem Fall-Tempo ist er sauer
-## Klick-Sprünge: jeder Klick innerhalb von COMBO_SEC erhöht die Stufe (Höhe in Spielpixeln).
-## Bis TWEEN_MAX bleibt es ein kleiner Hüpfer in der Leiste (er tippt weiter),
-## darüber springt er wirklich (Tragefenster, kann über die Leiste hinaus).
+const HARD_LANDING := 300.0  # from this fall speed on he gets angry
+## Click jumps: every click within COMBO_SEC raises the level (height in game pixels).
+## Up to TWEEN_MAX it stays a small hop inside the strip (he keeps typing),
+## above that he really jumps (carry window, can go above the strip).
 const JUMP_HEIGHTS := [4.0, 10.0, 18.0, 30.0, 45.0, 65.0, 90.0]
 const COMBO_SEC := 1.2
 const TWEEN_MAX := 8.0
-## Zufällige Pausen beim Tippen mit Gewicht (headdesk später durch Bug-Ereignisse)
+## Random pauses while typing, weighted (headdesk later via bug events)
 const IDLE_ACTIONS := {"stretch": 3, "drink": 3, "roll": 1, "headdesk": 1, "look": 3}
 
 var home_x := 0.0
 var repair_x := 0.0
 var min_x := 0.0
 var max_x := 0.0
-var floor_y := 0.0  # y-Position auf dem Boden (oberer Sprite-Rand)
+var floor_y := 0.0  # y position on the floor (top edge of the sprite)
 var paused := false:
 	set(value):
 		paused = value
@@ -86,8 +86,8 @@ var _fall_pos := Vector2.ZERO
 var _vel := Vector2.ZERO
 var _combo := -1
 var _last_click_ms := -100000
-var _image_cache := {}  # Textur -> Image, für die pixelgenaue Treffer-Prüfung
-var _sleepy := false    # User weg: beim nächsten Hinsetzen einschlafen
+var _image_cache := {}  # texture -> Image, for the pixel-exact hit test
+var _sleepy := false    # user away: fall asleep the next time he sits down
 var _emote_timer := 60.0
 var _bubble: SpeechBubble
 
@@ -158,9 +158,9 @@ func _process(delta: float) -> void:
 					_walk_to(home_x, State.WALKING_HOME)
 
 
-# --- Öffentlich ---------------------------------------------------------------
+# --- Public -------------------------------------------------------------------
 
-## Sitz-Reaktion (cheer, headdesk, ...). Nur wenn er gerade am Desk sitzt.
+## Seated reaction (cheer, headdesk, ...). Only while he sits at the desk.
 func react(anim: String) -> void:
 	if REACT_EMOTES.has(anim):
 		emote(REACT_EMOTES[anim])
@@ -168,7 +168,7 @@ func react(anim: String) -> void:
 		_play_action(anim)
 
 
-## Emote in der Sprechblase zeigen (heart, angry, note, dots, question, excl).
+## Show an emote in the speech bubble (heart, angry, note, dots, question, excl).
 func emote(kind: String, sec := EMOTE_SEC) -> void:
 	_bubble.flash(kind, sec)
 
@@ -188,7 +188,7 @@ func _random_emote() -> void:
 			return
 
 
-## Nach einem Kauf: zum PC laufen, knien, schrauben. Mehrere Käufe verlängern nur.
+## After a purchase: walk to the PC, kneel, tinker. Several purchases just extend it.
 func start_repair() -> void:
 	if not sprite_frames.has_animation("repair"):
 		return
@@ -201,7 +201,7 @@ func start_repair() -> void:
 	_walk_to(repair_x, State.WALKING_TO_REPAIR)
 
 
-## Liegt der Punkt (Spielpixel) auf einem sichtbaren Pixel der Figur?
+## Is the point (game pixels) on a visible pixel of the figure?
 func hit(p: Vector2) -> bool:
 	var tex := sprite_frames.get_frame_texture(animation, frame)
 	if tex == null:
@@ -221,15 +221,15 @@ func can_grab() -> bool:
 	return not paused
 
 
-## User ist weg (Maus lange unbewegt): am Desk einschlafen. Ist er unterwegs,
-## schläft er ein, sobald er wieder sitzt.
+## User is away (mouse idle for long): fall asleep at the desk. If he is out walking,
+## he falls asleep as soon as he sits down again.
 func fall_asleep() -> void:
 	_sleepy = true
 	if _state == State.SITTING:
 		_sleep()
 
 
-## User ist zurück: aufwachen und strecken.
+## User is back: wake up and stretch.
 func wake_up() -> void:
 	_sleepy = false
 	if _state != State.SLEEPING:
@@ -242,12 +242,12 @@ func wake_up() -> void:
 		_sit()
 
 
-## Offenes Ereignis: blinkendes «!» über dem Kopf.
+## Pending event: «!» bubble above the head.
 func set_alert(on: bool) -> void:
 	_bubble.set_alert(on)
 
 
-## Schnelle Maus nahe bei ihm: zusammenzucken, «!».
+## Fast mouse close to him: flinch, «!».
 func startle() -> void:
 	if _state == State.SLEEPING:
 		wake_up()
@@ -260,7 +260,7 @@ func startle() -> void:
 		_flinch()
 
 
-## Zeiger ruht auf ihm: zum User schauen.
+## Cursor rests on him: look at the user.
 func notice() -> void:
 	if _state == State.SITTING or _state == State.STANDING:
 		emote("heart", 2.5)
@@ -276,7 +276,7 @@ func notice() -> void:
 				_timer = maxf(_timer, n / sprite_frames.get_animation_speed("front") + 0.5)
 
 
-## Beim Stehen zum Mauszeiger drehen (nur seitlich, Sprites schauen nach rechts).
+## While standing, turn towards the cursor (sideways only, sprites face right).
 func face_toward(game_x: float) -> void:
 	if _state == State.STANDING and animation != "front":
 		var want := game_x < position.x + 24.0
@@ -284,12 +284,12 @@ func face_toward(game_x: float) -> void:
 			flip_h = want
 
 
-## Getragen oder im Fall: wird dann im Tragefenster gezeigt, nicht in der Leiste.
+## Carried or falling: shown in the carry window instead of the strip.
 func is_airborne() -> bool:
 	return _state == State.GRABBED or _state == State.FALLING
 
 
-## Desk wurde verschoben: neue Sitz- und Schraub-Position. Sitzt er, wandert er mit.
+## The desk was moved: new sitting and repair position. If he is sitting, he moves along.
 func set_home(home: float, repair: float) -> void:
 	var dx := home - home_x
 	home_x = home
@@ -305,7 +305,7 @@ func set_home(home: float, repair: float) -> void:
 			_target_x = repair
 
 
-## Gepackt: zappeln und zum User schauen. Laufende Aktionen werden abgebrochen.
+## Grabbed: wriggle and look at the user. Running actions are cancelled.
 func grab() -> void:
 	if _state == State.ACTION and _action == "roll":
 		chair_taken.emit(false)
@@ -317,13 +317,13 @@ func grab() -> void:
 	_play_or("dangle", "walk")
 
 
-## Während des Tragens: Position direkt setzen (Spielpixel, kann über dem Streifen liegen).
+## While carried: set the position directly (game pixels, may be above the strip).
 func drag_to(p: Vector2) -> void:
 	position = p.round()
 	_x = position.x
 
 
-## Loslassen mit Wurf-Tempo vel (Spielpixel pro Sekunde).
+## Release with throw speed vel (game pixels per second).
 func drop(vel: Vector2) -> void:
 	_vel = vel.clamp(Vector2(-MAX_THROW, -MAX_THROW), Vector2(MAX_THROW, MAX_THROW))
 	_fall_pos = position
@@ -334,7 +334,7 @@ func drop(vel: Vector2) -> void:
 	_play_or("fall", "dangle")
 
 
-## Zusammenzucken ohne eigenes Sprite: hochschrecken und kurz zittern (~0.5 s).
+## Flinch without its own sprite: jolt up and shake briefly (~0.5 s).
 func _flinch() -> void:
 	var tw := create_tween()
 	tw.tween_property(self, "offset", Vector2(0, -6), 0.05)
@@ -343,7 +343,7 @@ func _flinch() -> void:
 	tw.tween_property(self, "offset", Vector2.ZERO, 0.15)
 
 
-## Klick auf XYMYX: je schneller hintereinander, desto höher der Sprung.
+## Click on XYMYX: the faster the clicks follow each other, the higher the jump.
 func bounce() -> void:
 	if is_airborne():
 		return
@@ -356,7 +356,7 @@ func bounce() -> void:
 		tw.tween_property(self, "offset:y", -h, 0.08 + h * 0.01)
 		tw.tween_property(self, "offset:y", 0.0, 0.12 + h * 0.01)
 		return
-	# Echter Sprung: hoch mit v = sqrt(2·g·h), Landung wie beim Fallenlassen
+	# Real jump: up with v = sqrt(2·g·h), landing like after being dropped
 	if _state == State.ACTION and _action == "roll":
 		chair_taken.emit(false)
 	_bubble.set_zzz(false)
@@ -369,14 +369,14 @@ func bounce() -> void:
 	_play_or("fall", "dangle")
 
 
-## Kleiner Hüpfer als Klick-Feedback.
+## Small hop as click feedback.
 func hop() -> void:
 	var tw := create_tween()
 	tw.tween_property(self, "offset:y", -3.0, 0.08)
 	tw.tween_property(self, "offset:y", 0.0, 0.12)
 
 
-# --- Zustände -----------------------------------------------------------------
+# --- States -------------------------------------------------------------------
 
 func _sit(reset_walk_timer := true) -> void:
 	_state = State.SITTING
@@ -396,7 +396,7 @@ func _sleep() -> void:
 	if sprite_frames.has_animation("sleep"):
 		play("sleep")
 	else:
-		play("sit")  # ohne Schlaf-Sprite: stillsitzen, nur die Zzz zeigen
+		play("sit")  # without a sleep sprite: sit still, only show the Zzz
 		pause()
 	_bubble.set_zzz(true)
 
@@ -405,7 +405,7 @@ func _stand() -> void:
 	_state = State.STANDING
 	_timer = randf_range(STAND_TIME.x, STAND_TIME.y)
 	if sprite_frames.has_animation("front") and randf() < FRONT_CHANCE:
-		# Zum User drehen, blinzeln, winken. Dauer der Pause mindestens so lang wie die Animation.
+		# Turn to the user, blink, wave. The pause lasts at least as long as the animation.
 		flip_h = false
 		play("front")
 		var n := sprite_frames.get_frame_count("front")
@@ -423,7 +423,7 @@ func _stand_still() -> void:
 func _process_fall(delta: float) -> void:
 	_vel.y += GRAVITY * delta
 	_fall_pos += _vel * delta
-	if _fall_pos.x < min_x or _fall_pos.x > max_x:  # am Bildschirmrand abprallen
+	if _fall_pos.x < min_x or _fall_pos.x > max_x:  # bounce off the screen edge
 		_fall_pos.x = clampf(_fall_pos.x, min_x, max_x)
 		_vel.x = -_vel.x * 0.5
 	if _fall_pos.y >= floor_y:
@@ -437,7 +437,7 @@ func _process_fall(delta: float) -> void:
 func _land() -> void:
 	if _vel.y >= HARD_LANDING:
 		emote("angry")
-	_last_click_ms = Time.get_ticks_msec()  # Kombo-Fenster ab der Landung, nicht ab dem Klick
+	_last_click_ms = Time.get_ticks_msec()  # combo window starts at landing, not at the click
 	_vel = Vector2.ZERO
 	position.y = floor_y
 	_x = position.x
@@ -456,7 +456,7 @@ func _after_land() -> void:
 	_walk_to(home_x, State.WALKING_HOME)
 
 
-## Spielt anim, sonst fallback, sonst «walk» (solange die Sprites fehlen).
+## Plays anim, otherwise fallback, otherwise «walk» (while sprites are missing).
 func _play_or(anim: String, fallback: String) -> void:
 	for a in [anim, fallback]:
 		if sprite_frames.has_animation(a):
@@ -469,7 +469,7 @@ func _walk_to(x: float, state: State) -> void:
 	_state = state
 	_action = ""
 	_target_x = x
-	flip_h = x < _x  # Sprites schauen nach rechts, links = gespiegelt
+	flip_h = x < _x  # sprites face right, left = mirrored
 	play("walk")
 
 
@@ -507,7 +507,7 @@ func _play_random_idle() -> void:
 			return
 
 
-## Mit dem Stuhl ein Stück nach hinten rollen und zurück.
+## Roll back a bit on the chair and return.
 func _process_roll(delta: float) -> void:
 	var target := home_x if _roll_back else home_x - ROLL_DIST
 	if _step_towards(target, ROLL_SPEED * delta):
@@ -519,7 +519,7 @@ func _process_roll(delta: float) -> void:
 
 
 func _on_animation_finished() -> void:
-	# Nur die nicht-loopenden Animationen enden von selbst.
+	# Only non-looping animations end by themselves.
 	match _state:
 		State.ACTION:
 			if _action != "roll" and _action != "repair":
@@ -527,7 +527,7 @@ func _on_animation_finished() -> void:
 		State.LANDING:
 			_after_land()
 		State.STANDING:
-			_stand_still()  # Frontansicht fertig, wieder seitlich hinstellen
+			_stand_still()  # front view done, stand sideways again
 
 
 func _step_towards(target: float, step: float) -> bool:
@@ -547,7 +547,7 @@ func _pick_target() -> float:
 	return min_x
 
 
-## seq = Frame-Folge (leer = alle Frames der Reihe nach)
+## seq = frame sequence (empty = all frames in order)
 func _add_anim(sf: SpriteFrames, anim: String, frames: Array[Texture2D], fps: float,
 		seq: Array, loop := true) -> void:
 	sf.add_animation(anim)

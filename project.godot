@@ -36,6 +36,10 @@ window/energy_saving/keep_screen_on=false
 window/subwindows/embed_subwindows=false
 window/per_pixel_transparency/allowed=true
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://i18n/translations.en.translation", "res://i18n/translations.de.translation")
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0

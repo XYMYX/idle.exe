@@ -1,7 +1,7 @@
 class_name PixelFont
 extends RefCounted
-## Winzige 3×5-Pixelschrift (M ist 5 breit). Weiss mit schwarzem Rand,
-## damit sie auf hellen und dunklen Desktops lesbar ist.
+## Tiny 3×5 pixel font (M is 5 wide). White with a black outline
+## so it stays readable on light and dark desktops.
 
 const HEIGHT := 5
 const SPACING := 1
@@ -41,9 +41,9 @@ static func text_width(text: String) -> int:
 	return maxi(0, w - SPACING)
 
 
-## Zeichnet text mit linker oberer Ecke bei pos (in Spielpixeln).
+## Draws text with its top-left corner at pos (in game pixels).
 static func draw_text(ci: CanvasItem, text: String, pos: Vector2) -> void:
-	for layer in 2:  # 0 = schwarzer Rand, 1 = weisse Schrift
+	for layer in 2:  # 0 = black outline, 1 = white text
 		var x := pos.x
 		for ch in text:
 			var g: Array = GLYPHS.get(ch, [])

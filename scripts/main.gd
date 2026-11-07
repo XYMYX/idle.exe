@@ -1,20 +1,21 @@
 extends Node2D
-## Desktop-Pet-Fenster: transparenter Streifen über der Taskleiste.
-## Nur Figur und Desk fangen Klicks ab, alles andere geht zum Desktop durch.
+## Desktop pet window: transparent strip above the taskbar.
+## Only the figure and the desk catch clicks, everything else passes through to the desktop.
 ##
-## Maus:
-##   XYMYX kurz klicken  = hüpfen        XYMYX ziehen = packen, tragen, fallen lassen
-##   Desk kurz klicken   = Terminal      Desk ziehen  = ganze Leiste verschieben (wird gespeichert)
-##   Rechtsklick         = Menü
+## Mouse:
+##   click XYMYX  = jump (combo)     drag XYMYX = pick up, carry, drop
+##   click desk   = terminal         drag desk  = move the whole strip (saved)
+##   right click  = menu
 
-const GAME_HEIGHT := 58      # Fensterhöhe in Spielpixeln (48 Figur/Desk + Platz für Zähler/Hüpfer)
-const BASE_SCALE := 2        # Pixel-Skalierung bei 100 % Windows-Skalierung
-const DESK_FROM_RIGHT := 120 # Standard-Abstand Desk zum rechten Bildschirmrand (Spielpixel)
+const GAME_HEIGHT := 58      # window height in game pixels (48 figure/desk + room for counter/jumps)
+const BASE_SCALE := 2        # pixel scale at 100 % Windows scaling
+const DESK_FROM_RIGHT := 120 # default distance of the desk from the right screen edge (game pixels)
 const FIGURE := 48
-const DRAG_START_PX := 3.0   # ab so viel Mausweg (Spielpixel) wird aus einem Klick ein Ziehen
+const DRAG_START_PX := 3.0   # mouse travel (game pixels) after which a click becomes a drag
 const SETTINGS_PATH := "user://settings.cfg"
+const LANGUAGES := ["de", "en"]
 
-enum MenuId { INFO, TERMINAL, PAUSE, RESET, QUIT }
+enum MenuId { INFO, TERMINAL, PAUSE, RESET, LANGUAGE, QUIT }
 enum Press { NONE, FIGURE, DESK }
 
 var pixel_scale := BASE_SCALE
@@ -35,7 +36,7 @@ var _last_passthrough := PackedVector2Array()
 var _usable := Rect2i()
 var _desk_from_right := float(DESK_FROM_RIGHT)
 
-# Laufende Maus-Aktion
+# Current mouse action
 var _press := Press.NONE
 var _press_screen := Vector2i.ZERO
 var _press_p := Vector2.ZERO
@@ -48,23 +49,43 @@ var _move_start_desk := 0.0
 
 
 func _ready() -> void:
+	_load_language()
 	_setup_window()
 	_build_scene()
 	_build_menu()
 	_update_passthrough()
 
 
+## Language from settings.cfg; on first start German if Windows is German, otherwise English.
+func _load_language() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH)
+	var fallback := "de" if OS.get_locale_language() == "de" else "en"
+	var lang: String = cfg.get_value("settings", "language", fallback)
+	TranslationServer.set_locale(lang if lang in LANGUAGES else "en")
+
+
+func _toggle_language() -> void:
+	var lang := "en" if TranslationServer.get_locale().begins_with("de") else "de"
+	TranslationServer.set_locale(lang)
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH)
+	cfg.set_value("settings", "language", lang)
+	cfg.save(SETTINGS_PATH)
+	_terminal.refresh_language()
+
+
 func _setup_window() -> void:
 	var screen := DisplayServer.get_primary_screen()
 	_usable = DisplayServer.screen_get_usable_rect(screen)
 	var dpi := DisplayServer.screen_get_dpi(screen)
-	# screen_get_scale() liefert unter Windows immer 1.0 (laut Doku), darum DPI/96.
+	# screen_get_scale() always returns 1.0 on Windows (per the docs), hence DPI/96.
 	pixel_scale = maxi(1, roundi(BASE_SCALE * dpi / 96.0))
 	game_width = _usable.size.x / pixel_scale
 
-	# Gespeicherte Lage: Abstand der Leiste zum unteren Rand (Pixel) und des Desks zum rechten Rand.
+	# Saved layout: distance of the strip from the bottom edge (pixels) and of the desk from the right edge.
 	var cfg := ConfigFile.new()
-	cfg.load(SETTINGS_PATH)  # fehlt die Datei, gelten die Standardwerte
+	cfg.load(SETTINGS_PATH)  # if the file is missing, the defaults apply
 	var lift: int = cfg.get_value("layout", "lift_px", 0)
 	_desk_from_right = cfg.get_value("layout", "desk_from_right", float(DESK_FROM_RIGHT))
 
@@ -96,9 +117,9 @@ func _build_scene() -> void:
 	_xymyx.setup(_xymyx.home_x, _xymyx.repair_x, 8.0, game_width - FIGURE - 8.0)
 	_xymyx.moved.connect(_update_passthrough)
 	_xymyx.landed.connect(_on_landed)
-	Game.changed.connect(_update_passthrough)  # neue Teile vergrössern den Klickbereich
+	Game.changed.connect(_update_passthrough)  # new parts enlarge the click area
 
-	# Animationen: Kauf -> schrauben + Aufblinken, Meilenstein -> jubeln, Rollen -> Stuhl ausblenden
+	# Animations: purchase -> repair + flash, milestone -> cheer, rolling -> hide the chair
 	Game.bought.connect(func(id: String) -> void:
 		_last_bought = id
 		_xymyx.start_repair())
@@ -106,7 +127,7 @@ func _build_scene() -> void:
 	_xymyx.chair_taken.connect(func(taken: bool) -> void: _desk.chair_visible = not taken)
 	Game.milestone.connect(func(_v: float) -> void: _xymyx.react("cheer"))
 
-	# Maus-Reaktionen (nur Mausposition, keine Tasten, kein Hook)
+	# Mouse reactions (mouse position only, no keys, no hook)
 	_watch = MouseWatch.new()
 	_watch.to_game = func(screen: Vector2i) -> Vector2:
 		return Vector2(screen - get_window().position) / pixel_scale
@@ -115,25 +136,25 @@ func _build_scene() -> void:
 	_watch.away.connect(_xymyx.fall_asleep)
 	_watch.back.connect(_xymyx.wake_up)
 	_watch.startled.connect(func() -> void:
-		if _press == Press.NONE:  # nicht beim eigenen Ziehen erschrecken
+		if _press == Press.NONE:  # don't get startled by our own dragging
 			_xymyx.startle())
 	_watch.hovered.connect(_xymyx.notice)
 	_watch.sampled.connect(func(g: Vector2) -> void: _xymyx.face_toward(g.x))
 	add_child(_watch)
 
 	_carry = CarryWindow.new()
-	_carry.setup(_xymyx.sprite_frames, pixel_scale, FIGURE)  # vor add_child: startet unsichtbar
+	_carry.setup(_xymyx.sprite_frames, pixel_scale, FIGURE)  # before add_child: starts hidden
 	add_child(_carry)
 
 
-## Desk, Zähler und XYMYX-Heimatpunkt an _desk_from_right ausrichten.
+## Align desk, counter and XYMYX's home spot with _desk_from_right.
 func _place_desk() -> void:
 	_desk.position = Vector2(game_width - _desk_from_right, GAME_HEIGHT - Desk.SIZE.y)
-	_counter.position = _desk.position + Vector2(38, 2)  # über dem Laptop-Bildschirm
-	var home := _desk.position.x - 16  # Hüfte auf dem Stuhl im Desk-Sprite
+	_counter.position = _desk.position + Vector2(38, 2)  # above the laptop screen
+	var home := _desk.position.x - 16  # hips on the chair in the desk sprite
 	var repair := _desk.position.x + 18
 	if _xymyx.home_x == 0.0 and _xymyx.repair_x == 0.0:
-		_xymyx.home_x = home  # erster Aufruf, setup() folgt
+		_xymyx.home_x = home  # first call, setup() follows
 		_xymyx.repair_x = repair
 	else:
 		_xymyx.set_home(home, repair)
@@ -144,7 +165,7 @@ func _build_menu() -> void:
 	_menu.id_pressed.connect(_on_menu_id)
 	add_child(_menu)
 
-	# Zufallsereignisse: «!» über XYMYX, Klick auf ihn öffnet die Wahl im Terminal
+	# Random events: «!» above XYMYX, clicking him opens the choice in the terminal
 	_events = EventDirector.new()
 	_events.is_away = func() -> bool: return _watch.is_away
 	_events.started.connect(func(_e: Dictionary) -> void: _xymyx.set_alert(true))
@@ -161,8 +182,8 @@ func _build_menu() -> void:
 	_build_tray()
 
 
-## Tray-Icon (Infobereich der Taskleiste). Links = Terminal, rechts = Menü.
-## Eigenes Icon: art/tray_icon.png (32×32), sonst Platzhalter.
+## Tray icon (notification area). Left = terminal, right = menu.
+## Custom icon: art/tray_icon.png (32×32), otherwise a placeholder.
 const TRAY_ICON := "res://art/tray_icon.png"
 
 func _build_tray() -> void:
@@ -176,11 +197,11 @@ func _build_tray() -> void:
 			else:
 				_toggle_terminal()
 		else:
-			_open_menu())
+			_open_menu(true))
 	add_child(tray)
 
 
-## 32×32: schwarz, weisser Rand, zwei weisse Augen (wie die Figur).
+## 32×32: black, white border, two white eyes (like the figure).
 func _placeholder_tray_icon() -> Texture2D:
 	var img := Image.create_empty(32, 32, false, Image.FORMAT_RGBA8)
 	img.fill(Color.WHITE)
@@ -190,22 +211,26 @@ func _placeholder_tray_icon() -> Texture2D:
 	return ImageTexture.create_from_image(img)
 
 
-## Menü bei jedem Öffnen neu aufbauen, damit die Zahlen stimmen.
-func _fill_menu() -> void:
+## Rebuild the menu on every open so numbers and language are current.
+## The language switch only appears in the tray menu, not on the desktop right click.
+func _fill_menu(from_tray := false) -> void:
 	_menu.clear()
-	_menu.add_item("Geld: %s CHF  (+%s CHF/s)"
+	_menu.add_item(tr("Money: %s CHF  (+%s CHF/s)")
 		% [BigNum.format_chf(Game.money), BigNum.format_chf(Game.income())], MenuId.INFO)
 	_menu.set_item_disabled(_menu.get_item_index(MenuId.INFO), true)
 	_menu.add_separator()
-	_menu.add_item("Terminal öffnen", MenuId.TERMINAL)
-	_menu.add_check_item("Pause", MenuId.PAUSE)
+	_menu.add_item(tr("Open terminal"), MenuId.TERMINAL)
+	_menu.add_check_item(tr("Pause"), MenuId.PAUSE)
 	_menu.set_item_checked(_menu.get_item_index(MenuId.PAUSE), Game.paused)
-	_menu.add_item("Leiste zurücksetzen", MenuId.RESET)
+	_menu.add_item(tr("Reset strip"), MenuId.RESET)
+	if from_tray:
+		# Always shows the OTHER language in its own words, so anyone can find it.
+		_menu.add_item("English" if TranslationServer.get_locale().begins_with("de") else "Deutsch", MenuId.LANGUAGE)
 	_menu.add_separator()
-	_menu.add_item("Beenden", MenuId.QUIT)
+	_menu.add_item(tr("Quit"), MenuId.QUIT)
 
 
-# --- Maus -----------------------------------------------------------------------
+# --- Mouse ----------------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
 	var mb := event as InputEventMouseButton
@@ -218,7 +243,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if mb.pressed:
 		var p := mb.position / pixel_scale
-		# XYMYX (pixelgenau) hat Vorrang vor dem Desk dahinter.
+		# XYMYX (pixel-exact) takes priority over the desk behind him.
 		if not _xymyx.is_airborne() and _xymyx.hit(p) and _xymyx.can_grab():
 			_press = Press.FIGURE
 			_grab_offset = p - _xymyx.position
@@ -233,16 +258,16 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	if _press == Press.NONE:
 		if _xymyx.is_airborne():
-			_show_carry()  # fällt gerade
+			_show_carry()  # currently falling
 		elif _carry.visible:
-			_on_landed()  # Boden berührt: Landeanimation schon in der Leiste zeigen
+			_on_landed()  # touched the ground: show the landing animation in the strip already
 		return
 	if not _dragging:
 		var moved := Vector2(DisplayServer.mouse_get_position() - _press_screen).length()
 		if moved > DRAG_START_PX * pixel_scale:
 			_start_drag()
 		return
-	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):  # Loslassen verpasst
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):  # missed the release
 		_release()
 		return
 	match _press:
@@ -260,7 +285,7 @@ func _start_drag() -> void:
 		_last_drag_p = _xymyx.position
 		_throw_vel = Vector2.ZERO
 		_xymyx.grab()
-		_update_passthrough(true)  # Figur ist jetzt im Tragefenster, nicht mehr in der Leiste
+		_update_passthrough(true)  # the figure is in the carry window now, no longer in the strip
 		Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 	else:
 		_move_start_win = get_window().position
@@ -278,17 +303,17 @@ func _release() -> void:
 		if dragged:
 			_xymyx.drop(_throw_vel)
 		elif not _events.pending.is_empty():
-			_open_event()  # offenes Ereignis: Klick auf XYMYX zeigt die Wahl
+			_open_event()  # pending event: clicking XYMYX shows the choice
 		else:
-			_xymyx.bounce()  # je öfter, desto höher
+			_xymyx.bounce()  # the more often, the higher
 	elif was == Press.DESK:
 		if dragged:
 			_save_layout()
 		elif Rect2(_desk.position, Desk.SIZE).has_point(_press_p):
-			_toggle_terminal()  # nur der Desk selbst, nicht die Teile daneben
+			_toggle_terminal()  # only the desk itself, not the parts next to it
 
 
-## XYMYX hängt an der Maus. Spiel-Koordinaten relativ zur Leiste (y < 0 = darüber).
+## XYMYX hangs on the mouse. Game coordinates relative to the strip (y < 0 = above it).
 func _drag_figure(delta: float) -> void:
 	var m := Vector2(DisplayServer.mouse_get_position() - get_window().position)
 	var p := m / pixel_scale - _grab_offset
@@ -296,13 +321,13 @@ func _drag_figure(delta: float) -> void:
 	p.x = clampf(p.x, _xymyx.min_x, _xymyx.max_x)
 	p.y = clampf(p.y, top, _xymyx.floor_y)
 	_xymyx.drag_to(p)
-	if delta > 0.0:  # Wurf-Tempo, geglättet
+	if delta > 0.0:  # throw speed, smoothed
 		_throw_vel = _throw_vel.lerp((p - _last_drag_p) / delta, 0.5)
 	_last_drag_p = p
 	_show_carry()
 
 
-## Ganze Leiste verschieben: senkrecht das Fenster, waagrecht den Desk darin.
+## Move the whole strip: the window vertically, the desk inside it horizontally.
 func _drag_bar() -> void:
 	var d := DisplayServer.mouse_get_position() - _press_screen
 	var win := get_window()
@@ -316,7 +341,7 @@ func _drag_bar() -> void:
 		_update_passthrough()
 
 
-## Tragefenster an die Position der Figur setzen, Figur in der Leiste ausblenden.
+## Move the carry window to the figure's position and hide the figure in the strip.
 func _show_carry() -> void:
 	_xymyx.visible = false
 	var screen := get_window().position + Vector2i(_xymyx.position * pixel_scale)
@@ -329,20 +354,20 @@ func _on_landed() -> void:
 	_update_passthrough()
 
 
-# --- Lage speichern -------------------------------------------------------------
+# --- Saving the layout ----------------------------------------------------------
 
 func _clamp_win_y(y: int) -> int:
 	return clampi(y, _usable.position.y, _usable.end.y - GAME_HEIGHT * pixel_scale)
 
 
-## Desk inkl. aller Teile links (Tafel) und rechts (Rack, Klima) bleibt auf dem Bildschirm.
+## Keep the desk incl. all parts to the left (board) and right (rack, AC) on screen.
 func _clamp_desk_from_right(dfr: float) -> float:
 	var left := -_desk.left_extent() if _desk else 0.0
 	var right := _desk.width() if _desk else Desk.SIZE.x
 	return clampf(dfr, right + 2.0, float(game_width) - left - 2.0)
 
 
-## Leiste direkt über die Taskleiste, Desk an den Standardplatz. Wird gespeichert.
+## Strip right above the taskbar, desk back at its default place. Saved.
 func _reset_layout() -> void:
 	var win := get_window()
 	win.position = Vector2i(win.position.x, _clamp_win_y(_usable.end.y - GAME_HEIGHT * pixel_scale))
@@ -360,19 +385,19 @@ func _save_layout() -> void:
 	cfg.set_value("layout", "desk_from_right", _desk_from_right)
 	var err := cfg.save(SETTINGS_PATH)
 	if err != OK:
-		push_error("Lage speichern fehlgeschlagen: %s" % error_string(err))
+		push_error("Saving the layout failed: %s" % error_string(err))
 
 
-# --- Menüs ------------------------------------------------------------------------
+# --- Menus ----------------------------------------------------------------------
 
 func _toggle_terminal() -> void:
 	if _terminal.visible:
 		_terminal.hide()
 		return
-	# Der Klick, der das Terminal schliesst (Klick daneben), soll es nicht gleich wieder öffnen.
+	# The click that closes the terminal (click outside) must not reopen it right away.
 	if Time.get_ticks_msec() - _terminal.hidden_msec < 300:
 		return
-	# Rechte untere Ecke des Terminals = rechter Rand des Desk-Bereichs, Oberkante des Streifens
+	# Bottom-right corner of the terminal = right edge of the desk area, top edge of the strip
 	var right := int(_home_rect().end.x * pixel_scale)
 	_terminal.open_at(get_window().position + Vector2i(right, 0))
 
@@ -382,8 +407,8 @@ func _open_event() -> void:
 	_terminal.open_event(get_window().position + Vector2i(right, 0))
 
 
-func _open_menu() -> void:
-	_fill_menu()
+func _open_menu(from_tray := false) -> void:
+	_fill_menu(from_tray)
 	var menu_size := Vector2i(_menu.get_contents_minimum_size())
 	var at := DisplayServer.mouse_get_position() - Vector2i(0, menu_size.y)
 	_menu.popup(Rect2i(at, menu_size))
@@ -398,13 +423,15 @@ func _on_menu_id(id: int) -> void:
 			_toggle_terminal()
 		MenuId.RESET:
 			_reset_layout()
+		MenuId.LANGUAGE:
+			_toggle_language()
 		MenuId.QUIT:
 			Game.quit()
 
 
-# --- Klickbereich -----------------------------------------------------------
+# --- Click area -----------------------------------------------------------------
 
-## Klick im Desk-Bereich, der nicht auf einem Pixel der Figur liegt.
+## A click in the desk area that is not on a pixel of the figure.
 func _desk_hit(p: Vector2) -> bool:
 	return not _xymyx.hit(p)
 
@@ -413,9 +440,9 @@ func _figure_rect() -> Rect2:
 	return Rect2(_xymyx.position.x, 0, FIGURE, GAME_HEIGHT)
 
 
-## Klickfläche um die Figur: mit Luft und auf ein 24-px-Raster gerundet. So ändert sich
-## die Fläche beim Laufen nur alle ~24 px statt bei jedem Pixel. Jede Änderung zeichnet
-## unter Windows den neu freigegebenen Streifen kurz falsch (Flackern vor der Figur).
+## Click area around the figure: with margin and snapped to a 24 px grid. This way the area
+## only changes every ~24 px while walking instead of on every pixel. On Windows every change
+## briefly draws the newly exposed strip incorrectly (flicker in front of the figure).
 const REGION_STEP := 24.0
 const REGION_MARGIN := 8.0
 
@@ -426,16 +453,15 @@ func _figure_region() -> Rect2:
 
 
 func _home_rect() -> Rect2:
-	var left: float = minf(_xymyx.home_x, _desk.position.x + _desk.left_extent())  # inkl. Teile links vom Stuhl
-	var right: float = _desk.position.x + maxf(_desk.width(), Desk.SIZE.x + 6)  # inkl. Rack, Platz für breite Zahlen
+	var left: float = minf(_xymyx.home_x, _desk.position.x + _desk.left_extent())  # incl. parts left of the chair
+	var right: float = _desk.position.x + maxf(_desk.width(), Desk.SIZE.x + 6)  # incl. rack, room for wide numbers
 	return Rect2(left, 0, right - left, GAME_HEIGHT)
 
 
-## Klickbares Polygon = Desk-Bereich + Figur. Unter Windows wird alles
-## ausserhalb dieses Polygons NICHT gezeichnet, es muss also alles Sichtbare
-## abdecken. Sind Figur und Desk getrennt, verbindet sie ein 1 Spielpixel
-## hoher Steg am unteren Rand (ein einziges Polygon ist Pflicht).
-## Wird XYMYX getragen oder fällt, zählt nur der Desk-Bereich.
+## Clickable polygon = desk area + figure. On Windows everything outside this
+## polygon is NOT drawn, so it must cover everything visible. If figure and desk
+## are apart, a 1 game pixel high bridge at the bottom connects them (it has to be
+## a single polygon). While XYMYX is carried or falling, only the desk area counts.
 func _update_passthrough(force := false) -> void:
 	var a := _home_rect()
 	var b := a if _xymyx.is_airborne() else _figure_region()
@@ -454,8 +480,8 @@ func _update_passthrough(force := false) -> void:
 		])
 	for i in pts.size():
 		pts[i] *= pixel_scale
-	# Nur setzen, wenn sich die Fläche ändert: Unter Windows zeichnet jedes Setzen
-	# das Fenster neu, was beim Laufen innerhalb des Zimmers flackern kann.
+	# Only set it when the area changes: on Windows every call redraws the window,
+	# which can flicker while walking inside the room.
 	if pts == _last_passthrough and not force:
 		return
 	_last_passthrough = pts

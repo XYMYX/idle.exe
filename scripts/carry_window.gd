@@ -1,8 +1,8 @@
 class_name CarryWindow
 extends Window
-## Kleines, randloses, transparentes Fenster, das XYMYX zeigt, solange er getragen
-## wird oder fällt. So muss das Hauptfenster (die Leiste) nie wachsen oder springen.
-## Klicks gehen durch (mouse_passthrough), die Maus bleibt beim Hauptfenster.
+## Small borderless transparent window that shows XYMYX while he is carried or falling.
+## This way the main window (the strip) never has to grow or jump.
+## Clicks pass through (mouse_passthrough), the mouse stays with the main window.
 
 var sprite: AnimatedSprite2D
 
@@ -14,7 +14,7 @@ func setup(frames: SpriteFrames, pixel_scale: int, figure: int) -> void:
 	unresizable = true
 	unfocusable = true
 	mouse_passthrough = true
-	# Gehört zum Hauptfenster (das immer oben ist): bleibt darüber, kein Taskleisten-Eintrag.
+	# Owned by the main window (which is always on top): stays above it, no taskbar entry.
 	transient = true
 	visible = false
 	size = Vector2i(figure * pixel_scale, figure * pixel_scale)
@@ -25,7 +25,7 @@ func setup(frames: SpriteFrames, pixel_scale: int, figure: int) -> void:
 	add_child(sprite)
 
 
-## Bild der Figur übernehmen und an die Bildschirmposition (linke obere Ecke) setzen.
+## Copy the figure's current frame and move to the screen position (top-left corner).
 func follow(src: AnimatedSprite2D, screen_pos: Vector2i) -> void:
 	if sprite.animation != src.animation:
 		sprite.animation = src.animation

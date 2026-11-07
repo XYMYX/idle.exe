@@ -1,21 +1,21 @@
 class_name EventDirector
 extends Node
-## Plant Zufallsereignisse, hält das offene Ereignis und wendet die Wahl an.
-## Kein Zwang: Wer nicht reagiert, bekommt nach TIMEOUT_SEC die Standardwahl.
-## Ereignisse kommen nur, wenn der User da ist (Maus bewegt) und das Spiel nicht pausiert.
+## Schedules random events, holds the pending event and applies the player's choice.
+## No pressure: if nobody reacts, the default choice is applied after TIMEOUT_SEC.
+## Events only happen while the user is present (mouse moving) and the game is not paused.
 
 signal started(event: Dictionary)
 signal resolved(event: Dictionary, choice: Dictionary, auto: bool)
 
-const INTERVAL_MIN := Vector2(10.0, 25.0)  # Minuten zwischen Ereignissen
-const TIMEOUT_SEC := 180.0                 # so lange wartet ein Ereignis auf deine Wahl
-const NO_REPEAT := 3                       # die letzten n Ereignisse nicht wiederholen
+const INTERVAL_MIN := Vector2(10.0, 25.0)  # minutes between events
+const TIMEOUT_SEC := 180.0                 # how long an event waits for your choice
+const NO_REPEAT := 3                       # don't repeat the last n events
 
-## Von main gesetzt: true, wenn der User weg ist (Maus lange unbewegt).
+## Set by main: true while the user is away (mouse idle for a long time).
 var is_away: Callable = func() -> bool: return false
 
-var pending := {}         # offenes Ereignis, {} = keins
-var pending_left := 0.0   # Sekunden bis zur automatischen Wahl
+var pending := {}         # pending event, {} = none
+var pending_left := 0.0   # seconds until the automatic choice
 
 var _next := 0.0
 var _recent: Array[String] = []
@@ -32,13 +32,13 @@ func _process(delta: float) -> void:
 			choose(default_index(pending), true)
 		return
 	if Game.paused or is_away.call():
-		return  # Zeit läuft nicht, solange niemand da ist
+		return  # the timer doesn't run while nobody is there
 	_next -= delta
 	if _next <= 0.0:
 		trigger()
 
 
-## Sofort ein Ereignis starten (zufällig oder per id, z. B. zum Testen).
+## Start an event right away (random or by id, e.g. for testing).
 func trigger(id := "") -> void:
 	if not pending.is_empty():
 		return
@@ -54,7 +54,7 @@ func trigger(id := "") -> void:
 	started.emit(ev)
 
 
-## Wahl i anwenden. auto = von selbst nach Ablauf der Zeit.
+## Apply choice i. auto = chosen automatically after the timeout.
 func choose(i: int, auto := false) -> void:
 	if pending.is_empty():
 		return
@@ -63,30 +63,30 @@ func choose(i: int, auto := false) -> void:
 	if not choice_available(c):
 		if not auto:
 			return
-		c = {"label": "verpasst"}  # nichts wählbar: Ereignis verstreicht ohne Wirkung
+		c = {"label": "missed"}  # nothing available: the event passes without effect
 	if c.has("cost_min") and not Game.spend(cost_of(c)):
 		return
 	if c.has("gain_min"):
 		Game.earn(gain_of(c))
 	for b: Dictionary in c.get("buffs", []):
 		Game.add_buff(b["target"], b["mult"], float(b["min"]) * 60.0, ev["title"])
-	Game.log_event("%s: %s%s" % [ev["title"], c["label"], " (automatisch)" if auto else ""])
+	Game.log_event(ev["title"], c["label"], auto)
 	pending = {}
 	resolved.emit(ev, c, auto)
 
 
-## Wahl möglich? (Voraussetzungen erfüllt und genug Geld)
+## Is the choice possible? (requirements met and enough money)
 func choice_available(c: Dictionary) -> bool:
 	return choice_problem(c) == ""
 
 
-## Grund, warum eine Wahl gesperrt ist, sonst "".
+## Translated reason why a choice is locked, otherwise "".
 func choice_problem(c: Dictionary) -> String:
 	for req: String in c.get("requires", []):
 		if not Game.has(req):
-			return "Benötigt: " + Economy.name_of(req)
+			return tr("Requires: %s") % tr(Economy.name_of(req))
 	if c.has("cost_min") and Game.money < cost_of(c):
-		return "Zu wenig Geld"
+		return tr("Not enough money")
 	return ""
 
 
@@ -98,7 +98,7 @@ func gain_of(c: Dictionary) -> float:
 	return Game.base_income(c.get("base", "total")) * 60.0 * float(c.get("gain_min", 0.0))
 
 
-## Standardwahl; ist sie gesperrt, die letzte freie Wahl.
+## Default choice; if it is locked, the last available one.
 func default_index(ev: Dictionary) -> int:
 	var choices: Array = ev["choices"]
 	var d: int = ev.get("default", choices.size() - 1)
@@ -114,7 +114,7 @@ func _schedule() -> void:
 	_next = randf_range(INTERVAL_MIN.x, INTERVAL_MIN.y) * 60.0
 
 
-## Zufälliges Ereignis, das zum Spielstand passt und nicht gerade erst kam.
+## Random event that fits the current game state and didn't just happen.
 func _pick() -> Dictionary:
 	var pool: Array = EventData.EVENTS.filter(func(e: Dictionary) -> bool:
 		if _recent.has(e["id"]):

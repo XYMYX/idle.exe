@@ -4,7 +4,7 @@
 /export/
 *.tmp
 
-# Persönliche Notizen für Claude Code, nur lokal
+# Personal notes for Claude Code, local only
 CLAUDE.md
 CLAUDE.local.md
 .claude/
