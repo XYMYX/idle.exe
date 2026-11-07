@@ -217,7 +217,22 @@ Special category «Research». A project costs money once and then runs in real 
 
 - Save version 8 (`research_done`, `research_active`). XYMYX cheers and the log gets an entry when a project finishes.
 - No room sprite yet (abstract system).
-- **Not simulated yet:** the greedy simulation doesn't buy research, so the 27.6 h of the first run don't include it (research only makes the run faster).
+- **Simulated in stage 13:** with research the first run takes 24.6 h instead of 27.6 h.
+
+### Stage 13 – Locations (done 2026-11-08)
+Category «Locations» (unlocked by the server rack), one line in build order. Each location gives capacity (power, cooling, RAM) and a new income source «office» (the team there). Locations are normal upgrades, so they are reset when the company is sold.
+
+| Location | Cost | Power | Cooling | RAM | Income |
+|---|---|---|---|---|---|
+| Coworking space | 500K | +5 kW | +5 | – | +100 CHF/s |
+| Small office | 5M | +15 kW | +20 | +16 GB | +800 CHF/s |
+| City office | 50M | +40 kW | +50 | +32 GB | +7,000 CHF/s |
+| Colocation data center | 400M | +120 kW | +150 | +64 GB | +50,000 CHF/s |
+| Tech campus | 3B | +250 kW | +300 | +128 GB | +300,000 CHF/s |
+
+- Office income gets the global multipliers (stars, tools, know-how) and can be the target of event buffs.
+- **Room:** wall map right of the AC (`world_map.png`), one more lit dot per location.
+- **Balancing (greedy simulation, now also buying research):** first run without research **27.6 h**, with research **24.6 h** (the campus is part of «everything bought» now). Locations come at 3.1 / 5.4 / 9.2 / 14.4 / 22 h.
 
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
@@ -292,6 +307,7 @@ Animated = horizontal sheet, width = frames × width. If a PNG is missing, the g
 | `rack_cooling.png` | 24×48 | 2 | 2 | 63, 0 | overlay on the rack: pipes/coolers, rest transparent |
 | `fan.png` | 12×24 | 4 | 8 | 90, 24 | standing fan, rotor spins |
 | `ups.png` | 10×12 | 2 | 1 | 104, 36 | backup battery, LED blinks |
+| `world_map.png` | 14×10 | 5 | – | 104, 6 | wall map, frame n = n+1 locations lit (fixed frame, no animation) |
 | `ac.png` | 24×10 | 2 | 3 | 90, -8 | wall air conditioner, airflow |
 | `homeserver.png` | 14×22 | 2 | 2 | -36, 26 | home server (tower on the floor), LEDs |
 | `router.png` | 12×6 | 2 | 4 | -35, 20 | router on the home server, flickering LEDs |

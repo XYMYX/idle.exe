@@ -245,13 +245,14 @@ func _prune_buffs() -> bool:
 
 
 func _apply_buffs() -> void:
-	var m := {"total": 1.0, "code": 1.0, "storage": 1.0, "software": 1.0, "mining": 1.0, "security": 1.0}
+	var m := {"total": 1.0, "code": 1.0, "storage": 1.0, "software": 1.0, "mining": 1.0, "security": 1.0,
+		"office": 1.0}
 	for b: Dictionary in buffs:
 		if m.has(b["target"]):
 			m[b["target"]] *= float(b["mult"])
 	_buffed_total = (_income["code"] * m["code"] + _income["storage"] * m["storage"]
 		+ _income["software"] * m["software"] + _income["mining"] * m["mining"]
-		+ _income["security"] * m["security"]) * m["total"]
+		+ _income["security"] * m["security"] + _income["office"] * m["office"]) * m["total"]
 	_code_now = _income["code"] * m["code"] * m["total"]
 
 

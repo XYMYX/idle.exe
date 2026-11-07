@@ -161,5 +161,7 @@ static func income(levels: Dictionary, versions: Dictionary, stars: float, overc
 	# Stage 11: security business, boosted by pentesting and the security specialization
 	var security: float = inc["security"] * m * float(skill_fx.get("security_income", 1.0)) \
 		* (1.5 if spec == "security" else 1.0)
+	# Stage 13: income from the team at the locations
+	var office: float = inc["office"] * m
 	return {"code": code, "storage": storage, "software": software, "mining": mining, "security": security,
-		"total": code + storage + software + mining + security}
+		"office": office, "total": code + storage + software + mining + security + office}

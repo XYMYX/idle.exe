@@ -96,7 +96,7 @@ const EVENTS := [
 ]
 
 const TARGET_NAMES := {"total": "Everything", "code": "Coding", "storage": "Storage",
-	"software": "Subscriptions", "mining": "Mining", "security": "Security"}
+	"software": "Subscriptions", "mining": "Mining", "security": "Security", "office": "Offices"}
 
 
 ## Factor as text: 2 -> «x2», 1.25 -> «x1.25»

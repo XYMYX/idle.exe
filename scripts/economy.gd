@@ -9,6 +9,7 @@ extends RefCounted
 ##   + Storage   sum storage  * network multiplier
 ##   + Software  sum software * network multiplier
 ##   + Mining    sum mining
+##   + Offices   sum office (stage 13: locations)
 ## Machines need power (kW) and produce heat: buying is only possible if enough
 ## power capacity (power_cap) and cooling (cool_cap) is free.
 
@@ -28,6 +29,7 @@ const CATEGORIES := [
 	{"id": "automation", "name": "Automation", "requires": ["homeserver"]},
 	{"id": "homelab", "name": "Homelab", "requires": ["homeserver"]},
 	{"id": "security", "name": "Security", "requires": [], "requires_skill": {"skill": "pentesting", "level": 2}},
+	{"id": "locations", "name": "Locations", "requires": ["rack"]},
 ]
 
 ## Upgrades. Within a line (cat + line) the order is the build order:
@@ -35,7 +37,8 @@ const CATEGORIES := [
 ## cost = price (if max > 1: cost * growth^level)
 ## fx   = effect per level: code_add, code_mult, storage, software, mining, net_mult, power_cap, cool_cap,
 ##        contract_speed (mult), auto_accept, auto_deliver, event_shield (flags, 1 = on),
-##        software_mult, star_mult (mult), ram_cap (GB), security / bounty (CHF/s, «security» income)
+##        software_mult, star_mult (mult), ram_cap (GB), security / bounty (CHF/s, «security» income),
+##        office (CHF/s, «office» income from locations)
 ## requires_skill = optional {skill, level} (stage 11: security business needs pentesting)
 ## uses: power (kW), heat, ram (GB) – buying needs enough free capacity of each
 ## uses = consumption per level: power (kW), heat
@@ -172,10 +175,25 @@ const UPGRADES := [
 		"fx": {"security": 30000.0}, "uses": {"power": 15.0, "heat": 20.0}, "requires_skill": {"skill": "pentesting", "level": 3}},
 	{"id": "sec_platform", "cat": "security", "line": "Security", "name": "Security platform", "cost": 1.2e9,
 		"fx": {"security": 160000.0}, "uses": {"power": 60.0, "heat": 80.0}, "requires_skill": {"skill": "pentesting", "level": 3}},
+
+	# --- Locations (stage 13: more room = capacity, plus income from the team there) ---
+	{"id": "coworking", "cat": "locations", "line": "Locations", "name": "Coworking space", "cost": 500000.0,
+		"fx": {"power_cap": 5.0, "cool_cap": 5.0, "office": 100.0}},
+	{"id": "office_small", "cat": "locations", "line": "Locations", "name": "Small office", "cost": 5.0e6,
+		"fx": {"power_cap": 15.0, "cool_cap": 20.0, "ram_cap": 16.0, "office": 800.0}},
+	{"id": "office_city", "cat": "locations", "line": "Locations", "name": "City office", "cost": 50.0e6,
+		"fx": {"power_cap": 40.0, "cool_cap": 50.0, "ram_cap": 32.0, "office": 7000.0}},
+	{"id": "colocation", "cat": "locations", "line": "Locations", "name": "Colocation data center", "cost": 400.0e6,
+		"fx": {"power_cap": 120.0, "cool_cap": 150.0, "ram_cap": 64.0, "office": 50000.0}},
+	{"id": "campus", "cat": "locations", "line": "Locations", "name": "Tech campus", "cost": 3.0e9,
+		"fx": {"power_cap": 250.0, "cool_cap": 300.0, "ram_cap": 128.0, "office": 300000.0}},
 ]
 
+## Locations in build order (for the wall map: one more dot per location).
+const LOCATIONS := ["coworking", "office_small", "office_city", "colocation", "campus"]
+
 const FX_ADD := ["code_add", "storage", "software", "mining", "power_cap", "cool_cap",
-	"auto_accept", "auto_deliver", "event_shield", "ram_cap", "security", "bounty"]
+	"auto_accept", "auto_deliver", "event_shield", "ram_cap", "security", "bounty", "office"]
 const FX_MULT := ["code_mult", "net_mult", "contract_speed", "software_mult", "star_mult"]
 
 static var _index := {}
@@ -221,6 +239,14 @@ static func line_items(cat_id: String, line: String) -> Array[Dictionary]:
 	return out
 
 
+static func location_count(levels: Dictionary) -> int:
+	var n := 0
+	for id: String in LOCATIONS:
+		if int(levels.get(id, 0)) > 0:
+			n += 1
+	return n
+
+
 static func max_level(u: Dictionary) -> int:
 	return int(u.get("max", 1))
 
@@ -247,7 +273,8 @@ static func totals(levels: Dictionary) -> Dictionary:
 		"power_cap": BASE_POWER, "cool_cap": BASE_COOL,
 		"code_mult": 1.0, "net_mult": 1.0, "power": 0.0, "heat": 0.0,
 		"contract_speed": 1.0, "auto_accept": 0.0, "auto_deliver": 0.0, "event_shield": 0.0,
-		"software_mult": 1.0, "star_mult": 1.0, "ram_cap": 0.0, "ram": 0.0, "security": 0.0, "bounty": 0.0}
+		"software_mult": 1.0, "star_mult": 1.0, "ram_cap": 0.0, "ram": 0.0, "security": 0.0, "bounty": 0.0,
+		"office": 0.0}
 	for u: Dictionary in UPGRADES:
 		var lv: int = levels.get(u["id"], 0)
 		if lv <= 0:
@@ -272,8 +299,9 @@ static func income(levels: Dictionary) -> Dictionary:
 	var software: float = t["software"] * t["net_mult"] * t["software_mult"]
 	var mining: float = t["mining"]
 	var security: float = t["security"] + t["bounty"]
+	var office: float = t["office"]
 	return {"code": code, "storage": storage, "software": software, "mining": mining, "security": security,
-		"total": code + storage + software + mining + security}
+		"office": office, "total": code + storage + software + mining + security + office}
 
 
 static func category_unlocked(cat_id: String, levels: Dictionary, skills: Dictionary = {}) -> bool:
@@ -357,6 +385,7 @@ static func effect_text(u: Dictionary) -> String:
 			"cool_cap": parts.append(tx("+%s cooling") % _num(v))
 			"security": parts.append(tx("+%s CHF/s security subscriptions") % BigNum.format_chf(v))
 			"bounty": parts.append(tx("+%s CHF/s bug bounties") % BigNum.format_chf(v))
+			"office": parts.append(tx("+%s CHF/s from the office") % BigNum.format_chf(v))
 			"contract_speed": parts.append(tx("Contracts %s") % _mult(v))
 			"auto_accept": parts.append(tx("Free slots take the best offer"))
 			"auto_deliver": parts.append(tx("Finished contracts deliver themselves"))

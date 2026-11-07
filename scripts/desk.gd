@@ -25,6 +25,8 @@ const PARTS := [
 	{"tex": "res://art/keyboard_mech.png", "pos": Vector2(18, 24), "size": Vector2(16, 4), "needs": "keyboard"},
 	# Stage 10: certificates on the wall, one frame per learned skill (sheet with 5 frames)
 	{"tex": "res://art/certificates.png", "pos": Vector2(52, -6), "size": Vector2(10, 12), "needs": "", "skill_frames": true},
+	# Stage 13: wall map, one more lit dot per location (sheet with 5 frames)
+	{"tex": "res://art/world_map.png", "pos": Vector2(104, 6), "size": Vector2(14, 10), "needs": "", "location_frames": true},
 	# Right of the desk
 	{"tex": "res://art/rack.png", "pos": Vector2(63, 0), "size": Vector2(24, 48), "needs": "rack"},
 	{"tex": "res://art/rack_cooling.png", "pos": Vector2(63, 0), "size": Vector2(24, 48), "needs": "rack_cooling", "fps": 2.0},
@@ -172,6 +174,8 @@ func _draw_parts(behind: bool) -> void:
 			continue
 		if part.get("skill_frames", false):
 			_draw_frame(part["tex"], part["pos"], part["size"], SkillData.learned_count(Game.skills) - 1)
+		elif part.get("location_frames", false):
+			_draw_frame(part["tex"], part["pos"], part["size"], Economy.location_count(Game.levels) - 1)
 		else:
 			_draw_sprite(part["tex"], part["pos"], part["size"], part.get("fps", 0.0))
 
@@ -272,6 +276,8 @@ func _board_colors() -> Array[Color]:
 func _shown(part: Dictionary) -> bool:
 	if part.get("skill_frames", false):
 		return SkillData.learned_count(Game.skills) > 0
+	if part.get("location_frames", false):
+		return Economy.location_count(Game.levels) > 0
 	return Game.has(part["needs"]) and not (part.has("hide_if") and Game.has(part["hide_if"]))
 
 
