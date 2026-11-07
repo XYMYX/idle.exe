@@ -37,7 +37,7 @@
 
 ## `$ whoami`
 
-**XYMYX** is a glossy black android with glowing white eyes. He sits at a mini desk right above your taskbar and codes all day. He earns money, you buy him better hardware, and his setup grows visibly in his little room.
+**XYMYX** is a black android with glowing white eyes. He sits at a mini desk right above your taskbar and codes all day. He earns money, you buy him better hardware, and his setup grows visibly in his little room.
 
 ## `$ ls features/`
 
