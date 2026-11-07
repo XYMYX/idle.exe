@@ -42,6 +42,9 @@ const PARTS := [
 	{"tex": "res://art/asic.png", "pos": Vector2(-62, 40), "size": Vector2(10, 8), "needs": "asic", "fps": 6.0},
 	{"tex": "res://art/asic_shelf.png", "pos": Vector2(-84, 18), "size": Vector2(20, 30), "needs": "asic_shelf", "fps": 4.0},
 	{"tex": "res://art/mining_rack.png", "pos": Vector2(-110, 0), "size": Vector2(24, 48), "needs": "mining_rack", "fps": 4.0},
+	# Stage 11: security business
+	{"tex": "res://art/test_server.png", "pos": Vector2(-126, 28), "size": Vector2(12, 20), "needs": "test_server", "fps": 2.0},
+	{"tex": "res://art/sec_lab.png", "pos": Vector2(-150, 8), "size": Vector2(20, 40), "needs": "sec_lab", "fps": 3.0},
 ]
 
 ## Location board on the wall: big installations that don't fit into the room
@@ -61,6 +64,7 @@ const BOARD_ITEMS := [
 	"plugin", "desktop_app", "saas", "platform", "ecosystem", "storage_server",
 	"storage_cloud", "leased", "dc_link", "solar", "battery", "own_grid",
 	"cool_loop", "industrial_cooling", "mining_container", "mining_farm",
+	"vuln_scanner", "monitoring", "sec_platform",
 ]
 const ANIM_TICK := 0.125  # at most 8 animation checks per second
 

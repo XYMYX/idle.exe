@@ -239,7 +239,7 @@ func _cat_rows() -> Array:
 				afford = true
 				break
 		rows.append({"id": id, "name": tr(c["name"]), "sel": id == _cat and not _afford_mode,
-			"locked": not Economy.category_unlocked(id, Game.levels), "afford": afford})
+			"locked": not Economy.category_unlocked(id, Game.levels, Game.skills), "afford": afford})
 	if not _events.pending.is_empty():
 		rows.push_front({"id": CAT_EVENT, "name": tr("! Event"), "sel": _cat == CAT_EVENT and not _afford_mode,
 			"locked": false, "afford": false, "special": true})
@@ -286,12 +286,14 @@ func _body_rows() -> Array:
 	var cat := Economy.get_category(_cat)
 	var cat_name := tr(cat["name"]).to_upper()
 	var lines := Economy.lines(_cat)
-	if not Economy.category_unlocked(_cat, Game.levels):
+	if not Economy.category_unlocked(_cat, Game.levels, Game.skills):
 		rows.append({"t": "title", "text": tr("%s  [LOCKED]") % cat_name})
 		var names: Array[String] = []
 		for req: String in cat["requires"]:
 			if not Game.has(req):
 				names.append(tr(Economy.name_of(req)))
+		if not Economy._skill_ok(cat, Game.skills):
+			names.append(Economy.skill_req_text(cat))
 		rows.append({"t": "text", "text": tr("Requires: %s") % " + ".join(names), "c": C_WARN})
 		return rows
 
@@ -652,7 +654,7 @@ func _skill_fx_text(s: Dictionary, lv: int) -> String:
 			names.append(tr(ContractData.type_name(t)))
 		parts.append(tr("%s rewards +%d %%") % [", ".join(names), int(round(SkillData.REWARD_PER_LEVEL * 100.0 * lv))])
 	var labels := {"contract_speed": "Contracts +%d %%", "net_income": "Storage+subscriptions +%d %%",
-		"event_gain": "Event gains +%d %%"}
+		"event_gain": "Event gains +%d %%", "security_income": "Security +%d %%"}
 	for k: String in s["fx"]:
 		parts.append(tr(labels[k]) % int(round(float(s["fx"][k]) * 100.0 * lv)))
 	return ", ".join(parts)

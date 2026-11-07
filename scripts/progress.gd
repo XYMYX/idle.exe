@@ -156,5 +156,8 @@ static func income(levels: Dictionary, versions: Dictionary, stars: float, overc
 	var software: float = (inc["software"] + bonus * t["net_mult"] * t["software_mult"]) * m * net \
 		* float(tools.get("software_mult", 1.0)) * spec_sw
 	var mining: float = inc["mining"] * m * spec_dc
-	return {"code": code, "storage": storage, "software": software, "mining": mining,
-		"total": code + storage + software + mining}
+	# Stage 11: security business, boosted by pentesting and the security specialization
+	var security: float = inc["security"] * m * float(skill_fx.get("security_income", 1.0)) \
+		* (1.5 if spec == "security" else 1.0)
+	return {"code": code, "storage": storage, "software": software, "mining": mining, "security": security,
+		"total": code + storage + software + mining + security}

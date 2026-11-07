@@ -27,6 +27,7 @@ const CATEGORIES := [
 	{"id": "mining", "name": "Mining", "requires": ["ups", "fan"]},
 	{"id": "automation", "name": "Automation", "requires": ["homeserver"]},
 	{"id": "homelab", "name": "Homelab", "requires": ["homeserver"]},
+	{"id": "security", "name": "Security", "requires": [], "requires_skill": {"skill": "pentesting", "level": 2}},
 ]
 
 ## Upgrades. Within a line (cat + line) the order is the build order:
@@ -34,7 +35,8 @@ const CATEGORIES := [
 ## cost = price (if max > 1: cost * growth^level)
 ## fx   = effect per level: code_add, code_mult, storage, software, mining, net_mult, power_cap, cool_cap,
 ##        contract_speed (mult), auto_accept, auto_deliver, event_shield (flags, 1 = on),
-##        software_mult, star_mult (mult), ram_cap (GB)
+##        software_mult, star_mult (mult), ram_cap (GB), security / bounty (CHF/s, «security» income)
+## requires_skill = optional {skill, level} (stage 11: security business needs pentesting)
 ## uses: power (kW), heat, ram (GB) – buying needs enough free capacity of each
 ## uses = consumption per level: power (kW), heat
 ## requires = additional upgrades you must own
@@ -89,7 +91,7 @@ const UPGRADES := [
 	{"id": "battery", "cat": "power", "line": "Power", "name": "Battery storage", "cost": 20.0e6,
 		"fx": {"power_cap": 60.0}},
 	{"id": "own_grid", "cat": "power", "line": "Power", "name": "Own power grid", "cost": 400.0e6,
-		"fx": {"power_cap": 300.0}},
+		"fx": {"power_cap": 360.0}},  # 300 until stage 11; the security business needs the extra power
 
 	# --- Storage (backups, rented storage) -------------------------------------
 	{"id": "ssd", "cat": "storage", "line": "Storage", "name": "NVMe SSD", "cost": 800.0,
@@ -158,10 +160,22 @@ const UPGRADES := [
 		"fx": {"software_mult": 1.06}, "uses": {"ram": 6.0, "power": 0.5, "heat": 1.0}},
 	{"id": "vm_honeypot", "cat": "homelab", "line": "Honeypot", "name": "Honeypot VM", "cost": 2.5e6, "growth": 2.5, "max": 5,
 		"fx": {"star_mult": 1.15}, "uses": {"ram": 4.0, "power": 0.3, "heat": 0.5}},
+
+	# --- Security business (stage 11: needs pentesting 2) ----------------------
+	{"id": "test_server", "cat": "security", "line": "Security", "name": "Test server", "cost": 300000.0,
+		"fx": {"security": 100.0}, "uses": {"power": 0.5, "heat": 1.0}},
+	{"id": "sec_lab", "cat": "security", "line": "Security", "name": "Security lab", "cost": 3.0e6,
+		"fx": {"security": 700.0}, "uses": {"power": 2.0, "heat": 3.0}},
+	{"id": "vuln_scanner", "cat": "security", "line": "Security", "name": "Vulnerability scanner", "cost": 25.0e6,
+		"fx": {"bounty": 4500.0}, "uses": {"power": 3.0, "heat": 4.0}},
+	{"id": "monitoring", "cat": "security", "line": "Security", "name": "Monitoring service", "cost": 200.0e6,
+		"fx": {"security": 30000.0}, "uses": {"power": 15.0, "heat": 20.0}, "requires_skill": {"skill": "pentesting", "level": 3}},
+	{"id": "sec_platform", "cat": "security", "line": "Security", "name": "Security platform", "cost": 1.2e9,
+		"fx": {"security": 160000.0}, "uses": {"power": 60.0, "heat": 80.0}, "requires_skill": {"skill": "pentesting", "level": 3}},
 ]
 
 const FX_ADD := ["code_add", "storage", "software", "mining", "power_cap", "cool_cap",
-	"auto_accept", "auto_deliver", "event_shield", "ram_cap"]
+	"auto_accept", "auto_deliver", "event_shield", "ram_cap", "security", "bounty"]
 const FX_MULT := ["code_mult", "net_mult", "contract_speed", "software_mult", "star_mult"]
 
 static var _index := {}
@@ -233,7 +247,7 @@ static func totals(levels: Dictionary) -> Dictionary:
 		"power_cap": BASE_POWER, "cool_cap": BASE_COOL,
 		"code_mult": 1.0, "net_mult": 1.0, "power": 0.0, "heat": 0.0,
 		"contract_speed": 1.0, "auto_accept": 0.0, "auto_deliver": 0.0, "event_shield": 0.0,
-		"software_mult": 1.0, "star_mult": 1.0, "ram_cap": 0.0, "ram": 0.0}
+		"software_mult": 1.0, "star_mult": 1.0, "ram_cap": 0.0, "ram": 0.0, "security": 0.0, "bounty": 0.0}
 	for u: Dictionary in UPGRADES:
 		var lv: int = levels.get(u["id"], 0)
 		if lv <= 0:
@@ -257,25 +271,47 @@ static func income(levels: Dictionary) -> Dictionary:
 	var storage: float = t["storage"] * t["net_mult"]
 	var software: float = t["software"] * t["net_mult"] * t["software_mult"]
 	var mining: float = t["mining"]
-	return {"code": code, "storage": storage, "software": software, "mining": mining,
-		"total": code + storage + software + mining}
+	var security: float = t["security"] + t["bounty"]
+	return {"code": code, "storage": storage, "software": software, "mining": mining, "security": security,
+		"total": code + storage + software + mining + security}
 
 
-static func category_unlocked(cat_id: String, levels: Dictionary) -> bool:
-	for req: String in get_category(cat_id).get("requires", []):
+static func category_unlocked(cat_id: String, levels: Dictionary, skills: Dictionary = {}) -> bool:
+	var cat := get_category(cat_id)
+	for req: String in cat.get("requires", []):
 		if levels.get(req, 0) <= 0:
 			return false
-	return true
+	return _skill_ok(cat, skills)
+
+
+## true if the optional «requires_skill» of a category/upgrade is met.
+static func _skill_ok(d: Dictionary, skills: Dictionary) -> bool:
+	if not d.has("requires_skill"):
+		return true
+	var rs: Dictionary = d["requires_skill"]
+	return int(skills.get(rs["skill"], 0)) >= int(rs["level"])
+
+
+## «Pentesting 3» for a requires_skill entry.
+static func skill_req_text(d: Dictionary) -> String:
+	var rs: Dictionary = d["requires_skill"]
+	return "%s %d" % [tx(SkillData.get_skill(rs["skill"]).get("name", rs["skill"])), int(rs["level"])]
 
 
 ## Missing requirements (not counting money) as translated, readable texts.
 ## Empty = buyable as soon as affordable.
-static func missing(u: Dictionary, levels: Dictionary, totals_now: Dictionary = {}) -> Array[String]:
+static func missing(u: Dictionary, levels: Dictionary, totals_now: Dictionary = {},
+		skills: Dictionary = {}) -> Array[String]:
 	var out: Array[String] = []
-	if not category_unlocked(u["cat"], levels):
-		for req: String in get_category(u["cat"])["requires"]:
+	var cat := get_category(u["cat"])
+	if not category_unlocked(u["cat"], levels, skills):
+		for req: String in cat["requires"]:
 			if levels.get(req, 0) <= 0:
 				out.append(tx(name_of(req)))
+		if not _skill_ok(cat, skills):
+			out.append(skill_req_text(cat))
+	if not _skill_ok(u, skills):
+		out.append(skill_req_text(u))
 	# Previous tier of the same line
 	var items := line_items(u["cat"], u["line"])
 	var i := items.find(u)
@@ -319,6 +355,8 @@ static func effect_text(u: Dictionary) -> String:
 			"net_mult": parts.append(tx("Storage+subscriptions %s") % _mult(v))
 			"power_cap": parts.append(tx("+%s kW power") % _num(v))
 			"cool_cap": parts.append(tx("+%s cooling") % _num(v))
+			"security": parts.append(tx("+%s CHF/s security subscriptions") % BigNum.format_chf(v))
+			"bounty": parts.append(tx("+%s CHF/s bug bounties") % BigNum.format_chf(v))
 			"contract_speed": parts.append(tx("Contracts %s") % _mult(v))
 			"auto_accept": parts.append(tx("Free slots take the best offer"))
 			"auto_deliver": parts.append(tx("Finished contracts deliver themselves"))

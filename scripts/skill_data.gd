@@ -6,7 +6,7 @@ extends RefCounted
 ##
 ## boosts:  contract types whose rewards get +REWARD_PER_LEVEL per level
 ## fx:      extra effects per level: contract_speed, net_income (storage + subscriptions),
-##          event_gain (all multiplicative per level: 1 + value × level)
+##          event_gain, security_income (all multiplicative per level: 1 + value × level)
 ## requires: upgrade needed before courses for this skill appear ("" = always)
 
 const MAX_LEVEL := 5
@@ -24,7 +24,7 @@ const SKILLS := [
 	{"id": "devops", "name": "DevOps", "course": "Learn DevOps", "requires": "homeserver",
 		"boosts": [], "fx": {"net_income": 0.03}},
 	{"id": "pentesting", "name": "Pentesting", "course": "Pentesting course", "requires": "gaming_pc",
-		"boosts": ["audit"], "fx": {"event_gain": 0.10}},
+		"boosts": ["audit"], "fx": {"event_gain": 0.10, "security_income": 0.10}},
 ]
 
 
@@ -56,7 +56,7 @@ static func reward_mult(skills: Dictionary, contract_type: String) -> float:
 
 ## Combined extra effects: {contract_speed, net_income, event_gain} as multipliers.
 static func fx(skills: Dictionary) -> Dictionary:
-	var out := {"contract_speed": 1.0, "net_income": 1.0, "event_gain": 1.0}
+	var out := {"contract_speed": 1.0, "net_income": 1.0, "event_gain": 1.0, "security_income": 1.0}
 	for s: Dictionary in SKILLS:
 		var lv := int(skills.get(s["id"], 0))
 		for k: String in s["fx"]:

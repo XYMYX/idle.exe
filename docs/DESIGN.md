@@ -185,6 +185,24 @@ Data in `scripts/skill_data.gd`, terminal category «Training». Save version 7 
 - **Balancing:** first run 19.5 h → 19.1 h with courses. Courses cost time early and pay off slowly; their real value is that skills carry over into every later run.
 - The category list in the terminal is scrollable now (14+ categories).
 
+### Stage 11 – Security business (done 2026-11-07)
+Category «Security» (unlocked by **pentesting 2**), own income source «security» (in `Economy.income`, boosted in `Progress.income`).
+
+| Tier | Cost | Effect | Needs |
+|---|---|---|---|
+| Test server | 300K | +100 CHF/s security subscriptions | – |
+| Security lab | 3M | +700 CHF/s | – |
+| Vulnerability scanner | 25M | +4,500 CHF/s bug bounties | – |
+| Monitoring service | 200M | +30,000 CHF/s | pentesting 3 |
+| Security platform | 1.2B | +160,000 CHF/s | pentesting 3 |
+
+- Security income ×(1 + 0.1 × pentesting level), ×1.5 with the security specialization; event buffs can target it.
+- New event «Zero-day» for companies with a security business.
+- Room: test server and security lab on the left, scanner/monitoring/platform as board icons.
+- Requirements can now also be skills (`requires_skill` on categories and upgrades).
+- **Fixes found by testing:** owning everything needed 415 kW but only 382.5 kW existed → own power grid +360 kW (was +300). With 2B and pentesting 4 the platform came 18 h after everything else → 1.2B and pentesting 3.
+- **Balancing:** first run with courses and the security business **27.6 h** (security starts around 16 h, the platform is the last purchase). The greedy simulation never switches overclocking off, so it got stuck on cooling – that is the intended trade-off, a real player switches it off before a big purchase.
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.

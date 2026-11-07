@@ -76,6 +76,15 @@ const EVENTS := [
 			{"label": "Report it (bug bounty)", "gain_min": 20.0, "react": "cheer"},
 			{"label": "Ignore it"},
 		], "default": 0},
+	{"id": "zero_day", "title": "Zero-day",
+		"text": "A zero-day hits a popular library. Your security clients need help right now.",
+		"requires_any": ["test_server", "sec_lab", "monitoring"],
+		"choices": [
+			{"label": "Emergency response for all clients", "cost_min": 5.0, "base": "security",
+				"buffs": [{"target": "security", "mult": 2.0, "min": 20.0}], "react": "cheer"},
+			{"label": "Publish an advisory only",
+				"buffs": [{"target": "security", "mult": 1.2, "min": 20.0}]},
+		], "default": 1},
 	{"id": "rgb", "title": "RGB sale",
 		"text": "An online shop is dumping RGB fans. More light, more power?",
 		"requires_any": ["gaming_pc"],
@@ -87,7 +96,7 @@ const EVENTS := [
 ]
 
 const TARGET_NAMES := {"total": "Everything", "code": "Coding", "storage": "Storage",
-	"software": "Subscriptions", "mining": "Mining"}
+	"software": "Subscriptions", "mining": "Mining", "security": "Security"}
 
 
 ## Factor as text: 2 -> «x2», 1.25 -> «x1.25»
