@@ -20,7 +20,9 @@
 
 <div align="center">
 
-![XYMYX at his desk above the taskbar, with his cat and a full room](docs/screenshot_strip.png)
+![XYMYX at his desk above the taskbar, with his pets and a full room](docs/screenshot_strip.png)
+
+![XYMYX cheering, surrounded by the elephant, dog, cat and hamster](docs/screenshot_pets.png)
 
 ![The upgrade terminal above the room](docs/screenshot_terminal.png)
 
@@ -50,8 +52,8 @@
 features/
 ├── desktop-pet         transparent always-on-top strip above the taskbar, clicks pass through,
 │                       hides while a fullscreen game or video runs
-├── settings          size, monitor, mouse reactions, sleep time, events, cat, FPS, fullscreen, taskbar
-├── stats             playtime, earnings, contracts, flags, upgrades and more
+├── settings            size, monitor, mouse reactions, sleep time, events, pets, FPS, fullscreen, taskbar
+├── stats               playtime, earnings, contracts, flags, upgrades and more
 ├── idle-economy        99 upgrades · 14 categories · power, cooling & RAM budget
 ├── visible-setup       laptop → gaming PC → server racks → AI lab → quantum → orbit
 ├── contracts           client jobs, product updates, open-source stars, automation
@@ -59,10 +61,14 @@ features/
 ├── ctf-flags           36 flags, each unlocks a tool with a permanent bonus
 ├── prestige            sell the company for know-how points and a specialization
 ├── random-events       a «!» pops up, click to decide or let the default happen
-├── personality         types, stretches, drinks coffee, waves, naps, shows emotes
+├── personality         types, stretches, drinks coffee, waves, naps, phones, talks to the rubber duck
+├── charging-cabinet    XYMYX steps into his charging cabinet now and then and recharges
+├── server-repair       devices break down now and then, XYMYX fetches the toolbox and fixes them
 ├── pets                rubber duck, cat, robot toy, hamster, dog, aquarium, baby elephant
+├── play-rounds         click the toy box: laser, balls, ring and gear for the pets
 ├── seasons             Halloween, Christmas, New Year, Swiss National Day, idle.exe birthday
-├── interaction         pick him up, throw him, combo jumps, drag the whole desk
+├── interaction         pick him and the pets up, throw them, combo jumps, drag the whole desk
+├── pixel-art           hand-drawn, 3× resolution (XYMYX 144×144), sharp at whole-number scaling
 ├── offline-progress    keeps earning while closed (up to 8 h)
 ├── i18n                English + German, switch via the tray icon
 └── low-footprint       max. 20 FPS, only redraws when something changes
@@ -94,6 +100,7 @@ autostart ........ OFF by default; if on: one value in HKCU\...\CurrentVersion\R
 | `click` desk | open the upgrade terminal |
 | `click` pet | pet it · duck squeaks · robot toy gets wound up |
 | `drag` pet | lift it and drop it (the robot toy falls over) |
+| `click` toy box | start a play round for the pets |
 | `drag` desk | move the whole strip (position is saved) |
 | `right click` | menu: pause, system status (if on), reset strip, quit |
 | tray icon | left: terminal · right: menu incl. language |
