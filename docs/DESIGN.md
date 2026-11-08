@@ -126,6 +126,9 @@ Math in `scripts/progress.gd`. Power running costs were dropped on purpose (they
 - Effects are timed (shown in the terminal header), everything goes to the log.
 - 9 events: viral, broken update, sponsor, coffee machine, power outage, heatwave, CTF, bug bounty, RGB sale.
 
+#### Second event set (2026-11-08)
+Feedback: «always the same RGB event». The selection was fine (equally distributed), there were just only 10 events and 9 possible. Now **33 events**, spread over all stages: early (Q&A site down, hackathon, code review, phishing, coffee on the keyboard, firmware), products (DDoS, Black Friday, big client bug), mining (boom, crash, power price), storage (disk failure), locations (conference, intern, office party), AI lab (GPU shortage, AI hype, model leak), quantum (decoherence), space (solar storm) and the cat (`requires_cat`: cat on the keyboard, chewed cable). No repeat of the last **6** events (was 3). With a late save 28 events are possible.
+
 ### Stage 8 – CTF flags and homelab (done 2026-11-07)
 **8a – CTF flags** (data in `scripts/flag_data.gd`, terminal category «CTF»): 12 milestones named like `flag{first_client}`. Capturing one pays once (5–60 min of income) and unlocks a **tool** with a permanent bonus. Goals: total earned, delivered contracts, owned upgrades, stars, resolved events, product updates, highest combo jump, XYMYX falling asleep, owning every one-off upgrade. Checked once per second, saved (version 5: `flags`, `stats`).
 

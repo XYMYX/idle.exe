@@ -9,7 +9,7 @@ signal resolved(event: Dictionary, choice: Dictionary, auto: bool)
 
 const INTERVAL_MIN := Vector2(10.0, 25.0)  # minutes between events
 const TIMEOUT_SEC := 180.0                 # how long an event waits for your choice
-const NO_REPEAT := 3                       # don't repeat the last n events
+const NO_REPEAT := 6                       # don't repeat the last n events
 
 ## Set by main: true while the user is away (mouse idle for a long time).
 var is_away: Callable = func() -> bool: return false
@@ -128,6 +128,8 @@ func _schedule() -> void:
 func _pick() -> Dictionary:
 	var pool: Array = EventData.EVENTS.filter(func(e: Dictionary) -> bool:
 		if _recent.has(e["id"]):
+			return false
+		if e.get("requires_cat", false) and not Game.cat:
 			return false
 		var any: Array = e.get("requires_any", [])
 		return any.is_empty() or any.any(func(id: String) -> bool: return Game.has(id)))
