@@ -18,8 +18,13 @@
 
 </div>
 
-<!-- Screenshot: add docs/screenshot.png and uncomment the next line -->
-<!-- ![XYMYX at his desk above the taskbar](docs/screenshot.png) -->
+<div align="center">
+
+![XYMYX at his desk above the taskbar, with his cat and a full room](docs/screenshot_strip.png)
+
+![The upgrade terminal above the room](docs/screenshot_terminal.png)
+
+</div>
 
 ```text
   ▄██████▄
@@ -37,17 +42,22 @@
 
 ## `$ whoami`
 
-**XYMYX** is a black android with glowing white eyes. He sits at a mini desk right above your taskbar and codes all day. He earns money, you buy him better hardware, and his setup grows visibly in his little room.
+**XYMYX** is a black android with glowing white eyes. He sits at a mini desk right above your taskbar and codes all day. He earns money, you buy him better hardware, and his setup grows visibly in his little room. Later he takes contracts, learns new skills, runs research, opens offices, buys other companies and finally sells his own to start over a bit wiser.
 
 ## `$ ls features/`
 
 ```text
 features/
 ├── desktop-pet         transparent always-on-top strip above the taskbar, clicks pass through
-├── idle-economy        45 upgrades · 7 categories · power & cooling budget
-├── visible-setup       laptop → gaming PC → monitor wall → server racks → data center
+├── idle-economy        75 upgrades · 14 categories · power, cooling & RAM budget
+├── visible-setup       laptop → gaming PC → server racks → AI lab → quantum → orbit
+├── contracts           client jobs, product updates, open-source stars, automation
+├── progression         5 skills · 6 research projects · 5 locations · 5 acquisitions
+├── ctf-flags           28 flags, each unlocks a tool with a permanent bonus
+├── prestige            sell the company for know-how points and a specialization
 ├── random-events       a «!» pops up, click to decide or let the default happen
 ├── personality         types, stretches, drinks coffee, waves, naps, shows emotes
+├── cat                 adopt a cat: wanders, sleeps, follows XYMYX, likes being petted
 ├── interaction         pick him up, throw him, combo jumps, drag the whole desk
 ├── offline-progress    keeps earning while closed (up to 8 h)
 ├── i18n                English + German, switch via the tray icon
@@ -72,13 +82,18 @@ save file ........ stays on your computer
 | `click` XYMYX | jump · click faster for higher combo jumps |
 | `drag` XYMYX | pick him up, carry and throw him |
 | `click` desk | open the upgrade terminal |
+| `click` cat | pet her |
 | `drag` desk | move the whole strip (position is saved) |
 | `right click` | menu: pause, reset strip, quit |
 | tray icon | left: terminal · right: menu incl. language |
 
 ## `$ ./run`
 
-No release build yet. Run it from source:
+**Download:** grab `idle.exe` from the [latest release](https://github.com/XYMYX/idle.exe/releases/latest) and start it. No installer, a single file.
+
+> Windows SmartScreen may warn because the file isn't signed: «More info» → «Run anyway».
+
+**From source:**
 
 ```bash
 # 1. install Godot 4.7 (standard, not .NET): https://godotengine.org/download
@@ -120,3 +135,7 @@ art & XYMYX ..... CC BY-NC 4.0  → LICENSE-ART.md
 
 - **Code:** [MIT](LICENSE) – use, modify and share freely, keep the copyright notice.
 - **Artwork and the character XYMYX:** [CC BY-NC 4.0](LICENSE-ART.md) – share and adapt with credit, but not for commercial use.
+
+## `$ cat CREDITS`
+
+Code written together with [Claude](https://claude.com/claude-code) (Anthropic) as a pair programmer. Pixel art, the character XYMYX and the game design by XYMYX.

@@ -265,6 +265,16 @@ Adopted once in the terminal («Cat», 1,000 CHF), stays when the company is sol
 - **User away (10 min):** she curls up too and wakes up shortly after the mouse moves again.
 - Frame size = sheet height (now 32 px). Clickable area like XYMYX (snapped to 24 px, full height); she can't be carried.
 
+### Endgame and longer first run (2026-11-08)
+Goal: a first run (everything bought, greedy simulation with research and acquisitions) of about one week.
+- **Prices:** every upgrade from 100M on costs 1.5× as much as before.
+- **Longer lines:** Holo display (3B, coding ×1.3), Server row (12B, coding ×1.4), Power plant share (7.5B, +1,500 kW), Mining hall (22.5B, +1M/s mining), Security operations center (15B, +700K/s security, pentesting 4).
+- **AI lab** (needs colocation): GPU cluster (18B, coding ×1.6), Training servers (60B, +2.5M/s subscriptions, 64 GB RAM), Own language model (180B, +7M/s subscriptions).
+- **Quantum** (needs GPU cluster): Cryo cooler (300B, +1,500 cooling), Qubit chip (750B, coding ×2.5, 600 heat), Quantum cloud (2.25T, +35M/s security).
+- **Space** (needs qubit chip): Satellite uplink (6T, storage+subscriptions ×1.5), Own satellite (10T, +120M/s storage), Orbital data center (55T, +400M/s storage).
+- **Room:** all new tiers are 8×8 board icons (`art/icon_<id>.png`); the board is now up to 10 icons wide.
+- **Balancing:** first run **162.8 h** (≈ 6.8 days, was 23.3 h). Campus at 25 h, AI lab 35–57 h, quantum 56–80 h, space 111–163 h. Power, cooling and RAM suffice for everything (all bought: 1,130/2,373 kW, 2,117/2,691 cooling, 134/1,239 GB). Income with everything: ~13B CHF/s.
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
@@ -276,7 +286,7 @@ On a company sale **skills stay** (knowledge), everything else of these stages r
 - **14 – Acquisitions:** fixed list of 5 companies (plugin studio, app company, hosting provider, security startup, software studio) with fixed prices; each brings its own income and can be upgraded.
 
 ## Backlog (smaller items, as of 2026-11-07)
-- Screenshot for the README (`docs/screenshot.png`, then uncomment the line in README.md).
+- ~~Screenshot for the README~~ done 2026-11-08 (`docs/screenshot_strip.png`, `docs/screenshot_terminal.png`).
 - Settings in the terminal: scale, mouse reactions on/off, sleep delay, event frequency.
 - ~~Click area as an outline~~ done 2026-11-08: union of all drawn rectangles (`Desk.outline_rects`, `main._outline`), hanging parts connected by 1 px strings to a bridge at the bottom. Blocks about 20 % less desktop than the old bounding box; falls back to the box if the union ever loses a part.
 - First release: export preset, include `*.ico` in the non-resource export filter, GitHub release with download.

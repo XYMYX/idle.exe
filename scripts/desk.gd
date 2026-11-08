@@ -51,11 +51,11 @@ const PARTS := [
 
 ## Location board on the wall: big installations that don't fit into the room
 ## appear as 8x8 icons (art/icon_<id>.png, optionally 2 frames = 16x8).
-## The board is only as big as needed (up to 8 icons per row) and hangs right next to
+## The board is only as big as needed (up to 10 icons per row) and hangs right next to
 ## the leftmost part in the room. Border and fill color come from board.png.
 const BOARD_TEX := "res://art/board.png"
 const BOARD_TOP := -8.0
-const BOARD_COLS := 8
+const BOARD_COLS := 10
 const BOARD_GAP := 3.0       # gap to the next part on the right
 const BOARD_PAD := 2         # padding between border and icons
 const BOARD_ICON_GAP := 2    # gap between icons
@@ -67,6 +67,10 @@ const BOARD_ITEMS := [
 	"storage_cloud", "leased", "dc_link", "solar", "battery", "own_grid",
 	"cool_loop", "industrial_cooling", "mining_container", "mining_farm",
 	"vuln_scanner", "monitoring", "sec_platform",
+	# endgame (2026-11-08)
+	"holo_display", "server_row", "power_plant", "mining_hall", "soc",
+	"gpu_cluster", "training_servers", "own_llm", "cryo_cooler", "qubit_chip", "quantum_cloud",
+	"sat_uplink", "own_satellite", "orbital_dc",
 ]
 const ANIM_TICK := 0.125  # at most 8 animation checks per second
 

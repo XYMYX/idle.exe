@@ -30,6 +30,9 @@ const CATEGORIES := [
 	{"id": "homelab", "name": "Homelab", "requires": ["homeserver"]},
 	{"id": "security", "name": "Security", "requires": [], "requires_skill": {"skill": "pentesting", "level": 2}},
 	{"id": "locations", "name": "Locations", "requires": ["rack"]},
+	{"id": "ai_lab", "name": "AI lab", "requires": ["colocation"]},
+	{"id": "quantum", "name": "Quantum", "requires": ["gpu_cluster"]},
+	{"id": "space", "name": "Space", "requires": ["qubit_chip"]},
 ]
 
 ## Upgrades. Within a line (cat + line) the order is the build order:
@@ -81,7 +84,7 @@ const UPGRADES := [
 		"fx": {"cool_cap": 30.0}, "requires": ["rack"]},
 	{"id": "cool_loop", "cat": "cooling", "line": "Cooling", "name": "Custom cooling loop", "cost": 50.0e6,
 		"fx": {"cool_cap": 120.0}},
-	{"id": "industrial_cooling", "cat": "cooling", "line": "Cooling", "name": "Industrial cooling plant", "cost": 800.0e6,
+	{"id": "industrial_cooling", "cat": "cooling", "line": "Cooling", "name": "Industrial cooling plant", "cost": 1.2e9,
 		"fx": {"cool_cap": 500.0}},
 
 	# --- Power -----------------------------------------------------------------
@@ -93,7 +96,7 @@ const UPGRADES := [
 		"fx": {"power_cap": 15.0}},
 	{"id": "battery", "cat": "power", "line": "Power", "name": "Battery storage", "cost": 20.0e6,
 		"fx": {"power_cap": 60.0}},
-	{"id": "own_grid", "cat": "power", "line": "Power", "name": "Own power grid", "cost": 400.0e6,
+	{"id": "own_grid", "cat": "power", "line": "Power", "name": "Own power grid", "cost": 6.0e8,
 		"fx": {"power_cap": 360.0}},  # 300 until stage 11; the security business needs the extra power
 
 	# --- Storage (backups, rented storage) -------------------------------------
@@ -117,7 +120,7 @@ const UPGRADES := [
 		"fx": {"net_mult": 1.25}},
 	{"id": "leased", "cat": "network", "line": "Network", "name": "Business leased line", "cost": 40.0e6,
 		"fx": {"net_mult": 1.5}},
-	{"id": "dc_link", "cat": "network", "line": "Network", "name": "Data center link", "cost": 1.0e9,
+	{"id": "dc_link", "cat": "network", "line": "Network", "name": "Data center link", "cost": 1.5e9,
 		"fx": {"net_mult": 2.0}, "requires": ["storage_cloud"]},
 
 	# --- Software (own products, subscriptions) --------------------------------
@@ -129,7 +132,7 @@ const UPGRADES := [
 		"fx": {"software": 450.0}, "requires": ["homeserver", "router"]},
 	{"id": "platform", "cat": "software", "line": "Products", "name": "Developer platform", "cost": 20.0e6,
 		"fx": {"software": 5000.0}, "requires": ["rack", "fiber"]},
-	{"id": "ecosystem", "cat": "software", "line": "Products", "name": "Software ecosystem", "cost": 500.0e6,
+	{"id": "ecosystem", "cat": "software", "line": "Products", "name": "Software ecosystem", "cost": 7.5e8,
 		"fx": {"software": 60000.0}, "requires": ["storage_cloud", "leased"]},
 
 	# --- Mining (dedicated devices, the coding PC stays free) ------------------
@@ -141,7 +144,7 @@ const UPGRADES := [
 		"fx": {"mining": 1000.0}, "uses": {"power": 8.0, "heat": 10.0}, "requires": ["rack"]},
 	{"id": "mining_container", "cat": "mining", "line": "Mining", "name": "Mining container", "cost": 50.0e6,
 		"fx": {"mining": 14000.0}, "uses": {"power": 40.0, "heat": 50.0}},
-	{"id": "mining_farm", "cat": "mining", "line": "Mining", "name": "Mining farm", "cost": 1.0e9,
+	{"id": "mining_farm", "cat": "mining", "line": "Mining", "name": "Mining farm", "cost": 1.5e9,
 		"fx": {"mining": 160000.0}, "uses": {"power": 250.0, "heat": 300.0}},
 
 	# --- Automation (stage 5b: contracts run by themselves) --------------------
@@ -171,9 +174,9 @@ const UPGRADES := [
 		"fx": {"security": 700.0}, "uses": {"power": 2.0, "heat": 3.0}},
 	{"id": "vuln_scanner", "cat": "security", "line": "Security", "name": "Vulnerability scanner", "cost": 25.0e6,
 		"fx": {"bounty": 4500.0}, "uses": {"power": 3.0, "heat": 4.0}},
-	{"id": "monitoring", "cat": "security", "line": "Security", "name": "Monitoring service", "cost": 200.0e6,
+	{"id": "monitoring", "cat": "security", "line": "Security", "name": "Monitoring service", "cost": 3.0e8,
 		"fx": {"security": 30000.0}, "uses": {"power": 15.0, "heat": 20.0}, "requires_skill": {"skill": "pentesting", "level": 3}},
-	{"id": "sec_platform", "cat": "security", "line": "Security", "name": "Security platform", "cost": 1.2e9,
+	{"id": "sec_platform", "cat": "security", "line": "Security", "name": "Security platform", "cost": 1.8e9,
 		"fx": {"security": 160000.0}, "uses": {"power": 60.0, "heat": 80.0}, "requires_skill": {"skill": "pentesting", "level": 3}},
 
 	# --- Locations (stage 13: more room = capacity, plus income from the team there) ---
@@ -183,10 +186,44 @@ const UPGRADES := [
 		"fx": {"power_cap": 15.0, "cool_cap": 20.0, "ram_cap": 16.0, "office": 800.0}},
 	{"id": "office_city", "cat": "locations", "line": "Locations", "name": "City office", "cost": 50.0e6,
 		"fx": {"power_cap": 40.0, "cool_cap": 50.0, "ram_cap": 32.0, "office": 7000.0}},
-	{"id": "colocation", "cat": "locations", "line": "Locations", "name": "Colocation data center", "cost": 400.0e6,
+	{"id": "colocation", "cat": "locations", "line": "Locations", "name": "Colocation data center", "cost": 6.0e8,
 		"fx": {"power_cap": 120.0, "cool_cap": 150.0, "ram_cap": 64.0, "office": 50000.0}},
-	{"id": "campus", "cat": "locations", "line": "Locations", "name": "Tech campus", "cost": 3.0e9,
+	{"id": "campus", "cat": "locations", "line": "Locations", "name": "Tech campus", "cost": 4.5e9,
 		"fx": {"power_cap": 250.0, "cool_cap": 300.0, "ram_cap": 128.0, "office": 300000.0}},
+
+	# --- Endgame (2026-11-08): longer lines and three new categories --------------
+	# Within a line the list order is the build order, so these come last.
+	{"id": "holo_display", "cat": "hardware", "line": "Monitors & more", "name": "Holo display", "cost": 3.0e9,
+		"fx": {"code_mult": 1.3}, "uses": {"power": 5.0, "heat": 5.0}},
+	{"id": "server_row", "cat": "hardware", "line": "Server", "name": "Server row", "cost": 1.2e10,
+		"fx": {"code_mult": 1.4}, "uses": {"power": 40.0, "heat": 50.0}},
+	{"id": "power_plant", "cat": "power", "line": "Power", "name": "Power plant share", "cost": 7.5e9,
+		"fx": {"power_cap": 1500.0}},
+	{"id": "mining_hall", "cat": "mining", "line": "Mining", "name": "Mining hall", "cost": 2.25e10,
+		"fx": {"mining": 1.0e6}, "uses": {"power": 300.0, "heat": 350.0}},
+	{"id": "soc", "cat": "security", "line": "Security", "name": "Security operations center", "cost": 1.5e10,
+		"fx": {"security": 700000.0}, "uses": {"power": 40.0, "heat": 50.0}, "requires_skill": {"skill": "pentesting", "level": 4}},
+	# AI lab
+	{"id": "gpu_cluster", "cat": "ai_lab", "line": "AI lab", "name": "GPU cluster", "cost": 1.8e10,
+		"fx": {"code_mult": 1.6}, "uses": {"power": 60.0, "heat": 80.0}},
+	{"id": "training_servers", "cat": "ai_lab", "line": "AI lab", "name": "Training servers", "cost": 6.0e10,
+		"fx": {"software": 2.5e6}, "uses": {"power": 80.0, "heat": 100.0, "ram": 64.0}},
+	{"id": "own_llm", "cat": "ai_lab", "line": "AI lab", "name": "Own language model", "cost": 1.8e11,
+		"fx": {"software": 7.0e6}, "uses": {"power": 40.0, "heat": 50.0}},
+	# Quantum
+	{"id": "cryo_cooler", "cat": "quantum", "line": "Quantum", "name": "Cryo cooler", "cost": 3.0e11,
+		"fx": {"cool_cap": 1500.0}},
+	{"id": "qubit_chip", "cat": "quantum", "line": "Quantum", "name": "Qubit chip", "cost": 7.5e11,
+		"fx": {"code_mult": 2.5}, "uses": {"power": 30.0, "heat": 600.0}},
+	{"id": "quantum_cloud", "cat": "quantum", "line": "Quantum", "name": "Quantum cloud", "cost": 2.25e12,
+		"fx": {"security": 35.0e6}, "uses": {"power": 100.0, "heat": 300.0}},
+	# Space
+	{"id": "sat_uplink", "cat": "space", "line": "Space", "name": "Satellite uplink", "cost": 6.0e12,
+		"fx": {"net_mult": 1.5}, "uses": {"power": 20.0, "heat": 10.0}},
+	{"id": "own_satellite", "cat": "space", "line": "Space", "name": "Own satellite", "cost": 1.0e13,
+		"fx": {"storage": 120.0e6}},
+	{"id": "orbital_dc", "cat": "space", "line": "Space", "name": "Orbital data center", "cost": 5.5e13,
+		"fx": {"storage": 400.0e6}},
 ]
 
 ## Locations in build order (for the wall map: one more dot per location).
@@ -197,6 +234,7 @@ const FX_ADD := ["code_add", "storage", "software", "mining", "power_cap", "cool
 const FX_MULT := ["code_mult", "net_mult", "contract_speed", "software_mult", "star_mult"]
 
 static var _index := {}
+
 
 
 # --- Lookup -------------------------------------------------------------------
