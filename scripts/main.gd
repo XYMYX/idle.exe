@@ -8,11 +8,14 @@ extends Node2D
 ##   click desk   = terminal         drag desk  = move the whole strip (saved)
 ##   right click  = menu
 
-const GAME_HEIGHT := 58      # window height in game pixels (48 figure/desk + room for counter/jumps)
-const BASE_SCALE := 2        # pixel scale at 100 % Windows scaling
-const DESK_FROM_RIGHT := 120 # default distance of the desk from the right screen edge (game pixels)
-const FIGURE := 48
-const DRAG_START_PX := 3.0   # mouse travel (game pixels) after which a click becomes a drag
+## Game pixels are 3× finer since 2026-11-08 (Art.SCALE): XYMYX is 144 game px, on a 4K screen at
+## 150 % one game pixel = one screen pixel. Old sprites are shown ×3, redrawn ones 1:1.
+const GAME_HEIGHT := 174     # window height in game pixels (144 figure/desk + room for counter/jumps)
+const BASE_SCALE := 2        # old pixel scale at 100 % Windows scaling (divided by Art.SCALE below)
+const DESK_FROM_RIGHT := 360 # default distance of the desk from the right screen edge (game pixels)
+const FIGURE := 144
+const DRAG_START_PX := 9.0   # mouse travel (screen pixels at scale 1) after which a click becomes a drag
+const EDGE := 24.0           # figures keep this distance to the screen edges (game pixels)
 const SETTINGS_PATH := "user://settings.cfg"
 const LANGUAGES := ["de", "en"]
 
@@ -120,7 +123,7 @@ func _setup_window() -> void:
 	_usable = DisplayServer.screen_get_usable_rect(screen)
 	var dpi := DisplayServer.screen_get_dpi(screen)
 	# screen_get_scale() always returns 1.0 on Windows (per the docs), hence DPI/96.
-	pixel_scale = maxi(1, roundi(BASE_SCALE * dpi / 96.0))
+	pixel_scale = maxi(1, roundi(BASE_SCALE * dpi / 96.0 / Art.SCALE))
 	if int(Settings.get_value("scale")) > 0:
 		pixel_scale = int(Settings.get_value("scale"))  # fixed size from the settings
 	game_width = _usable.size.x / pixel_scale
@@ -130,6 +133,10 @@ func _setup_window() -> void:
 	cfg.load(SETTINGS_PATH)  # if the file is missing, the defaults apply
 	var lift: int = cfg.get_value("layout", "lift_px", 0)
 	_desk_from_right = cfg.get_value("layout", "desk_from_right", float(DESK_FROM_RIGHT))
+	# Layouts saved before the 3× art are in old game pixels: convert once
+	var units: int = cfg.get_value("layout", "units", 1)
+	if cfg.has_section_key("layout", "desk_from_right") and units != Art.SCALE:
+		_desk_from_right *= float(Art.SCALE) / float(units)
 
 	var win := get_window()
 	var win_size := Vector2i(game_width * pixel_scale, GAME_HEIGHT * pixel_scale)
@@ -171,12 +178,12 @@ func _build_scene() -> void:
 
 	_desk_from_right = _clamp_desk_from_right(_desk_from_right)
 	_place_desk()
-	_xymyx.setup(_xymyx.home_x, _xymyx.repair_x, 8.0, game_width - FIGURE - 8.0)
+	_xymyx.setup(_xymyx.home_x, _xymyx.repair_x, EDGE, game_width - FIGURE - EDGE)
 	for w: Cat in _walkers:
-		w.setup(_pet_home(w.kind), 8.0, game_width - w.size - 8.0)
+		w.setup(_pet_home(w.kind), EDGE, game_width - w.size - EDGE)
 		w.xymyx_out_x = _xymyx.out_x
 		w.moved.connect(_update_passthrough)
-	_toy.setup(_pet_home("robo_toy"), 8.0, game_width - _toy.size - 8.0)
+	_toy.setup(_pet_home("robo_toy"), EDGE, game_width - _toy.size - EDGE)
 	_toy.moved.connect(_update_passthrough)
 	Game.pet_adopted.connect(func(_id: String) -> void: _update_pet_visibility())
 	# XYMYX and the pets: talk to the duck, kneel next to a pet on his walk
@@ -269,9 +276,10 @@ func _build_scene() -> void:
 ## Align desk, counter and XYMYX's home spot with _desk_from_right.
 func _place_desk() -> void:
 	_desk.position = Vector2(game_width - _desk_from_right, GAME_HEIGHT - Desk.SIZE.y)
-	_counter.position = _desk.position + Vector2(38, 2)  # above the laptop screen
-	var home := _desk.position.x - 16  # hips on the chair in the desk sprite
-	var repair := _desk.position.x + 18
+	_counter.position = _desk.position + Vector2(114, 6)  # above the laptop screen
+	_counter.scale = Vector2(Art.SCALE, Art.SCALE)  # pixel font in old pixels
+	var home := _desk.position.x - 48  # hips on the chair in the desk sprite
+	var repair := _desk.position.x + 54
 	if _xymyx.home_x == 0.0 and _xymyx.repair_x == 0.0:
 		_xymyx.home_x = home  # first call, setup() follows
 		_xymyx.repair_x = repair
@@ -301,11 +309,11 @@ func _update_pet_visibility() -> void:
 ## on the left among the parts.
 func _pet_home(id: String) -> float:
 	match id:
-		"dog": return _desk.position.x + 24.0
-		"elephant": return _desk.position.x - 70.0
-		"hamster": return _desk.position.x - 50.0
-		"robo_toy": return _desk.position.x - 30.0
-	return _desk.position.x + 62.0
+		"dog": return _desk.position.x + 72.0
+		"elephant": return _desk.position.x - 210.0
+		"hamster": return _desk.position.x - 150.0
+		"robo_toy": return _desk.position.x - 90.0
+	return _desk.position.x + 186.0
 
 
 func _build_menu() -> void:
@@ -325,7 +333,7 @@ func _build_menu() -> void:
 
 	_terminal = TerminalMenu.new()
 	add_child(_terminal)
-	_terminal.setup(pixel_scale, _events)
+	_terminal.setup(pixel_scale * Art.SCALE, _events)  # UI size as before the 3× art
 
 	_build_tray()
 
@@ -609,6 +617,7 @@ func _save_layout() -> void:
 	var lift := _usable.end.y - GAME_HEIGHT * pixel_scale - get_window().position.y
 	cfg.set_value("layout", "lift_px", lift)
 	cfg.set_value("layout", "desk_from_right", _desk_from_right)
+	cfg.set_value("layout", "units", Art.SCALE)
 	var err := cfg.save(SETTINGS_PATH)
 	if err != OK:
 		push_error("Saving the layout failed: %s" % error_string(err))
@@ -671,9 +680,9 @@ func _on_menu_id(id: int) -> void:
 ## A pet XYMYX can kneel next to (within 40 px of x): an awake walker or the fallen robot toy.
 func _pet_near(x: float) -> Object:
 	for w: Cat in _walkers:
-		if w.visible and w.state_name() in ["STAND", "SIT", "GROOM"] and absf(w.position.x + w.size * 0.5 - x) < 40.0:
+		if w.visible and w.state_name() in ["STAND", "SIT", "GROOM"] and absf(w.position.x + w.size * 0.5 - x) < 120.0:
 			return w
-	if _toy.visible and _toy.state_name() == "LYING" and absf(_toy.position.x + _toy.size * 0.5 - x) < 40.0:
+	if _toy.visible and _toy.state_name() == "LYING" and absf(_toy.position.x + _toy.size * 0.5 - x) < 120.0:
 		return _toy
 	return null
 
@@ -716,8 +725,8 @@ func _figure_rect() -> Rect2:
 ## Click area around the figure: with margin and snapped to a 24 px grid. This way the area
 ## only changes every ~24 px while walking instead of on every pixel. On Windows every change
 ## briefly draws the newly exposed strip incorrectly (flicker in front of the figure).
-const REGION_STEP := 24.0
-const REGION_MARGIN := 8.0
+const REGION_STEP := 72.0
+const REGION_MARGIN := 24.0
 
 func _figure_region() -> Rect2:
 	return _region_of(_xymyx.position.x)
@@ -732,11 +741,11 @@ func _region_of(x: float) -> Rect2:
 
 func _home_rect() -> Rect2:
 	var left: float = minf(_xymyx.home_x, _desk.position.x + _desk.left_extent())  # incl. parts left of the chair
-	var right: float = _desk.position.x + maxf(_desk.width(), Desk.SIZE.x + 6)  # incl. rack, room for wide numbers
+	var right: float = _desk.position.x + maxf(_desk.width(), Desk.SIZE.x + 18)  # incl. rack, room for wide numbers
 	return Rect2(left, 0, right - left, GAME_HEIGHT)
 
 
-const OUTLINE_MARGIN := 1.0  # extra px around every part (anti-cut-off)
+const OUTLINE_MARGIN := 3.0  # extra game px around every part (anti-cut-off)
 
 
 ## One polygon covering all rectangles exactly (their union). The window takes only a

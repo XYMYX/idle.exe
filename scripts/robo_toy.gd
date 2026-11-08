@@ -11,21 +11,21 @@ signal moved
 
 enum State { WALK, IDLE, WIND, FALL, LYING, HELD, DROP }
 
-const GRAVITY := 600.0
+const GRAVITY := 600.0 * Art.SCALE
 
-const SPEED := 10.0
-const ROAM := 50.0
+const SPEED := 10.0 * Art.SCALE
+const ROAM := 50.0 * Art.SCALE
 const BATTERY_SEC := Vector2(40.0, 120.0)
 const IDLE_SEC := Vector2(2.0, 5.0)
 const FRAMES := {"walk": 4, "idle": 2, "wind": 3, "fall": 3, "held": 4}
-const PLACEHOLDER_SIZE := 16
+const OLD_SIZE := 16  # old art size; shown ×Art.SCALE game pixels
 
 var home_x := 0.0
 var floor_y := 0.0
 var _vel := Vector2.ZERO
 var min_x := 0.0
 var max_x := 0.0
-var size := float(PLACEHOLDER_SIZE)
+var size := float(OLD_SIZE * Art.SCALE)
 var paused := false:
 	set(value):
 		paused = value
@@ -58,8 +58,19 @@ func _ready() -> void:
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
 	_bubble = SpeechBubble.new()
-	_bubble.position = Vector2(roundf(size * 0.5), -12.0)
 	add_child(_bubble)
+	animation_changed.connect(_fit)
+	_fit()
+
+
+## Old 16 px sheets are shown ×3, redrawn 48 px ones 1:1; the speech bubble keeps its size.
+func _fit() -> void:
+	var tex := sprite_frames.get_frame_texture(animation, 0) if sprite_frames else null
+	var s := Art.fit(tex.get_height(), size) if tex else 1.0
+	if scale.x != s:
+		scale = Vector2(s, s)
+	_bubble.scale = Vector2.ONE * Art.SCALE / s
+	_bubble.position = Vector2(roundf(size * 0.5), -12.0 * Art.SCALE) / s
 
 
 func setup(home: float, lo: float, hi: float) -> void:
@@ -160,7 +171,7 @@ func hit(p: Vector2) -> bool:
 	var tex := sprite_frames.get_frame_texture(animation, frame)
 	if tex == null:
 		return false
-	var local := (p - position - offset).floor()
+	var local := ((p - position) / scale - offset).floor()
 	if flip_h:
 		local.x = tex.get_width() - 1 - local.x
 	if local.x < 0 or local.y < 0 or local.x >= tex.get_width() or local.y >= tex.get_height():
@@ -201,18 +212,10 @@ func state_name() -> String:
 
 
 func _frames(anim: String) -> Array[Texture2D]:
-	var out: Array[Texture2D] = []
-	var path := "res://art/robo_toy_%s.png" % anim
-	if ResourceLoader.exists(path):
-		var sheet: Texture2D = load(path)
-		size = sheet.get_height()
-		for i in sheet.get_width() / sheet.get_height():
-			var atlas := AtlasTexture.new()
-			atlas.atlas = sheet
-			atlas.region = Rect2(i * size, 0, size, size)
-			out.append(atlas)
+	var out := Art.sheet_frames("res://art/robo_toy_%s.png" % anim)
+	if not out.is_empty():
 		return out
-	var s := PLACEHOLDER_SIZE
+	var s := OLD_SIZE
 	for i in FRAMES[anim]:
 		var h := s * 3 / 4 if anim != "fall" else maxi(4, s * 3 / 4 - i * 3)
 		var img := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)

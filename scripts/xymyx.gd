@@ -13,16 +13,17 @@ signal petted(target: Object)    # kneeled next to a pet: main lets it react (he
 enum State { SITTING, WALKING_OUT, STANDING, WALKING_HOME, WALKING_TO_REPAIR, ACTION,
 	GRABBED, FALLING, LANDING, SLEEPING }
 
-const WALK_SPEED := 18.0                     # game pixels per second
+const SIZE := 48.0 * Art.SCALE               # figure size in game pixels (144)
+const WALK_SPEED := 18.0 * Art.SCALE         # game pixels per second
 const SIT_TIME := Vector2(25.0, 70.0)        # seconds at the desk before a walk
 const STAND_TIME := Vector2(2.0, 5.0)        # pause while out walking
 const IDLE_ACTION_TIME := Vector2(12.0, 30.0) # gap between idle animations while typing
-const MIN_WALK := 40.0
+const MIN_WALK := 40.0 * Art.SCALE
 const REPAIR_SEC := 2.5
-const ROLL_DIST := 12.0
-const ROLL_SPEED := 16.0
-const GRAVITY := 600.0       # game pixels per second²
-const MAX_THROW := 250.0     # highest throw speed (game pixels per second)
+const ROLL_DIST := 12.0 * Art.SCALE
+const ROLL_SPEED := 16.0 * Art.SCALE
+const GRAVITY := 600.0 * Art.SCALE    # game pixels per second²
+const MAX_THROW := 250.0 * Art.SCALE  # highest throw speed (game pixels per second)
 const FRONT_CHANCE := 0.5    # share of standing pauses with a look at the user
 
 ## Special animations from art/xymyx_<name>.png: speed and frame sequence (indices in the sheet).
@@ -49,20 +50,20 @@ const ACTIONS := {
 	"duck_talk": {"fps": 4.0, "seq": [0, 1, 2, 3, 2, 3, 2, 3, 1, 0]},
 	"kneel": {"fps": 6.0, "seq": [0, 1, 2, 3, 4, 3, 4, 3, 4, 2, 1, 0]},
 }
-const BUBBLE_POS := Vector2(32, -8)  # speech bubble in front of/above the face (relative to the sprite corner)
+const BUBBLE_POS := Vector2(32, -8) * Art.SCALE  # speech bubble in front of/above the face (game pixels from the corner)
 ## Occasional emote while typing (weights) and how long it stays
 const IDLE_EMOTES := {"note": 4, "dots": 3, "heart": 2, "angry": 1}
 const IDLE_EMOTE_TIME := Vector2(45.0, 120.0)
 const EMOTE_SEC := 3.0
 ## Reaction -> emote (after events, milestones)
 const REACT_EMOTES := {"cheer": "heart", "headdesk": "angry", "drink": "heart", "stretch": "dots"}
-const HARD_LANDING := 300.0  # from this fall speed on he gets angry
+const HARD_LANDING := 300.0 * Art.SCALE  # from this fall speed on he gets angry
 ## Click jumps: every click within COMBO_SEC raises the level (height in game pixels).
 ## Up to TWEEN_MAX it stays a small hop inside the strip (he keeps typing),
 ## above that he really jumps (carry window, can go above the strip).
-const JUMP_HEIGHTS := [4.0, 10.0, 18.0, 30.0, 45.0, 65.0, 90.0]
+const JUMP_HEIGHTS := [12.0, 30.0, 54.0, 90.0, 135.0, 195.0, 270.0]  # old values ×3
 const COMBO_SEC := 1.2
-const TWEEN_MAX := 8.0
+const TWEEN_MAX := 24.0
 ## Random pauses while typing, weighted (headdesk later via bug events)
 const IDLE_ACTIONS := {"stretch": 3, "drink": 3, "roll": 1, "headdesk": 1, "look": 3, "phone": 2, "duck_talk": 2}
 const KNEEL_CHANCE := 0.6  # standing on a walk with a pet close by: share of pauses with a kneel
@@ -116,8 +117,24 @@ func _ready() -> void:
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
 	_bubble = SpeechBubble.new()
-	_bubble.position = BUBBLE_POS
 	add_child(_bubble)
+	animation_changed.connect(_fit)
+	_fit()
+
+
+## Old 48 px sheets are shown ×3, new 144 px sheets 1:1. The speech bubble keeps its size.
+func _fit() -> void:
+	var tex := sprite_frames.get_frame_texture(animation, 0) if sprite_frames else null
+	var s := Art.fit(tex.get_height(), SIZE) if tex else float(Art.SCALE)
+	if scale.x != s:
+		scale = Vector2(s, s)
+	_bubble.scale = Vector2.ONE * Art.SCALE / s
+	_bubble.position = BUBBLE_POS / s
+
+
+## Old pixels -> local units (offset is in texture pixels, the node may be scaled 1× or 3×).
+func _px(v: float) -> float:
+	return v * Art.SCALE / scale.x
 
 
 func setup(home: float, repair: float, lo: float, hi: float) -> void:
@@ -215,7 +232,7 @@ func hit(p: Vector2) -> bool:
 	var tex := sprite_frames.get_frame_texture(animation, frame)
 	if tex == null:
 		return false
-	var local := (p - position - offset).floor()
+	var local := ((p - position) / scale - offset).floor()
 	if flip_h:
 		local.x = tex.get_width() - 1 - local.x
 	if local.x < 0 or local.y < 0 or local.x >= tex.get_width() or local.y >= tex.get_height():
@@ -288,7 +305,7 @@ func notice() -> void:
 ## While standing, turn towards the cursor (sideways only, sprites face right).
 func face_toward(game_x: float) -> void:
 	if _state == State.STANDING and animation != "front":
-		var want := game_x < position.x + 24.0
+		var want := game_x < position.x + SIZE * 0.5
 		if flip_h != want:
 			flip_h = want
 
@@ -351,9 +368,9 @@ func drop(vel: Vector2) -> void:
 ## Flinch without its own sprite: jolt up and shake briefly (~0.5 s).
 func _flinch() -> void:
 	var tw := create_tween()
-	tw.tween_property(self, "offset", Vector2(0, -6), 0.05)
+	tw.tween_property(self, "offset", Vector2(0, _px(-6)), 0.05)
 	for dx in [2.0, -2.0, 2.0, -1.0]:
-		tw.tween_property(self, "offset", Vector2(dx, -4), 0.05)
+		tw.tween_property(self, "offset", Vector2(_px(dx), _px(-4)), 0.05)
 	tw.tween_property(self, "offset", Vector2.ZERO, 0.15)
 
 
@@ -367,8 +384,9 @@ func bounce() -> void:
 	var h: float = JUMP_HEIGHTS[_combo]
 	if h <= TWEEN_MAX:
 		var tw := create_tween()
-		tw.tween_property(self, "offset:y", -h, 0.08 + h * 0.01)
-		tw.tween_property(self, "offset:y", 0.0, 0.12 + h * 0.01)
+		var hh := h / Art.SCALE  # timing as before
+		tw.tween_property(self, "offset:y", -h / scale.y, 0.08 + hh * 0.01)
+		tw.tween_property(self, "offset:y", 0.0, 0.12 + hh * 0.01)
 		return
 	# Real jump: up with v = sqrt(2·g·h), landing like after being dropped
 	if _state == State.ACTION and _action == "roll":
@@ -391,7 +409,7 @@ func combo_level() -> int:
 ## Small hop as click feedback.
 func hop() -> void:
 	var tw := create_tween()
-	tw.tween_property(self, "offset:y", -3.0, 0.08)
+	tw.tween_property(self, "offset:y", _px(-3.0), 0.08)
 	tw.tween_property(self, "offset:y", 0.0, 0.12)
 
 
@@ -424,11 +442,11 @@ func _stand() -> void:
 	_state = State.STANDING
 	_timer = randf_range(STAND_TIME.x, STAND_TIME.y)
 	if sprite_frames.has_animation("kneel") and pet_near.is_valid() and randf() < KNEEL_CHANCE:
-		var target: Object = pet_near.call(position.x + 24.0)
+		var target: Object = pet_near.call(position.x + SIZE * 0.5)
 		if target != null:
 			# Crouch down next to the pet: stroke it or wind up the robot toy (main lets it react)
 			_kneel_target = target
-			flip_h = target.position.x + target.size * 0.5 < position.x + 24.0
+			flip_h = target.position.x + target.size * 0.5 < position.x + SIZE * 0.5
 			play("kneel")
 			var k := sprite_frames.get_frame_count("kneel")
 			_timer = maxf(_timer, k / sprite_frames.get_animation_speed("kneel") + 0.5)

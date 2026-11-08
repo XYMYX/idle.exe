@@ -366,6 +366,16 @@ Prices from 100B ×2 and from 1T another ×1.5 (also the existing endgame: e.g. 
 **Balancing:** first run with research and acquisitions **179 h ≈ 7.5 days** (first try 50 h, then effects reduced and
 late prices raised). Power, cooling and RAM suffice for everything.
 
+### 3× art resolution (2026-11-08)
+MYX redraws all sprites at 3× size (list: `docs/ART_3X.md`). The code works in 3× finer game pixels (`Art.SCALE`):
+XYMYX 144 px, strip 174 px tall, all positions, speeds, distances and the board ×3; `pixel_scale` is divided by 3
+(4K at 150 %: 1, so one art pixel = one screen pixel and everything stays the same size on screen).
+- Old and new sheets work side by side: XYMYX, pets and the robot toy set their node scale per animation from the
+  sheet height (`_fit`, old sheet ×3, new 1:1), the speech bubble is compensated; the desk reads the source frame size
+  from the sheet height (`Desk._src_size`), base image and chair are drawn into their target rects.
+- The money counter is drawn ×3, the terminal keeps its size (`setup(pixel_scale * Art.SCALE)`).
+- Saved layouts in old units are converted once (`[layout] units`).
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.

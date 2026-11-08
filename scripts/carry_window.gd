@@ -6,6 +6,7 @@ extends Window
 ## Clicks pass through (mouse_passthrough), the mouse stays with the main window.
 
 var sprite: AnimatedSprite2D
+var _pixel_scale := 1
 
 
 func setup(frames: SpriteFrames, pixel_scale: int, figure: int) -> void:
@@ -21,6 +22,7 @@ func setup(frames: SpriteFrames, pixel_scale: int, figure: int) -> void:
 	size = Vector2i(figure * pixel_scale, figure * pixel_scale)
 	sprite = AnimatedSprite2D.new()
 	sprite.centered = false
+	_pixel_scale = pixel_scale
 	sprite.scale = Vector2(pixel_scale, pixel_scale)
 	sprite.sprite_frames = frames
 	add_child(sprite)
@@ -38,6 +40,7 @@ func follow(src: AnimatedSprite2D, screen_pos: Vector2i) -> void:
 		sprite.animation = src.animation
 	sprite.frame = src.frame
 	sprite.flip_h = src.flip_h
+	sprite.scale = src.scale * _pixel_scale  # old sheets ×3, redrawn ones 1:1 (like in the strip)
 	if position != screen_pos:
 		position = screen_pos
 	if not visible:

@@ -17,17 +17,17 @@ signal moved
 
 enum State { STAND, WALK, SIT, GROOM, SLEEP, REAR, BUSY, GRABBED, FALLING }
 
-const GRAVITY := 600.0  # game pixels per second² (like XYMYX)
+const GRAVITY := 600.0 * Art.SCALE  # game pixels per second² (like XYMYX)
 
-const SPEED := 14.0                          # game pixels per second
+const SPEED := 14.0 * Art.SCALE              # game pixels per second
 const STAND_TIME := Vector2(3.0, 8.0)
 const SIT_TIME := Vector2(6.0, 15.0)
 const GROOM_TIME := Vector2(2.0, 4.0)
 const SLEEP_TIME := Vector2(60.0, 180.0)
-const ROAM := 70.0                           # walks around her home spot at most this far
+const ROAM := 70.0 * Art.SCALE               # walks around her home spot at most this far
 const FOLLOW_CHANCE := 0.5                   # share of XYMYX's walks she joins
-const FOLLOW_GAP := 30.0                     # distance she keeps to him
-const MOUSE_RADIUS := 36.0                   # game pixels around her center
+const FOLLOW_GAP := 30.0 * Art.SCALE         # distance she keeps to him
+const MOUSE_RADIUS := 36.0 * Art.SCALE       # game pixels around her center
 const MOUSE_GONE_SEC := 1.5
 const REAR_COOLDOWN := 20.0
 const HEART_SEC := 2.5
@@ -64,7 +64,7 @@ var kind := "cat"
 var floor_y := 0.0      # y on the floor (top edge of the sprite)
 var _vel := Vector2.ZERO
 
-## Sheet names per kind: hub animation -> file suffix. Placeholder size if a sheet is missing.
+## Sheet names per kind: hub animation -> file suffix. size = old art size (shown ×Art.SCALE game px).
 const SHEETS := {
 	"cat": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "curl", "groom": "scratch", "rear": "rear", "size": 32},
 	"dog": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "lie", "groom": "wag", "rear": "bark", "size": 32},
@@ -80,7 +80,7 @@ const PLACEHOLDER_FRAMES := {"idle": 4, "walk": 6, "sit": 4, "curl": 4, "groom":
 func _ready() -> void:
 	centered = false
 	var sf := SpriteFrames.new()
-	size = float(SHEETS[kind]["size"])
+	size = float(SHEETS[kind]["size"]) * Art.SCALE  # game pixels (old sheets are shown ×3)
 	var idle := _frames("idle")
 	var walk := _frames("walk")
 	var sit := _frames("sit")
@@ -109,8 +109,19 @@ func _ready() -> void:
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
 	_bubble = SpeechBubble.new()
-	_bubble.position = Vector2(roundf(size * 0.7), 2.0 - roundf(size * 0.2))  # above her head
 	add_child(_bubble)
+	animation_changed.connect(_fit)
+	_fit()
+
+
+## Old sheets are shown ×3, redrawn ones 1:1; the speech bubble keeps its size and spot.
+func _fit() -> void:
+	var tex := sprite_frames.get_frame_texture(animation, 0) if sprite_frames else null
+	var s := Art.fit(tex.get_height(), size) if tex else 1.0
+	if scale.x != s:
+		scale = Vector2(s, s)
+	_bubble.scale = Vector2.ONE * Art.SCALE / s
+	_bubble.position = Vector2(roundf(size * 0.7), 2.0 * Art.SCALE - roundf(size * 0.2)) / s  # above the head
 
 
 func setup(home: float, lo: float, hi: float) -> void:
@@ -285,7 +296,7 @@ func hit(p: Vector2) -> bool:
 	var tex := sprite_frames.get_frame_texture(animation, frame)
 	if tex == null:
 		return false
-	var local := (p - position - offset).floor()
+	var local := ((p - position) / scale - offset).floor()
 	if flip_h:
 		local.x = tex.get_width() - 1 - local.x
 	if local.x < 0 or local.y < 0 or local.x >= tex.get_width() or local.y >= tex.get_height():
@@ -401,32 +412,14 @@ func _step_towards(target: float, step: float) -> bool:
 func _frames(anim: String) -> Array[Texture2D]:
 	var out: Array[Texture2D] = []
 	var path := "res://art/%s_%s.png" % [kind, SHEETS[kind][anim]]
-	if not ResourceLoader.exists(path):
-		return _placeholder(anim)
-	var sheet: Texture2D = load(path)
-	size = sheet.get_height()
-	for i in sheet.get_width() / sheet.get_height():
-		var atlas := AtlasTexture.new()
-		atlas.atlas = sheet
-		atlas.region = Rect2(i * size, 0, size, size)
-		out.append(atlas)
-	return out
+	out = Art.sheet_frames(path)
+	return out if not out.is_empty() else _placeholder(anim)
 
 
 ## Optional lifting sheet; without it the given frames stand in.
 func _lift_frames(anim: String, fallback: Array[Texture2D]) -> Array[Texture2D]:
-	var path := "res://art/%s_%s.png" % [kind, anim]
-	if not ResourceLoader.exists(path):
-		return fallback
-	var out: Array[Texture2D] = []
-	var sheet: Texture2D = load(path)
-	var s := sheet.get_height()
-	for i in sheet.get_width() / s:
-		var atlas := AtlasTexture.new()
-		atlas.atlas = sheet
-		atlas.region = Rect2(i * s, 0, s, s)
-		out.append(atlas)
-	return out
+	var out := Art.sheet_frames("res://art/%s_%s.png" % [kind, anim])
+	return out if not out.is_empty() else fallback
 
 
 ## Grey box (body) on the floor with a lighter outline, one per frame. Sitting/lying frames get lower.

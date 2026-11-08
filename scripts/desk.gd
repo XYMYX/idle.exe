@@ -4,7 +4,11 @@ extends Node2D
 ## the individual parts are drawn on top. If a PNG is missing, a grey placeholder box
 ## is drawn in exactly the size the sprite needs to have.
 
-const SIZE := Vector2(61, 48)  # base image (chair + table)
+## Since 2026-11-08 all positions and sizes are in 3× finer game pixels (Art.SCALE). Sheets can be
+## old (1×) or redrawn (3×): the draw functions read the frame size from the sheet height.
+const SIZE := Vector2(183, 144)  # base image (chair + table)
+const CHAIR_SIZE := Vector2(48, 102)
+const ICON := 24.0               # board icon size
 
 const BASE_LAPTOP := "res://art/desk_laptop.png"
 const BASE_PC := "res://art/desk_pc.png"
@@ -16,37 +20,37 @@ const BASE_PC := "res://art/desk_pc.png"
 ## fps = animation: the PNG is a horizontal sheet, frames = width / size.x.
 const PARTS := [
 	# At the desk
-	{"tex": "res://art/pc_tower.png", "pos": Vector2(40, 29), "size": Vector2(12, 18), "needs": "gaming_pc", "hide_if": "water", "behind": true},
-	{"tex": "res://art/pc_tower_water.png", "pos": Vector2(40, 29), "size": Vector2(12, 18), "needs": "water", "hide_if": "workstation", "behind": true},
-	{"tex": "res://art/pc_workstation.png", "pos": Vector2(40, 29), "size": Vector2(12, 18), "needs": "workstation", "behind": true, "fps": 2.0},
-	{"tex": "res://art/monitor_wall.png", "pos": Vector2(10, -8), "size": Vector2(40, 18), "needs": "monitor_wall", "behind": true, "fps": 2.0},
-	{"tex": "res://art/monitor_2.png", "pos": Vector2(16, 11), "size": Vector2(14, 17), "needs": "monitor_2"},
-	{"tex": "res://art/monitor_3.png", "pos": Vector2(46, 11), "size": Vector2(14, 17), "needs": "monitor_3"},
-	{"tex": "res://art/keyboard_mech.png", "pos": Vector2(18, 24), "size": Vector2(16, 4), "needs": "keyboard"},
+	{"tex": "res://art/pc_tower.png", "pos": Vector2(120, 87), "size": Vector2(36, 54), "needs": "gaming_pc", "hide_if": "water", "behind": true},
+	{"tex": "res://art/pc_tower_water.png", "pos": Vector2(120, 87), "size": Vector2(36, 54), "needs": "water", "hide_if": "workstation", "behind": true},
+	{"tex": "res://art/pc_workstation.png", "pos": Vector2(120, 87), "size": Vector2(36, 54), "needs": "workstation", "behind": true, "fps": 2.0},
+	{"tex": "res://art/monitor_wall.png", "pos": Vector2(30, -24), "size": Vector2(120, 54), "needs": "monitor_wall", "behind": true, "fps": 2.0},
+	{"tex": "res://art/monitor_2.png", "pos": Vector2(48, 33), "size": Vector2(42, 51), "needs": "monitor_2"},
+	{"tex": "res://art/monitor_3.png", "pos": Vector2(138, 33), "size": Vector2(42, 51), "needs": "monitor_3"},
+	{"tex": "res://art/keyboard_mech.png", "pos": Vector2(54, 72), "size": Vector2(48, 12), "needs": "keyboard"},
 	# Stage 10: certificates on the wall, one frame per learned skill (sheet with 5 frames)
-	{"tex": "res://art/certificates.png", "pos": Vector2(52, -6), "size": Vector2(10, 12), "needs": "", "skill_frames": true},
+	{"tex": "res://art/certificates.png", "pos": Vector2(156, -18), "size": Vector2(30, 36), "needs": "", "skill_frames": true},
 	# Stage 13: wall map, one more lit dot per location (sheet with 5 frames)
-	{"tex": "res://art/world_map.png", "pos": Vector2(104, 6), "size": Vector2(14, 10), "needs": "", "location_frames": true},
+	{"tex": "res://art/world_map.png", "pos": Vector2(312, 18), "size": Vector2(42, 30), "needs": "", "location_frames": true},
 	# Right of the desk
-	{"tex": "res://art/rack.png", "pos": Vector2(63, 0), "size": Vector2(24, 48), "needs": "rack"},
-	{"tex": "res://art/rack_cooling.png", "pos": Vector2(63, 0), "size": Vector2(24, 48), "needs": "rack_cooling", "fps": 2.0},
-	{"tex": "res://art/fan.png", "pos": Vector2(90, 24), "size": Vector2(12, 24), "needs": "fan", "fps": 8.0},
-	{"tex": "res://art/ups.png", "pos": Vector2(104, 36), "size": Vector2(10, 12), "needs": "ups", "fps": 1.0},
-	{"tex": "res://art/ac.png", "pos": Vector2(90, -8), "size": Vector2(24, 10), "needs": "ac", "fps": 3.0},
+	{"tex": "res://art/rack.png", "pos": Vector2(189, 0), "size": Vector2(72, 144), "needs": "rack"},
+	{"tex": "res://art/rack_cooling.png", "pos": Vector2(189, 0), "size": Vector2(72, 144), "needs": "rack_cooling", "fps": 2.0},
+	{"tex": "res://art/fan.png", "pos": Vector2(270, 72), "size": Vector2(36, 72), "needs": "fan", "fps": 8.0},
+	{"tex": "res://art/ups.png", "pos": Vector2(312, 108), "size": Vector2(30, 36), "needs": "ups", "fps": 1.0},
+	{"tex": "res://art/ac.png", "pos": Vector2(270, -24), "size": Vector2(72, 30), "needs": "ac", "fps": 3.0},
 	# Left of the chair (XYMYX walks in front of these)
-	{"tex": "res://art/homeserver.png", "pos": Vector2(-36, 26), "size": Vector2(14, 22), "needs": "homeserver", "fps": 2.0},
-	{"tex": "res://art/router.png", "pos": Vector2(-35, 20), "size": Vector2(12, 6), "needs": "router", "fps": 4.0},
-	{"tex": "res://art/fiber.png", "pos": Vector2(-46, 10), "size": Vector2(8, 10), "needs": "fiber", "fps": 1.0},
-	{"tex": "res://art/line2.png", "pos": Vector2(-36, 4), "size": Vector2(8, 10), "needs": "line2", "fps": 1.0},
-	{"tex": "res://art/nas.png", "pos": Vector2(-50, 36), "size": Vector2(10, 12), "needs": "nas", "fps": 2.0},
-	{"tex": "res://art/ssd_raid.png", "pos": Vector2(-50, 31), "size": Vector2(10, 5), "needs": "ssd_raid"},
-	{"tex": "res://art/grid.png", "pos": Vector2(-62, 8), "size": Vector2(12, 16), "needs": "grid"},
-	{"tex": "res://art/asic.png", "pos": Vector2(-62, 40), "size": Vector2(10, 8), "needs": "asic", "fps": 6.0},
-	{"tex": "res://art/asic_shelf.png", "pos": Vector2(-84, 18), "size": Vector2(20, 30), "needs": "asic_shelf", "fps": 4.0},
-	{"tex": "res://art/mining_rack.png", "pos": Vector2(-110, 0), "size": Vector2(24, 48), "needs": "mining_rack", "fps": 4.0},
+	{"tex": "res://art/homeserver.png", "pos": Vector2(-108, 78), "size": Vector2(42, 66), "needs": "homeserver", "fps": 2.0},
+	{"tex": "res://art/router.png", "pos": Vector2(-105, 60), "size": Vector2(36, 18), "needs": "router", "fps": 4.0},
+	{"tex": "res://art/fiber.png", "pos": Vector2(-138, 30), "size": Vector2(24, 30), "needs": "fiber", "fps": 1.0},
+	{"tex": "res://art/line2.png", "pos": Vector2(-108, 12), "size": Vector2(24, 30), "needs": "line2", "fps": 1.0},
+	{"tex": "res://art/nas.png", "pos": Vector2(-150, 108), "size": Vector2(30, 36), "needs": "nas", "fps": 2.0},
+	{"tex": "res://art/ssd_raid.png", "pos": Vector2(-150, 93), "size": Vector2(30, 15), "needs": "ssd_raid"},
+	{"tex": "res://art/grid.png", "pos": Vector2(-186, 24), "size": Vector2(36, 48), "needs": "grid"},
+	{"tex": "res://art/asic.png", "pos": Vector2(-186, 120), "size": Vector2(30, 24), "needs": "asic", "fps": 6.0},
+	{"tex": "res://art/asic_shelf.png", "pos": Vector2(-252, 54), "size": Vector2(60, 90), "needs": "asic_shelf", "fps": 4.0},
+	{"tex": "res://art/mining_rack.png", "pos": Vector2(-330, 0), "size": Vector2(72, 144), "needs": "mining_rack", "fps": 4.0},
 	# Stage 11: security business
-	{"tex": "res://art/test_server.png", "pos": Vector2(-126, 28), "size": Vector2(12, 20), "needs": "test_server", "fps": 2.0},
-	{"tex": "res://art/sec_lab.png", "pos": Vector2(-150, 8), "size": Vector2(20, 40), "needs": "sec_lab", "fps": 3.0},
+	{"tex": "res://art/test_server.png", "pos": Vector2(-378, 84), "size": Vector2(36, 60), "needs": "test_server", "fps": 2.0},
+	{"tex": "res://art/sec_lab.png", "pos": Vector2(-450, 24), "size": Vector2(60, 120), "needs": "sec_lab", "fps": 3.0},
 ]
 
 ## Location board on the wall: big installations that don't fit into the room
@@ -54,14 +58,15 @@ const PARTS := [
 ## The board is only as big as needed (up to 10 icons per row) and hangs right next to
 ## the leftmost part in the room. Border and fill color come from board.png.
 const BOARD_TEX := "res://art/board.png"
-const BOARD_TOP := -8.0
+const BOARD_TOP := -24.0
 const BOARD_COLS := 10
 const BOARD_MAX_ROWS := 4    # more icons make the board wider, not taller (the strip is only 58 px)
-const BOARD_GAP := 3.0       # gap to the next part on the right
-const BOARD_PAD := 2         # padding between border and icons
-const BOARD_ICON_GAP := 2    # gap between icons
-const BOARD_TRAY := 2.0      # height of the tray below the board
-const BOARD_MAX_RIGHT := -18.0  # never closer to the chair
+const BOARD_GAP := 9.0       # gap to the next part on the right
+const BOARD_PAD := 6         # padding between border and icons
+const BOARD_ICON_GAP := 6    # gap between icons
+const BOARD_TRAY := 6.0      # height of the tray below the board
+const BOARD_LINE := 3        # border width
+const BOARD_MAX_RIGHT := -54.0  # never closer to the chair
 const BOARD_FPS := 2.0
 const BOARD_ITEMS := [
 	"plugin", "desktop_app", "saas", "platform", "ecosystem", "storage_server",
@@ -82,14 +87,14 @@ const ANIM_TICK := 0.125  # at most 8 animation checks per second
 
 ## Pets drawn by the desk (PetData). The duck sits on the table, the aquarium stands on the floor
 ## directly left of the chair (between home server and chair). The hamster runs free (cat.gd).
-const DUCK_RECT := Rect2(47, 16, 12, 12)
+const DUCK_RECT := Rect2(141, 48, 36, 36)
 const DUCK_IDLE := "res://art/pet_duck_idle.png"      # 2 frames
 const DUCK_SQUEAK := "res://art/pet_duck_squeak.png"  # 3 frames
 const SQUEAK_SEC := 0.6
-const AQUARIUM_RECT := Rect2(-21, 24, 20, 24)
+const AQUARIUM_RECT := Rect2(-63, 72, 60, 72)
 const AQUARIUM_TEX := "res://art/pet_aquarium.png"  # 6 frames
 const AQUARIUM_FPS := 4.0
-const CORNER_GAP := 3.0  # gap of the seasonal decoration to the leftmost thing in the room
+const CORNER_GAP := 9.0  # gap of the seasonal decoration to the leftmost thing in the room
 
 ## Seasonal decoration (setting «Seasonal decorations»): stands in the corner left of the pets.
 ## Only the date is read. from/to = [month, day], inclusive; a range may wrap over New Year.
@@ -101,14 +106,14 @@ const SEASONS := [
 	{"id": "birthday", "from": [11, 8], "to": [11, 8], "fps": 2.0},
 	{"id": "xmas", "from": [12, 1], "to": [12, 26], "fps": 2.0},
 ]
-const SEASON_SIZE := Vector2(20, 28)
+const SEASON_SIZE := Vector2(60, 84)
 const SEASON_CHECK_SEC := 60.0
 
 const CHAIR := "res://art/chair.png"
-const CHAIR_POS := Vector2(0, 14)
+const CHAIR_POS := Vector2(0, 42)
 const FLASH_SEC := 0.6
-const LAPTOP_RECT := Rect2(30, 10, 16, 17)  # flash area while there is no tower
-const TOWER_RECT := Rect2(40, 29, 12, 18)
+const LAPTOP_RECT := Rect2(90, 30, 48, 51)  # flash area while there is no tower
+const TOWER_RECT := Rect2(120, 87, 36, 54)
 
 ## Off while XYMYX rolls on the chair (the chair is then part of his sprite).
 var chair_visible := true:
@@ -139,7 +144,7 @@ func flash(id: String) -> void:
 		if part["needs"] == id and _shown(part):
 			_flash_rect = Rect2(part["pos"], part["size"])
 	if BOARD_ITEMS.has(id) and Game.has(id):
-		_flash_rect = Rect2(_board_slot(_board_owned().find(id)), Vector2(8, 8))
+		_flash_rect = Rect2(_board_slot(_board_owned().find(id)), Vector2(ICON, ICON))
 	_flash_left = FLASH_SEC
 
 
@@ -196,7 +201,7 @@ func left_extent() -> float:
 		if _shown(part):
 			x = minf(x, part["pos"].x)
 	if _board_count() > 0:
-		x = minf(x, _board_rect().position.x - 1)  # -1: the tray sticks out by 1 px
+		x = minf(x, _board_rect().position.x - BOARD_LINE)  # the tray sticks out by one border width
 	for r: Rect2 in _corner_rects().values():
 		x = minf(x, r.position.x)
 	return x
@@ -216,7 +221,7 @@ func _corner_rects() -> Dictionary:
 		if _shown(part):
 			right = minf(right, part["pos"].x)
 	if _board_count() > 0:
-		right = minf(right, _board_rect().position.x - 1)
+		right = minf(right, _board_rect().position.x - BOARD_LINE)
 	if _pet_shown("aquarium"):
 		right = minf(right, AQUARIUM_RECT.position.x)
 	if _season != "":
@@ -278,13 +283,13 @@ func _draw() -> void:
 	if t == null and base == BASE_PC:
 		t = _tex(BASE_LAPTOP)  # until desk_pc.png exists
 	if t:
-		draw_texture(t, Vector2.ZERO)
+		draw_texture_rect(t, Rect2(Vector2.ZERO, SIZE), false)  # old 61×48 or new 183×144
 	else:
-		_placeholder(Rect2(Vector2(12, 28), Vector2(48, 4)))
+		_placeholder(Rect2(Vector2(36, 84), Vector2(144, 12)))
 	if chair_visible:
 		var c := _tex(CHAIR)
 		if c:
-			draw_texture(c, CHAIR_POS)
+			draw_texture_rect(c, Rect2(CHAIR_POS, CHAIR_SIZE), false)
 	_draw_parts(false)
 	_draw_pets()
 	# Flash: 3× on/off within FLASH_SEC
@@ -310,9 +315,10 @@ func _draw_frame(path: String, pos: Vector2, size: Vector2, f: int) -> void:
 	if t == null:
 		_placeholder(Rect2(pos, size))
 		return
-	var frames := maxi(1, int(t.get_width() / size.x))
+	var src := _src_size(t, size)
+	var frames := maxi(1, int(t.get_width() / src.x))
 	f = clampi(f, 0, frames - 1)
-	draw_texture_rect_region(t, Rect2(pos, size), Rect2(Vector2(f * size.x, 0), size))
+	draw_texture_rect_region(t, Rect2(pos, size), Rect2(Vector2(f * src.x, 0), src))
 
 
 ## Draws a (possibly animated) sprite or the placeholder in its target size.
@@ -322,14 +328,21 @@ func _draw_sprite(path: String, pos: Vector2, size: Vector2, fps: float) -> void
 		_placeholder(Rect2(pos, size))
 		return
 	var f := _frame(path, size, fps)
-	draw_texture_rect_region(t, Rect2(pos, size), Rect2(Vector2(f * size.x, 0), size))
+	var src := _src_size(t, size)
+	draw_texture_rect_region(t, Rect2(pos, size), Rect2(Vector2(f * src.x, 0), src))
+
+
+## Frame size inside the sheet: the sheet height decides (old sheets are a third of the target).
+func _src_size(t: Texture2D, size: Vector2) -> Vector2:
+	var k := t.get_height() / size.y
+	return Vector2(roundf(size.x * k), t.get_height())
 
 
 func _frame(path: String, size: Vector2, fps: float) -> int:
 	var t := _tex(path)
 	if t == null or fps <= 0.0:
 		return 0
-	var frames := maxi(1, int(t.get_width() / size.x))
+	var frames := maxi(1, int(t.get_width() / _src_size(t, size).x))
 	return int(Time.get_ticks_msec() / 1000.0 * fps) % frames
 
 
@@ -340,24 +353,24 @@ func _draw_board() -> void:
 	var r := _board_rect()
 	var cols := _board_colors()
 	draw_rect(r, cols[0])
-	draw_rect(r.grow(-1), cols[1])
-	# Tray below the board (like a chalkboard), 1 px wider on each side
-	draw_rect(Rect2(r.position.x - 1, r.end.y, r.size.x + 2, BOARD_TRAY), cols[0])
+	draw_rect(r.grow(-BOARD_LINE), cols[1])
+	# Tray below the board (like a chalkboard), one border width wider on each side
+	draw_rect(Rect2(r.position.x - BOARD_LINE, r.end.y, r.size.x + 2 * BOARD_LINE, BOARD_TRAY), cols[0])
 	for i in owned.size():
-		_draw_sprite("res://art/icon_%s.png" % owned[i], _board_slot(i), Vector2(8, 8), BOARD_FPS)
+		_draw_sprite("res://art/icon_%s.png" % owned[i], _board_slot(i), Vector2(ICON, ICON), BOARD_FPS)
 
 
 ## Everything the desk draws, as rectangles relative to the desk's top-left corner.
 ## main.gd builds the clickable outline («skyline») from these.
 func outline_rects() -> Array[Rect2]:
 	var out: Array[Rect2] = [Rect2(Vector2.ZERO, SIZE)]  # base image incl. chair
-	out.append(Rect2(8, -6, 60, 14))  # money counter above the laptop (+ gain line), room for wide numbers
+	out.append(Rect2(24, -18, 180, 42))  # money counter above the laptop (+ gain line), room for wide numbers
 	for part: Dictionary in PARTS:
 		if _shown(part):
 			out.append(Rect2(part["pos"], part["size"]))
 	if _board_count() > 0:
 		var r := _board_rect()
-		out.append(Rect2(r.position.x - 1, r.position.y, r.size.x + 2, r.size.y + BOARD_TRAY))
+		out.append(Rect2(r.position.x - BOARD_LINE, r.position.y, r.size.x + 2 * BOARD_LINE, r.size.y + BOARD_TRAY))
 	if _pet_shown("duck"):
 		out.append(DUCK_RECT)
 	if _pet_shown("aquarium"):
@@ -389,9 +402,9 @@ func _board_rect() -> Rect2:
 	var per_row := _board_per_row()
 	var cols := mini(n, per_row)
 	var rows := ceili(n / float(per_row))
-	# 1 px border + padding on both sides, 8 px icons with gaps between them
-	var size := Vector2(2 + 2 * BOARD_PAD + cols * 8 + (cols - 1) * BOARD_ICON_GAP,
-		2 + 2 * BOARD_PAD + rows * 8 + (rows - 1) * BOARD_ICON_GAP)
+	# border + padding on both sides, icons with gaps between them
+	var size := Vector2(2 * BOARD_LINE + 2 * BOARD_PAD + cols * ICON + (cols - 1) * BOARD_ICON_GAP,
+		2 * BOARD_LINE + 2 * BOARD_PAD + rows * ICON + (rows - 1) * BOARD_ICON_GAP)
 	var right := BOARD_MAX_RIGHT
 	for part: Dictionary in PARTS:
 		if _shown(part) and part["pos"].x < 0.0:
@@ -402,10 +415,10 @@ func _board_rect() -> Rect2:
 
 ## Slot i (owned icons only, no gaps).
 func _board_slot(i: int) -> Vector2:
-	var pitch := 8 + BOARD_ICON_GAP
+	var pitch := ICON + BOARD_ICON_GAP
 	var per_row := _board_per_row()
-	return _board_rect().position + Vector2(1 + BOARD_PAD + (i % per_row) * pitch,
-		1 + BOARD_PAD + (i / per_row) * pitch)
+	return _board_rect().position + Vector2(BOARD_LINE + BOARD_PAD + (i % per_row) * pitch,
+		BOARD_LINE + BOARD_PAD + (i / per_row) * pitch)
 
 
 ## Icons per row: at least BOARD_COLS, more once BOARD_MAX_ROWS rows would not be enough.
@@ -445,4 +458,4 @@ func _tex(path: String) -> Texture2D:
 ## Grey box with a light border: shows position and size of the missing sprite.
 func _placeholder(r: Rect2) -> void:
 	draw_rect(r, Color("#d6d9ee"))
-	draw_rect(r.grow(-1), Color("#3a3a48"))
+	draw_rect(r.grow(-Art.SCALE), Color("#3a3a48"))

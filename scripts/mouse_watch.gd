@@ -13,7 +13,7 @@ signal sampled(game_pos: Vector2)  # cursor position in game pixels (for looking
 const SAMPLE_SEC := 0.1
 const HOVER_SEC := 1.5
 const STARTLE_SPEED := 2500.0    # screen pixels per second
-const STARTLE_RADIUS := 60.0     # game pixels around the figure's center
+const STARTLE_RADIUS := 60.0 * Art.SCALE  # game pixels around the figure's center
 const STARTLE_COOLDOWN := 6.0
 
 ## Set by main: screen pixels -> game pixels, figure center, hit test.

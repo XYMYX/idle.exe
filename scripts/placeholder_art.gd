@@ -6,19 +6,11 @@ extends RefCounted
 const SIZE := 48
 
 
-## Returns the frames of a horizontal sprite sheet (SIZE×SIZE per frame).
-## If the file is missing, the fallback frames are returned.
+## Returns the frames of a horizontal sprite sheet (square frames, frame size = sheet height,
+## so old 48 px and new 144 px sheets both work). If the file is missing: the fallback frames.
 static func load_frames(path: String, fallback: Array[Texture2D]) -> Array[Texture2D]:
-	if not ResourceLoader.exists(path):
-		return fallback
-	var sheet: Texture2D = load(path)
-	var frames: Array[Texture2D] = []
-	for i in sheet.get_width() / SIZE:
-		var atlas := AtlasTexture.new()
-		atlas.atlas = sheet
-		atlas.region = Rect2(i * SIZE, 0, SIZE, SIZE)
-		frames.append(atlas)
-	return frames
+	var frames := Art.sheet_frames(path)
+	return frames if not frames.is_empty() else fallback
 
 
 ## Black square with a white 1 px outline and two white eye pixels.
