@@ -291,6 +291,14 @@ No CPU temperature (would need a kernel driver). Display only: never saved, neve
   process is gone. `scripts/system_status.gd` reads the pipe without blocking.
 - Release: ZIP with `idle.exe` + `idle-sysinfo.exe` (the helper is optional, the game runs without it).
 
+### Hide during fullscreen (2026-11-08)
+Setting «Hide during fullscreen» (on by default). `scripts/fullscreen_watch.gd` keeps the helper running in
+`--fullscreen` mode: once per second it checks `SHQueryUserNotificationState` (exclusive fullscreen / presentation)
+and whether the foreground window covers the monitor idle.exe is on (desktop and taskbar don't count, other monitors
+don't count). Prints 1/0 on changes. While hidden: the world isn't drawn and the passthrough polygon is a 1 px corner,
+so every click goes through; the economy keeps running. If the helper dies, XYMYX shows again and it is restarted
+after 30 s. Without the helper nothing happens.
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
@@ -308,7 +316,7 @@ On a company sale **skills stay** (knowledge), everything else of these stages r
 - First release: export preset, include `*.ico` in the non-resource export filter, GitHub release with download.
 - Mention Claude at the end of README.md shortly before the first release.
 - Multi-monitor support (currently primary screen only) and reacting to resolution changes at runtime.
-- Windows API via a C++ GDExtension: hide while a fullscreen app runs, hide the main window's taskbar entry.
+- ~~Hide while a fullscreen app runs~~ done 2026-11-08 via the helper (not a GDExtension). Still open: hide the main window's taskbar entry.
 - Known quirk: the tray menu may stay open after clicking elsewhere.
 
 ## Open / maybe never

@@ -555,3 +555,4 @@ Uptime,Uptime,Laufzeit
 %d d ,%d d ,%d T 
 Helper not found (idle-sysinfo.exe next to idle.exe),Helper not found (idle-sysinfo.exe next to idle.exe),Hilfsprogramm fehlt (idle-sysinfo.exe neben idle.exe)
 Helper could not be started,Helper could not be started,Hilfsprogramm konnte nicht gestartet werden
+Hide during fullscreen,Hide during fullscreen,Bei Vollbild verstecken

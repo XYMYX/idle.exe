@@ -35,6 +35,8 @@ var _events: EventDirector
 var _last_bought := ""
 var _last_passthrough := PackedVector2Array()
 var _last_rects: Array[Rect2] = []
+var _fs_watch: FullscreenWatch
+var _fs_hidden := false  # a fullscreen program covers the monitor: draw nothing, let all clicks through
 
 var _usable := Rect2i()
 var _desk_from_right := float(DESK_FROM_RIGHT)
@@ -156,6 +158,11 @@ func _build_scene() -> void:
 		_counter.show_gain(reward))
 
 	# Mouse reactions (mouse position only, no keys, no hook)
+	# Fullscreen programs (games, videos): hide the whole strip, the economy keeps running.
+	_fs_watch = FullscreenWatch.new()
+	_fs_watch.changed.connect(_set_fs_hidden)
+	add_child(_fs_watch)
+
 	_watch = MouseWatch.new()
 	_watch.to_game = func(screen: Vector2i) -> Vector2:
 		return Vector2(screen - get_window().position) / pixel_scale
@@ -589,10 +596,26 @@ func _poly_area(p: PackedVector2Array) -> float:
 	return a / 2.0
 
 
+func _set_fs_hidden(hidden: bool) -> void:
+	_fs_hidden = hidden
+	_world.visible = not hidden
+	if hidden and _terminal.visible:
+		_terminal.hide()
+	_update_passthrough(true)
+
+
 ## Clickable polygon = outline of everything the desk draws + the figure (full height,
 ## snapped to 24 px). On Windows everything outside this polygon is NOT drawn, so it
 ## must cover everything visible. While XYMYX is carried or falling, only the desk counts.
 func _update_passthrough(force := false) -> void:
+	if _fs_hidden:
+		# Smallest possible area in the corner: outside it Windows draws nothing and passes all clicks.
+		var tiny := PackedVector2Array([Vector2.ZERO, Vector2(1, 0), Vector2(0, 1)])
+		if tiny != _last_passthrough:
+			_last_passthrough = tiny
+			_last_rects = []
+			DisplayServer.window_set_mouse_passthrough(tiny)
+		return
 	var rects: Array[Rect2] = []
 	for r: Rect2 in _desk.outline_rects():
 		rects.append(Rect2(r.position + _desk.position, r.size))

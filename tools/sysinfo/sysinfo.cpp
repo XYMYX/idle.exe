@@ -9,6 +9,10 @@
 // Lifetime: idle.exe starts it while the panel is open and passes its own process id.
 // The helper exits when that process is gone or when stdout can't be written anymore.
 //
+// Second mode: «idle-sysinfo.exe --fullscreen <pid>» prints «1» or «0» (one line, only when it
+// changes) depending on whether a fullscreen program covers the monitor idle.exe is on.
+// It only looks at the size of the foreground window, never at its title or content.
+//
 // Build (MSYS2 UCRT64 g++, see tools/sysinfo/README.md):
 //   g++ -O2 -s -static -mwindows -o idle-sysinfo.exe sysinfo.cpp -lpdh
 
@@ -16,8 +20,11 @@
 #include <windows.h>
 #include <pdh.h>
 #include <pdhmsg.h>
+#include <shellapi.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <cwchar>
 #include <vector>
 
 namespace {
@@ -109,6 +116,69 @@ struct NvTemp {
 	}
 };
 
+// --- Fullscreen detection ----------------------------------------------------------
+
+struct OwnWindow {
+	DWORD pid;
+	HWND hwnd;
+};
+
+BOOL CALLBACK find_own_window(HWND h, LPARAM lp) {
+	auto* own = reinterpret_cast<OwnWindow*>(lp);
+	DWORD pid = 0;
+	GetWindowThreadProcessId(h, &pid);
+	if (pid == own->pid && IsWindowVisible(h)) {
+		own->hwnd = h;
+		return FALSE;  // found, stop enumerating
+	}
+	return TRUE;
+}
+
+// Desktop and taskbar also cover the screen, they don't count.
+bool is_shell_window(HWND h) {
+	if (h == GetShellWindow()) return true;
+	wchar_t cls[64] = {};
+	GetClassNameW(h, cls, 64);
+	return std::wcscmp(cls, L"Progman") == 0 || std::wcscmp(cls, L"WorkerW") == 0
+			|| std::wcscmp(cls, L"Shell_TrayWnd") == 0 || std::wcscmp(cls, L"Shell_SecondaryTrayWnd") == 0;
+}
+
+bool fullscreen_now(DWORD own_pid) {
+	// Exclusive fullscreen games and presentations, reported by Windows itself.
+	QUERY_USER_NOTIFICATION_STATE state;
+	if (SUCCEEDED(SHQueryUserNotificationState(&state))
+			&& (state == QUNS_RUNNING_D3D_FULL_SCREEN || state == QUNS_PRESENTATION_MODE)) {
+		return true;
+	}
+	// Borderless fullscreen (videos, most modern games): the foreground window covers its monitor.
+	HWND fg = GetForegroundWindow();
+	if (!fg || is_shell_window(fg)) return false;
+	DWORD pid = 0;
+	GetWindowThreadProcessId(fg, &pid);
+	if (pid == own_pid) return false;
+	HMONITOR mon = MonitorFromWindow(fg, MONITOR_DEFAULTTONULL);
+	if (!mon) return false;
+	OwnWindow own{own_pid, nullptr};
+	EnumWindows(find_own_window, reinterpret_cast<LPARAM>(&own));
+	if (own.hwnd && MonitorFromWindow(own.hwnd, MONITOR_DEFAULTTONEAREST) != mon) {
+		return false;  // fullscreen on another monitor: XYMYX can stay
+	}
+	MONITORINFO mi{};
+	mi.cbSize = sizeof(mi);
+	RECT r{};
+	if (!GetMonitorInfoW(mon, &mi) || !GetWindowRect(fg, &r)) return false;
+	return r.left <= mi.rcMonitor.left && r.top <= mi.rcMonitor.top
+			&& r.right >= mi.rcMonitor.right && r.bottom >= mi.rcMonitor.bottom;
+}
+
+// Window and monitor sizes in real pixels, also with Windows scaling (125 %, 150 % ...).
+void set_dpi_aware() {
+	using Fn = BOOL (WINAPI*)(HANDLE);
+	HMODULE user32 = GetModuleHandleW(L"user32.dll");
+	auto set_ctx = user32 ? proc<Fn>(user32, "SetProcessDpiAwarenessContext") : nullptr;
+	if (!set_ctx || !set_ctx(reinterpret_cast<HANDLE>(-4) /* PER_MONITOR_AWARE_V2 */)) SetProcessDPIAware();
+}
+
 bool write_line(HANDLE out, const char* text, int len) {
 	DWORD written = 0;
 	return WriteFile(out, text, static_cast<DWORD>(len), &written, nullptr) && written == static_cast<DWORD>(len);
@@ -121,8 +191,30 @@ int main(int argc, char** argv) {
 	HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
 	if (out == nullptr || out == INVALID_HANDLE_VALUE) return 1;
 
-	const DWORD parent_pid = argc > 1 ? static_cast<DWORD>(std::strtoul(argv[1], nullptr, 10)) : 0;
+	const bool fs_mode = argc > 1 && std::strcmp(argv[1], "--fullscreen") == 0;
+	const char* pid_arg = fs_mode ? (argc > 2 ? argv[2] : nullptr) : (argc > 1 ? argv[1] : nullptr);
+	const DWORD parent_pid = pid_arg ? static_cast<DWORD>(std::strtoul(pid_arg, nullptr, 10)) : 0;
 	HANDLE parent = parent_pid ? OpenProcess(SYNCHRONIZE, FALSE, parent_pid) : nullptr;
+
+	if (fs_mode) {
+		set_dpi_aware();
+		int last = -1;
+		for (;;) {
+			const int now = fullscreen_now(parent_pid) ? 1 : 0;
+			if (now != last) {
+				const char* line = now ? "1\n" : "0\n";
+				if (!write_line(out, line, 2)) break;
+				last = now;
+			}
+			if (parent) {
+				if (WaitForSingleObject(parent, 1000) != WAIT_TIMEOUT) break;
+			} else {
+				Sleep(1000);
+			}
+		}
+		if (parent) CloseHandle(parent);
+		return 0;
+	}
 
 	wchar_t root[MAX_PATH] = L"C:\\";
 	if (GetWindowsDirectoryW(root, MAX_PATH) >= 3) root[3] = L'\0';  // «C:\» of the system drive

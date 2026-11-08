@@ -16,6 +16,7 @@ const OPTIONS := {
 	"show_cat": {"options": [true, false], "default": true},
 	"max_fps": {"options": [10, 20], "default": 20},
 	"system_status": {"options": [false, true], "default": false},
+	"hide_fullscreen": {"options": [true, false], "default": true},
 }
 
 ## Minutes between events per «events» level: 0 = off, 1 = rarely, 2 = normal, 3 = often.

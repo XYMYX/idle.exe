@@ -40,6 +40,7 @@ const SETTING_ROWS := [
 	["show_cat", "Show cat", ["on", "off"]],
 	["max_fps", "Max. FPS", ["10", "20"]],
 	["system_status", "System status", ["off", "on"]],
+	["hide_fullscreen", "Hide during fullscreen", ["on", "off"]],
 ]
 const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters

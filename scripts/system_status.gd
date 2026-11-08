@@ -39,7 +39,7 @@ func start() -> void:
 		return
 	values = {}
 	error = ""
-	var path := _helper_path()
+	var path := helper_path()
 	if not FileAccess.file_exists(path):
 		error = "Helper not found (idle-sysinfo.exe next to idle.exe)"
 		return
@@ -84,7 +84,7 @@ func _process(_delta: float) -> void:
 
 
 ## In the export next to idle.exe, in the editor in tools/sysinfo/.
-func _helper_path() -> String:
+static func helper_path() -> String:
 	if OS.has_feature("editor"):
 		return ProjectSettings.globalize_path("res://tools/sysinfo/" + HELPER)
 	return OS.get_executable_path().get_base_dir().path_join(HELPER)
