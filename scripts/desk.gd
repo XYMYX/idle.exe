@@ -109,6 +109,15 @@ const SEASONS := [
 const SEASON_SIZE := Vector2(60, 84)
 const SEASON_CHECK_SEC := 60.0
 
+## Charging cabinet (art/charging_station.png, 8 frames 144×144): replaces the server rack once the
+## sheet exists. Sheet origin 36 px left of the rack, the open doors use 30 px on each side.
+## Frames: 0 closed, 0–5 opening, 5/6 charging, 7 fully charged; closing 5→0.
+const STATION_TEX := "res://art/charging_station.png"
+const STATION_OFFSET := Vector2(-36, 0)   # relative to the rack's position
+const STATION_SIZE := Vector2(144, 144)
+const STATION_FPS := 8.0                  # opening / closing
+const STATION_CHARGE_FPS := 2.0           # 5 <-> 6 while charging
+
 const CHAIR := "res://art/chair.png"
 const CHAIR_POS := Vector2(0, 42)
 const FLASH_SEC := 0.6
@@ -130,6 +139,10 @@ var _anim_left := 0.0
 var _anim_key := ""
 var _squeak_left := 0.0
 var _season := ""            # current seasonal decoration id, "" = none
+var _station := "closed"     # closed, opening, charging, full, closing
+var _station_t := 0.0        # seconds since the phase started
+
+signal shape_changed         # the drawn area changed (cabinet doors): main updates the click area
 var _season_check := 0.0
 
 
@@ -150,6 +163,12 @@ func flash(id: String) -> void:
 
 ## Only redraw when an animation frame changes or something is flashing.
 func _process(delta: float) -> void:
+	if _station != "closed":
+		_station_t += delta
+		if _station == "closing" and _station_frame() == 0:
+			_station = "closed"
+			shape_changed.emit()
+		queue_redraw()
 	if _flash_left > 0.0:
 		_flash_left -= delta
 		queue_redraw()
@@ -205,6 +224,42 @@ func left_extent() -> float:
 	for r: Rect2 in _corner_rects().values():
 		x = minf(x, r.position.x)
 	return x
+
+
+# --- Charging cabinet --------------------------------------------------------------
+
+## The cabinet replaces the rack once the rack is owned and the sheet exists.
+func station_available() -> bool:
+	return Game.has("rack") and _tex(STATION_TEX) != null
+
+
+## Top-left corner of the cabinet sheet (desk coordinates).
+func station_origin() -> Vector2:
+	for part: Dictionary in PARTS:
+		if part["needs"] == "rack":
+			return part["pos"] + STATION_OFFSET
+	return Vector2.ZERO
+
+
+## Phase from XYMYX: opening, charging, full, closing.
+func set_station(phase: String) -> void:
+	if phase == _station:
+		return
+	if phase == "closing" and _station == "closed":
+		return
+	_station = phase
+	_station_t = 0.0
+	queue_redraw()
+	shape_changed.emit()
+
+
+func _station_frame() -> int:
+	match _station:
+		"opening": return mini(5, int(_station_t * STATION_FPS))
+		"charging": return 5 + int(_station_t * STATION_CHARGE_FPS) % 2
+		"full": return 7
+		"closing": return maxi(0, 5 - int(_station_t * STATION_FPS))
+	return 0
 
 
 # --- Pets on the desk and in the pet corner ---------------------------------------
@@ -301,6 +356,11 @@ func _draw_parts(behind: bool) -> void:
 	for part: Dictionary in PARTS:
 		if not _shown(part) or part.get("behind", false) != behind:
 			continue
+		if part["needs"] == "rack" and station_available():
+			_draw_frame(STATION_TEX, station_origin(), STATION_SIZE, _station_frame())
+			continue
+		if part["needs"] == "rack_cooling" and station_available() and _station != "closed":
+			continue  # the cooling overlay would cover the open cabinet
 		if part.get("skill_frames", false):
 			_draw_frame(part["tex"], part["pos"], part["size"], SkillData.learned_count(Game.skills) - 1)
 		elif part.get("location_frames", false):
@@ -371,6 +431,8 @@ func outline_rects() -> Array[Rect2]:
 	if _board_count() > 0:
 		var r := _board_rect()
 		out.append(Rect2(r.position.x - BOARD_LINE, r.position.y, r.size.x + 2 * BOARD_LINE, r.size.y + BOARD_TRAY))
+	if station_available() and _station != "closed":
+		out.append(Rect2(station_origin(), STATION_SIZE))  # open doors
 	if _pet_shown("duck"):
 		out.append(DUCK_RECT)
 	if _pet_shown("aquarium"):

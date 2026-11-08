@@ -197,6 +197,11 @@ func _build_scene() -> void:
 		elif target is RoboToy:
 			target.poke())
 	_xymyx.moved.connect(_update_passthrough)
+	# Charging cabinet (replaces the server rack): XYMYX walks in now and then, the desk animates the doors
+	_xymyx.station_x = func() -> float:
+		return _desk.position.x + _desk.station_origin().x if _desk.station_available() else -1.0
+	_xymyx.charge_phase.connect(_desk.set_station)
+	_desk.shape_changed.connect(func() -> void: _update_passthrough(true))
 	_xymyx.landed.connect(_on_landed)
 	Game.changed.connect(_update_passthrough)  # new parts enlarge the click area
 

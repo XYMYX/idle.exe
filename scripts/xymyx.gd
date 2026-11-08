@@ -9,9 +9,10 @@ signal chair_taken(taken: bool)  # true = the chair is part of the roll sprite, 
 signal repair_started            # the desk flashes the purchased part
 signal landed                    # back on the ground after being dropped
 signal petted(target: Object)    # kneeled next to a pet: main lets it react (heart, wind-up)
+signal charge_phase(phase: String)  # charging cabinet: opening, charging, full, closing
 
 enum State { SITTING, WALKING_OUT, STANDING, WALKING_HOME, WALKING_TO_REPAIR, ACTION,
-	GRABBED, FALLING, LANDING, SLEEPING }
+	GRABBED, FALLING, LANDING, SLEEPING, WALKING_TO_STATION, CHARGING }
 
 const SIZE := 48.0 * Art.SCALE               # figure size in game pixels (144)
 const WALK_SPEED := 18.0 * Art.SCALE         # game pixels per second
@@ -67,10 +68,18 @@ const TWEEN_MAX := 24.0
 ## Random pauses while typing, weighted (headdesk later via bug events)
 const IDLE_ACTIONS := {"stretch": 3, "drink": 3, "roll": 1, "headdesk": 1, "look": 3, "phone": 2, "duck_talk": 2}
 const KNEEL_CHANCE := 0.6  # standing on a walk with a pet close by: share of pauses with a kneel
+## Charging cabinet (art/xymyx_charge.png, 4 frames front view; frame 3 = eyes off).
+const CHARGE_CHANCE := 0.25          # share of breaks spent charging instead of walking
+const CHARGE_SEC := Vector2(30.0, 60.0)
+const CHARGE_RISE := 4.0             # stands 4 px higher than the cabinet's origin
+const OPEN_SEC := 0.8                # doors opening (6 frames at 8 fps)
+const FULL_SEC := 1.5                # shows the full battery before stepping out
 
 var home_x := 0.0
 var has_duck := false       # set by main: «duck_talk» only with the duck on the desk
 var pet_near: Callable      # set by main: (x) -> pet object close to x or null
+var station_x: Callable     # set by main: () -> x of the charging cabinet, -1 if there is none
+var _charge_step := ""      # open, in, charge, full, out
 var _kneel_target: Object = null
 var repair_x := 0.0
 var min_x := 0.0
@@ -114,6 +123,11 @@ func _ready() -> void:
 			continue
 		var a: Dictionary = ACTIONS[anim]
 		_add_anim(sf, anim, frames, a["fps"], a["seq"], a.get("loop", false))
+	var charge := PlaceholderArt.load_frames("res://art/xymyx_charge.png", none)
+	if not charge.is_empty():
+		_add_anim(sf, "charge_in", charge, 4.0, [0, 1, 2, 3], false)
+		_add_anim(sf, "charge", charge, 1.0, [3], true)
+		_add_anim(sf, "charge_out", charge, 4.0, [3, 2, 1, 0], false)
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
 	_bubble = SpeechBubble.new()
@@ -160,7 +174,11 @@ func _process(delta: float) -> void:
 			_idle_timer -= delta
 			_emote_timer -= delta
 			if _timer <= 0.0:
-				_walk_to(_pick_target(), State.WALKING_OUT)
+				var sx: float = station_x.call() if station_x.is_valid() else -1.0
+				if sx >= 0.0 and sprite_frames.has_animation("charge_in") and randf() < CHARGE_CHANCE:
+					_walk_to(sx, State.WALKING_TO_STATION)
+				else:
+					_walk_to(_pick_target(), State.WALKING_OUT)
 			elif _idle_timer <= 0.0:
 				_play_random_idle()
 			elif _emote_timer <= 0.0:
@@ -169,12 +187,15 @@ func _process(delta: float) -> void:
 			_timer -= delta
 			if _timer <= 0.0:
 				_walk_to(home_x, State.WALKING_HOME)
-		State.WALKING_OUT, State.WALKING_HOME, State.WALKING_TO_REPAIR:
+		State.WALKING_OUT, State.WALKING_HOME, State.WALKING_TO_REPAIR, State.WALKING_TO_STATION:
 			if _step_towards(_target_x, WALK_SPEED * delta):
 				match _state:
 					State.WALKING_OUT: _stand()
 					State.WALKING_HOME: _sit()
 					State.WALKING_TO_REPAIR: _begin_repair()
+					State.WALKING_TO_STATION: _begin_charge()
+		State.CHARGING:
+			_process_charge(delta)
 		State.ACTION:
 			if _action == "roll":
 				_process_roll(delta)
@@ -224,6 +245,7 @@ func start_repair() -> void:
 		return
 	if _action == "roll":
 		chair_taken.emit(false)
+	_leave_station()
 	_walk_to(repair_x, State.WALKING_TO_REPAIR)
 
 
@@ -334,12 +356,16 @@ func set_home(home: float, repair: float) -> void:
 			_target_x = home
 		State.WALKING_TO_REPAIR:
 			_target_x = repair
+		State.WALKING_TO_STATION, State.CHARGING:
+			_leave_station()  # the cabinet moved with the desk: go back to work
+			_walk_to(home, State.WALKING_HOME)
 
 
 ## Grabbed: wriggle and look at the user. Running actions are cancelled.
 func grab() -> void:
 	if _state == State.ACTION and _action == "roll":
 		chair_taken.emit(false)
+	_leave_station()
 	_bubble.set_zzz(false)
 	_state = State.GRABBED
 	_action = ""
@@ -560,6 +586,51 @@ func _idle_ok(anim: String) -> bool:
 	return sprite_frames.has_animation(anim) and (anim != "duck_talk" or has_duck)
 
 
+# --- Charging cabinet --------------------------------------------------------------
+
+## Arrived in front of the cabinet: the doors open, then he steps in.
+func _begin_charge() -> void:
+	_state = State.CHARGING
+	_charge_step = "open"
+	_timer = OPEN_SEC
+	_stand_still()
+	charge_phase.emit("opening")
+
+
+func _process_charge(delta: float) -> void:
+	if _charge_step == "in" or _charge_step == "out":
+		return  # waiting for the animation
+	_timer -= delta
+	if _timer > 0.0:
+		return
+	match _charge_step:
+		"open":
+			# Inside the cabinet: same origin, 4 px higher, front view, eyes go off
+			_charge_step = "in"
+			flip_h = false
+			position.y = floor_y - CHARGE_RISE
+			moved.emit()
+			play("charge_in")
+			charge_phase.emit("charging")
+		"charge":
+			_charge_step = "full"
+			_timer = FULL_SEC
+			charge_phase.emit("full")
+		"full":
+			_charge_step = "out"
+			play("charge_out")
+
+
+## Leave the cabinet (done or interrupted): back on the floor, the doors close.
+func _leave_station() -> void:
+	if _charge_step == "" and _state != State.CHARGING:
+		return
+	_charge_step = ""
+	position.y = floor_y
+	moved.emit()
+	charge_phase.emit("closing")
+
+
 ## Roll back a bit on the chair and return.
 func _process_roll(delta: float) -> void:
 	var target := home_x if _roll_back else home_x - ROLL_DIST
@@ -574,6 +645,14 @@ func _process_roll(delta: float) -> void:
 func _on_animation_finished() -> void:
 	# Only non-looping animations end by themselves.
 	match _state:
+		State.CHARGING:
+			if _charge_step == "in":  # eyes off: charging
+				_charge_step = "charge"
+				_timer = randf_range(CHARGE_SEC.x, CHARGE_SEC.y)
+				play("charge")
+			elif _charge_step == "out":  # awake again: step out, the cabinet closes behind him
+				_leave_station()
+				_walk_to(home_x, State.WALKING_HOME)
 		State.ACTION:
 			if _action != "roll" and _action != "repair":
 				_sit(false)

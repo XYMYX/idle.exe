@@ -376,6 +376,14 @@ XYMYX 144 px, strip 174 px tall, all positions, speeds, distances and the board 
 - The money counter is drawn ×3, the terminal keeps its size (`setup(pixel_scale * Art.SCALE)`).
 - Saved layouts in old units are converted once (`[layout] units`).
 
+### Charging cabinet (2026-11-08)
+`art/charging_station.png` (8 frames 144×144) replaces the server rack once the rack is owned: sheet origin 36 px left
+of the rack, the open doors use 30 px on each side. Frames: 0 closed, 0–5 opening, 5/6 charging, 7 full, closing 5→0.
+About every fourth break (`CHARGE_CHANCE` 0.25) XYMYX walks to the cabinet instead of a walk: doors open (0.8 s), he
+stands inside at the same origin 4 px higher (`xymyx_charge.png`, front view, 0→3 eyes go off), charges 30–60 s,
+full (1.5 s), eyes on (3→0), walks back; the cabinet closes behind him. The rack cooling overlay is hidden while the
+doors are open. Lifting him, a repair or moving the desk interrupts the charge cleanly (doors close).
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
