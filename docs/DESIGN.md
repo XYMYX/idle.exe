@@ -387,8 +387,8 @@ doors are open. Lifting him, a repair or moving the desk interrupts the charge c
 ### Server repair and pet play rounds (2026-11-08, art + integration notes from MYX)
 Both purely visual, no effect on income.
 - **Server repair:** every 15–40 min (while XYMYX sits at the desk) a random owned device shows its `<part>_fault.png`
-  (2 frames, only the status light). Devices: home server, NAS, ASIC shelf, mining rack, security lab (test server only
-  once its fault sheet has the new 48×72 frame size; the rack is the charging cabinet and never breaks). XYMYX:
+  (2 frames, only the status light). Devices: home server, NAS, ASIC shelf, mining rack, security lab, test server (fault sheet
+  redrawn at 48×72); the rack is the charging cabinet and never breaks. XYMYX:
   `fault_notice` (seated → looks up → stands) → walks to the toolbox (under the desk, `TOOLBOX_RECT` 96,96, his origin
   = box − (89,96)) → `tool_fetch` 0–3 with the toolbox frames in sync → `tool_walk` to the device (high units ≥120 px:
   his origin = device − 117, `service_high`; lower ones − 78, `service_low`) → 6 s repair, device back to normal →
