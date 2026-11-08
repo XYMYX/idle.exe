@@ -49,8 +49,8 @@ const PARTS := [
 	{"tex": "res://art/asic_shelf.png", "pos": Vector2(-252, 54), "size": Vector2(60, 90), "needs": "asic_shelf", "fps": 4.0},
 	{"tex": "res://art/mining_rack.png", "pos": Vector2(-330, 0), "size": Vector2(72, 144), "needs": "mining_rack", "fps": 4.0},
 	# Stage 11: security business
-	{"tex": "res://art/test_server.png", "pos": Vector2(-378, 84), "size": Vector2(36, 60), "needs": "test_server", "fps": 2.0},
-	{"tex": "res://art/sec_lab.png", "pos": Vector2(-450, 24), "size": Vector2(60, 120), "needs": "sec_lab", "fps": 3.0},
+	{"tex": "res://art/test_server.png", "pos": Vector2(-381, 72), "size": Vector2(48, 72), "needs": "test_server", "fps": 2.0},
+	{"tex": "res://art/sec_lab.png", "pos": Vector2(-438, 24), "size": Vector2(60, 120), "needs": "sec_lab", "fps": 3.0},
 ]
 
 ## Location board on the wall: big installations that don't fit into the room

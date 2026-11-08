@@ -146,5 +146,5 @@ All board icons: **24×24** (2 frames side by side = 48×24). 59 files:
 | File | New (whole sheet) | Frames | Position new |
 |---|---|---|---|
 | `certificates.png` | 150×36 | 5 | 156, -18 |
-| `test_server.png` | 72×60 | 2 | -378, 84 |
-| `sec_lab.png` | 120×120 | 2 | -450, 24 |
+| `test_server.png` | 96×72 (redrawn 2026-11-08, front view) | 2 | -381, 72 |
+| `sec_lab.png` | 120×120 | 2 | -438, 24 |
