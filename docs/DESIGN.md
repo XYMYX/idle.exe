@@ -334,6 +334,38 @@ The settings moved out of the category list into a `[Settings]` button in the to
 - Pet corner: on the floor left of the board (or the leftmost part), right to left: hamster, aquarium. Part of the click outline.
 - «Show pets» (setting key `show_cat`) hides all of them. Only petting the cat counts for the `pets` stat / flag.
 
+### XYMYX and the pets, seasons, autostart (2026-11-08, for v0.3.0)
+- **XYMYX with the pets** (new optional sheets, played only once they exist): `phone` and `duck_talk` (only with
+  the duck) as seated idle actions with a «...» bubble; `kneel` on a walk when an awake walker or the fallen robot toy
+  is within 40 px (60 % of the pauses): afterwards the pet reacts (heart and grooming / wound up).
+- **Seasons** (setting «Seasonal decorations», on by default, only the date is read): `art/season_<id>.png` 20×28,
+  standing left of the pet corner. Halloween 24.10–1.11, birthday 8.11 (first release), Christmas 1.–26.12,
+  New Year 31.12–2.1, Swiss National Day 31.7–1.8. Checked once per minute.
+- **Autostart** (setting «Start with Windows», off by default): helper mode `--autostart on <exe>|off` writes or removes
+  `idle.exe` in HKCU Run. Only in the exported game; the path is refreshed on every start while it's on.
+
+### More tiers in the classic lines (2026-11-08, for v0.3.0)
+Feedback: with 724B earned only RAM was left to buy in hardware, and cooling/power/storage/network/software were done.
+24 new one-off tiers (all with an 8×8 board icon), CPU now up to level 50 (money sink), the board grows wider instead
+of taller (`BOARD_MAX_ROWS` 4).
+
+| Category | New tiers (cost · effect) |
+|---|---|
+| Hardware | Server workstation 1.5B · coding ×1.2 / GPU rack 6B · ×1.25 / AI accelerator 1.5T · ×1.3 |
+| Cooling | Immersion cooling 15B · +400 / Cooling tower 500B · +1,000 / Arctic data hall 12T · +3,000 |
+| Power | Hydro dam share 240B · +3,000 kW / Fusion reactor 9T · +8,000 kW |
+| Storage | Tape library 1.2B · +40K/s / Exabyte cluster 25B · +400K/s / DNA storage 1.8T · +5M/s |
+| Network | Internet backbone 30B · ×1.2 / Subsea cable 2.4T · ×1.25 |
+| Software | Developer platform 12B · +250K/s / Operating system 500B · +3M/s / Global cloud 15T · +35M/s |
+| Mining | Mining island 800B · +3M/s |
+| Automation | Self-healing infrastructure 3B · contracts ×1.1 / AI agents 400B · ×1.15 (needs own LLM) |
+| Security | Threat intel network 500B · +2M/s / Cyber defense grid 15T · +30M/s |
+| Locations | Second campus 60B · +800K/s / Global HQ 4.5T · +10M/s / Bunker data center 60T · +70M/s |
+
+Prices from 100B ×2 and from 1T another ×1.5 (also the existing endgame: e.g. qubit chip 2.25T, orbital data center 165T).
+**Balancing:** first run with research and acquisitions **179 h ≈ 7.5 days** (first try 50 h, then effects reduced and
+late prices raised). Power, cooling and RAM suffice for everything.
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
@@ -416,6 +448,10 @@ Animated = horizontal sheet, width = frames × width. If a PNG is missing, the g
 | `dog_idle/walk/sit/lie/wag/bark.png` | 32×32 | 4/6/4/4/4/4 | like the cat | floor | dog, same structure as the cat sheets |
 | `elephant_idle/walk/sit/lie/spray/trumpet.png` | 40×40 | 4/6/4/4/4/4 | like the cat | floor | baby elephant, same structure |
 | `robo_toy_walk/idle/wind/fall.png` | 16×16 | 4/2/3/3 | 8/2/8/8 | floor | wind-up robot; last fall frame = lying |
+| `xymyx_phone.png` | 48×48 | 4 | 4 | sitting | phone call at the desk (sequence 0-1-2-3-2-3…-1-0) |
+| `xymyx_duck_talk.png` | 48×48 | 4 | 4 | sitting | talking to the rubber duck, looks to the right |
+| `xymyx_kneel.png` | 48×48 | 5 | 6 | standing | 0 stand → 1 bend → 2 kneel → 3/4 hand moves (pet / wind up) |
+| `season_<id>.png` | 20×28 | 2–4 | 2–4 | left of the pet corner | halloween, birthday, xmas, newyear, swiss |
 | `ac.png` | 24×10 | 2 | 3 | 90, -8 | wall air conditioner, airflow |
 | `homeserver.png` | 14×22 | 2 | 2 | -36, 26 | home server (tower on the floor), LEDs |
 | `router.png` | 12×6 | 2 | 4 | -35, 20 | router on the home server, flickering LEDs |

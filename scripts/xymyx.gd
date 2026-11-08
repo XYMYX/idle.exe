@@ -8,6 +8,7 @@ signal moved
 signal chair_taken(taken: bool)  # true = the chair is part of the roll sprite, the desk hides its own
 signal repair_started            # the desk flashes the purchased part
 signal landed                    # back on the ground after being dropped
+signal petted(target: Object)    # kneeled next to a pet: main lets it react (heart, wind-up)
 
 enum State { SITTING, WALKING_OUT, STANDING, WALKING_HOME, WALKING_TO_REPAIR, ACTION,
 	GRABBED, FALLING, LANDING, SLEEPING }
@@ -43,6 +44,10 @@ const ACTIONS := {
 	# Mouse reactions (optional): fall asleep at the desk, flinch
 	"sleep": {"fps": 2.0, "seq": [0, 1, 2, 3], "loop": true},
 	"startle": {"fps": 8.0, "seq": [0, 1, 2, 2, 1, 0]},
+	# With the pets (optional): phone call and talking to the duck while seated, kneeling on a walk
+	"phone": {"fps": 4.0, "seq": [0, 1, 2, 3, 2, 3, 2, 3, 2, 3, 2, 1, 0]},
+	"duck_talk": {"fps": 4.0, "seq": [0, 1, 2, 3, 2, 3, 2, 3, 1, 0]},
+	"kneel": {"fps": 6.0, "seq": [0, 1, 2, 3, 4, 3, 4, 3, 4, 2, 1, 0]},
 }
 const BUBBLE_POS := Vector2(32, -8)  # speech bubble in front of/above the face (relative to the sprite corner)
 ## Occasional emote while typing (weights) and how long it stays
@@ -59,9 +64,13 @@ const JUMP_HEIGHTS := [4.0, 10.0, 18.0, 30.0, 45.0, 65.0, 90.0]
 const COMBO_SEC := 1.2
 const TWEEN_MAX := 8.0
 ## Random pauses while typing, weighted (headdesk later via bug events)
-const IDLE_ACTIONS := {"stretch": 3, "drink": 3, "roll": 1, "headdesk": 1, "look": 3}
+const IDLE_ACTIONS := {"stretch": 3, "drink": 3, "roll": 1, "headdesk": 1, "look": 3, "phone": 2, "duck_talk": 2}
+const KNEEL_CHANCE := 0.6  # standing on a walk with a pet close by: share of pauses with a kneel
 
 var home_x := 0.0
+var has_duck := false       # set by main: «duck_talk» only with the duck on the desk
+var pet_near: Callable      # set by main: (x) -> pet object close to x or null
+var _kneel_target: Object = null
 var repair_x := 0.0
 var min_x := 0.0
 var max_x := 0.0
@@ -414,6 +423,16 @@ func _sleep() -> void:
 func _stand() -> void:
 	_state = State.STANDING
 	_timer = randf_range(STAND_TIME.x, STAND_TIME.y)
+	if sprite_frames.has_animation("kneel") and pet_near.is_valid() and randf() < KNEEL_CHANCE:
+		var target: Object = pet_near.call(position.x + 24.0)
+		if target != null:
+			# Crouch down next to the pet: stroke it or wind up the robot toy (main lets it react)
+			_kneel_target = target
+			flip_h = target.position.x + target.size * 0.5 < position.x + 24.0
+			play("kneel")
+			var k := sprite_frames.get_frame_count("kneel")
+			_timer = maxf(_timer, k / sprite_frames.get_animation_speed("kneel") + 0.5)
+			return
 	if sprite_frames.has_animation("front") and randf() < FRONT_CHANCE:
 		# Turn to the user, blink, wave. The pause lasts at least as long as the animation.
 		flip_h = false
@@ -487,6 +506,8 @@ func _play_action(anim: String) -> void:
 	_state = State.ACTION
 	_action = anim
 	flip_h = false
+	if anim == "duck_talk" or anim == "phone":
+		emote("dots")
 	if anim == "roll":
 		_roll_back = false
 		chair_taken.emit(true)
@@ -502,19 +523,23 @@ func _begin_repair() -> void:
 func _play_random_idle() -> void:
 	var total := 0
 	for a: String in IDLE_ACTIONS:
-		if sprite_frames.has_animation(a):
+		if _idle_ok(a):
 			total += IDLE_ACTIONS[a]
 	_idle_timer = randf_range(IDLE_ACTION_TIME.x, IDLE_ACTION_TIME.y)
 	if total == 0:
 		return
 	var r := randi() % total
 	for a: String in IDLE_ACTIONS:
-		if not sprite_frames.has_animation(a):
+		if not _idle_ok(a):
 			continue
 		r -= IDLE_ACTIONS[a]
 		if r < 0:
 			_play_action(a)
 			return
+
+
+func _idle_ok(anim: String) -> bool:
+	return sprite_frames.has_animation(anim) and (anim != "duck_talk" or has_duck)
 
 
 ## Roll back a bit on the chair and return.
@@ -537,7 +562,10 @@ func _on_animation_finished() -> void:
 		State.LANDING:
 			_after_land()
 		State.STANDING:
-			_stand_still()  # front view done, stand sideways again
+			if animation == "kneel" and _kneel_target != null:
+				petted.emit(_kneel_target)
+				_kneel_target = null
+			_stand_still()  # front view / kneeling done, stand sideways again
 
 
 func _step_towards(target: float, step: float) -> bool:

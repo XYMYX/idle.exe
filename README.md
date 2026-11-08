@@ -52,7 +52,7 @@ features/
 │                       hides while a fullscreen game or video runs
 ├── settings          size, monitor, mouse reactions, sleep time, events, cat, FPS, fullscreen, taskbar
 ├── stats             playtime, earnings, contracts, flags, upgrades and more
-├── idle-economy        75 upgrades · 14 categories · power, cooling & RAM budget
+├── idle-economy        99 upgrades · 14 categories · power, cooling & RAM budget
 ├── visible-setup       laptop → gaming PC → server racks → AI lab → quantum → orbit
 ├── contracts           client jobs, product updates, open-source stars, automation
 ├── progression         5 skills · 6 research projects · 5 locations · 5 acquisitions
@@ -61,6 +61,7 @@ features/
 ├── random-events       a «!» pops up, click to decide or let the default happen
 ├── personality         types, stretches, drinks coffee, waves, naps, shows emotes
 ├── pets                rubber duck, cat, robot toy, hamster, dog, aquarium, baby elephant
+├── seasons             Halloween, Christmas, New Year, Swiss National Day, idle.exe birthday
 ├── interaction         pick him up, throw him, combo jumps, drag the whole desk
 ├── offline-progress    keeps earning while closed (up to 8 h)
 ├── i18n                English + German, switch via the tray icon
@@ -78,6 +79,8 @@ mouse position ... used, so XYMYX can react to your cursor
 save file ........ stays on your computer
 system status .... OFF by default (opt-in in the settings)
 fullscreen check . only whether the foreground window fills the screen (to hide XYMYX)
+date ............. only for the seasonal decoration
+autostart ........ OFF by default; if on: one value in HKCU\...\CurrentVersion\Run
 ```
 
 **System status (opt-in):** if you switch it on, right-click XYMYX → «System status» shows CPU load, RAM, free disk space, uptime, GPU load and GPU temperature (NVIDIA only). A small helper (`idle-sysinfo.exe`, source in `tools/sysinfo/`) reads these values once per second, only while that view is open. They are only displayed: never saved, never sent anywhere, and they don't affect the game. No CPU temperature (that would need a kernel driver).

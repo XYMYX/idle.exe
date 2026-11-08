@@ -56,6 +56,7 @@ const PARTS := [
 const BOARD_TEX := "res://art/board.png"
 const BOARD_TOP := -8.0
 const BOARD_COLS := 10
+const BOARD_MAX_ROWS := 4    # more icons make the board wider, not taller (the strip is only 58 px)
 const BOARD_GAP := 3.0       # gap to the next part on the right
 const BOARD_PAD := 2         # padding between border and icons
 const BOARD_ICON_GAP := 2    # gap between icons
@@ -71,22 +72,37 @@ const BOARD_ITEMS := [
 	"holo_display", "server_row", "power_plant", "mining_hall", "soc",
 	"gpu_cluster", "training_servers", "own_llm", "cryo_cooler", "qubit_chip", "quantum_cloud",
 	"sat_uplink", "own_satellite", "orbital_dc",
+	# more tiers in the classic lines (2026-11-08)
+	"server_workstation", "gpu_rack", "ai_accelerator", "immersion_cooling", "cooling_tower", "arctic_hall",
+	"hydro_dam", "fusion_reactor", "tape_library", "exabyte_cluster", "dna_storage", "backbone", "subsea_cable",
+	"dev_platform", "operating_system", "global_cloud", "mining_island", "self_healing", "ai_agents",
+	"threat_intel", "cyber_defense", "second_campus", "global_hq", "bunker_dc",
 ]
 const ANIM_TICK := 0.125  # at most 8 animation checks per second
 
-## Pets drawn by the desk (PetData). The duck sits on the table; hamster and aquarium stand in the
-## pet corner on the floor, left of everything else in the room (left of the board).
+## Pets drawn by the desk (PetData). The duck sits on the table, the aquarium stands on the floor
+## directly left of the chair (between home server and chair). The hamster runs free (cat.gd).
 const DUCK_RECT := Rect2(47, 16, 12, 12)
 const DUCK_IDLE := "res://art/pet_duck_idle.png"      # 2 frames
 const DUCK_SQUEAK := "res://art/pet_duck_squeak.png"  # 3 frames
 const SQUEAK_SEC := 0.6
-const CORNER := [  # right to left
-	{"id": "hamster", "size": Vector2(24, 24)},
-	{"id": "aquarium", "size": Vector2(20, 24), "tex": "res://art/pet_aquarium.png", "fps": 4.0},
+const AQUARIUM_RECT := Rect2(-21, 24, 20, 24)
+const AQUARIUM_TEX := "res://art/pet_aquarium.png"  # 6 frames
+const AQUARIUM_FPS := 4.0
+const CORNER_GAP := 3.0  # gap of the seasonal decoration to the leftmost thing in the room
+
+## Seasonal decoration (setting «Seasonal decorations»): stands in the corner left of the pets.
+## Only the date is read. from/to = [month, day], inclusive; a range may wrap over New Year.
+## art/season_<id>.png, 20x28 per frame.
+const SEASONS := [
+	{"id": "newyear", "from": [12, 31], "to": [1, 2], "fps": 4.0},
+	{"id": "swiss", "from": [7, 31], "to": [8, 1], "fps": 3.0},
+	{"id": "halloween", "from": [10, 24], "to": [11, 1], "fps": 3.0},
+	{"id": "birthday", "from": [11, 8], "to": [11, 8], "fps": 2.0},
+	{"id": "xmas", "from": [12, 1], "to": [12, 26], "fps": 2.0},
 ]
-const CORNER_GAP := 3.0
-const HAMSTER_ANIMS := {"run": 8.0, "eat": 4.0, "sleep": 1.0}  # art/pet_hamster_<anim>.png, fps
-const HAMSTER_SEC := Vector2(20.0, 60.0)
+const SEASON_SIZE := Vector2(20, 28)
+const SEASON_CHECK_SEC := 60.0
 
 const CHAIR := "res://art/chair.png"
 const CHAIR_POS := Vector2(0, 14)
@@ -108,8 +124,8 @@ var _flash_left := 0.0
 var _anim_left := 0.0
 var _anim_key := ""
 var _squeak_left := 0.0
-var _hamster := "run"
-var _hamster_left := 30.0
+var _season := ""            # current seasonal decoration id, "" = none
+var _season_check := 0.0
 
 
 func _ready() -> void:
@@ -136,11 +152,13 @@ func _process(delta: float) -> void:
 	if _squeak_left > 0.0:
 		_squeak_left -= delta
 		queue_redraw()
-	_hamster_left -= delta
-	if _hamster_left <= 0.0:
-		_hamster_left = randf_range(HAMSTER_SEC.x, HAMSTER_SEC.y)
-		var r := randf()
-		_hamster = "run" if r < 0.45 else ("eat" if r < 0.65 else "sleep")
+	_season_check -= delta
+	if _season_check <= 0.0:
+		_season_check = SEASON_CHECK_SEC
+		var s := season_now() if Settings.get_value("seasons") else ""
+		if s != _season:
+			_season = s
+			Game.changed.emit()  # click area and redraw
 	_anim_left -= delta
 	if _anim_left > 0.0:
 		return
@@ -153,10 +171,10 @@ func _process(delta: float) -> void:
 		key += "b" + str(int(Time.get_ticks_msec() / 1000.0 * BOARD_FPS) % 2)
 	if _pet_shown("duck"):
 		key += "d" + str(_frame(DUCK_IDLE, DUCK_RECT.size, 1.0))
-	if _pet_shown("hamster"):
-		key += "h" + _hamster + str(_frame(_hamster_tex(), Vector2(24, 24), HAMSTER_ANIMS[_hamster]))
 	if _pet_shown("aquarium"):
-		key += "a" + str(_frame(CORNER[1]["tex"], CORNER[1]["size"], CORNER[1]["fps"]))
+		key += "a" + str(_frame(AQUARIUM_TEX, AQUARIUM_RECT.size, AQUARIUM_FPS))
+	if _season != "":
+		key += "s" + str(_frame(_season_tex(), SEASON_SIZE, _season_fps()))
 	if key != _anim_key:
 		_anim_key = key
 		queue_redraw()
@@ -190,11 +208,7 @@ func _pet_shown(id: String) -> bool:
 	return Game.has_pet(id) and Settings.get_value("show_cat")
 
 
-func _hamster_tex() -> String:
-	return "res://art/pet_hamster_%s.png" % _hamster
-
-
-## id -> Rect2 of the pets in the corner (only adopted ones), placed right to left.
+## Seasonal decoration, on the floor left of everything else in the room (left of the board).
 func _corner_rects() -> Dictionary:
 	var out := {}
 	var right := 0.0
@@ -203,14 +217,34 @@ func _corner_rects() -> Dictionary:
 			right = minf(right, part["pos"].x)
 	if _board_count() > 0:
 		right = minf(right, _board_rect().position.x - 1)
-	for c: Dictionary in CORNER:
-		if not _pet_shown(c["id"]):
-			continue
-		var sz: Vector2 = c["size"]
-		var r := Rect2(Vector2(right - CORNER_GAP - sz.x, SIZE.y - sz.y), sz)
-		out[c["id"]] = r
-		right = r.position.x
+	if _pet_shown("aquarium"):
+		right = minf(right, AQUARIUM_RECT.position.x)
+	if _season != "":
+		out["season"] = Rect2(Vector2(right - CORNER_GAP - SEASON_SIZE.x, SIZE.y - SEASON_SIZE.y), SEASON_SIZE)
 	return out
+
+
+## Seasonal decoration for today ("" = none). date = Time.get_date_dict_from_system() (for tests).
+static func season_now(date: Dictionary = {}) -> String:
+	var d := date if not date.is_empty() else Time.get_date_dict_from_system()
+	var md := int(d["month"]) * 100 + int(d["day"])
+	for s: Dictionary in SEASONS:
+		var a: int = s["from"][0] * 100 + s["from"][1]
+		var b: int = s["to"][0] * 100 + s["to"][1]
+		if (a <= b and md >= a and md <= b) or (a > b and (md >= a or md <= b)):
+			return s["id"]
+	return ""
+
+
+func _season_tex() -> String:
+	return "res://art/season_%s.png" % _season
+
+
+func _season_fps() -> float:
+	for s: Dictionary in SEASONS:
+		if s["id"] == _season:
+			return s["fps"]
+	return 2.0
 
 
 ## Click on the duck (desk coordinates)?
@@ -229,11 +263,11 @@ func _draw_pets() -> void:
 			_draw_sprite(DUCK_SQUEAK, DUCK_RECT.position, DUCK_RECT.size, 8.0)
 		else:
 			_draw_sprite(DUCK_IDLE, DUCK_RECT.position, DUCK_RECT.size, 1.0)
+	if _pet_shown("aquarium"):
+		_draw_sprite(AQUARIUM_TEX, AQUARIUM_RECT.position, AQUARIUM_RECT.size, AQUARIUM_FPS)
 	var corner := _corner_rects()
-	if corner.has("hamster"):
-		_draw_sprite(_hamster_tex(), corner["hamster"].position, corner["hamster"].size, HAMSTER_ANIMS[_hamster])
-	if corner.has("aquarium"):
-		_draw_sprite(CORNER[1]["tex"], corner["aquarium"].position, corner["aquarium"].size, CORNER[1]["fps"])
+	if corner.has("season"):
+		_draw_sprite(_season_tex(), corner["season"].position, SEASON_SIZE, _season_fps())
 
 
 func _draw() -> void:
@@ -326,6 +360,8 @@ func outline_rects() -> Array[Rect2]:
 		out.append(Rect2(r.position.x - 1, r.position.y, r.size.x + 2, r.size.y + BOARD_TRAY))
 	if _pet_shown("duck"):
 		out.append(DUCK_RECT)
+	if _pet_shown("aquarium"):
+		out.append(AQUARIUM_RECT)
 	for r: Rect2 in _corner_rects().values():
 		out.append(r)
 	return out
@@ -350,8 +386,9 @@ func _board_count() -> int:
 ## Board rectangle: grows with the icons, right-aligned before the leftmost part.
 func _board_rect() -> Rect2:
 	var n := _board_count()
-	var cols := mini(n, BOARD_COLS)
-	var rows := ceili(n / float(BOARD_COLS))
+	var per_row := _board_per_row()
+	var cols := mini(n, per_row)
+	var rows := ceili(n / float(per_row))
 	# 1 px border + padding on both sides, 8 px icons with gaps between them
 	var size := Vector2(2 + 2 * BOARD_PAD + cols * 8 + (cols - 1) * BOARD_ICON_GAP,
 		2 + 2 * BOARD_PAD + rows * 8 + (rows - 1) * BOARD_ICON_GAP)
@@ -366,8 +403,14 @@ func _board_rect() -> Rect2:
 ## Slot i (owned icons only, no gaps).
 func _board_slot(i: int) -> Vector2:
 	var pitch := 8 + BOARD_ICON_GAP
-	return _board_rect().position + Vector2(1 + BOARD_PAD + (i % BOARD_COLS) * pitch,
-		1 + BOARD_PAD + (i / BOARD_COLS) * pitch)
+	var per_row := _board_per_row()
+	return _board_rect().position + Vector2(1 + BOARD_PAD + (i % per_row) * pitch,
+		1 + BOARD_PAD + (i / per_row) * pitch)
+
+
+## Icons per row: at least BOARD_COLS, more once BOARD_MAX_ROWS rows would not be enough.
+func _board_per_row() -> int:
+	return maxi(BOARD_COLS, ceili(_board_count() / float(BOARD_MAX_ROWS)))
 
 
 ## [border, fill] from board.png (left edge middle, center). Without the PNG: grey tones.

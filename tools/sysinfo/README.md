@@ -17,6 +17,10 @@ Second mode, `idle-sysinfo.exe --watch <pid> [fullscreen] [notaskbar]`, runs as 
   style (`WS_EX_TOOLWINDOW`), so it has no taskbar button and doesn't show in Alt+Tab. Godot has no flag for that.
 The helper exits by itself when idle.exe is gone (it gets the game's process id as argument).
 
+Third mode, `idle-sysinfo.exe --autostart on <path to idle.exe>` / `--autostart off` (setting «Start with Windows»,
+off by default): writes or removes the value `idle.exe` under
+`HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run` (this user only, no admin rights).
+
 ## Build (Windows, MSYS2 UCRT64)
 
 ```bash

@@ -15,10 +15,12 @@ const OPTIONS := {
 	"sleep_min": {"options": [5, 10, 20, 0], "default": 10},
 	"events": {"options": [0, 1, 2, 3], "default": 2},
 	"show_cat": {"options": [true, false], "default": true},
+	"seasons": {"options": [true, false], "default": true},
 	"max_fps": {"options": [10, 20], "default": 20},
 	"system_status": {"options": [false, true], "default": false},
 	"hide_fullscreen": {"options": [true, false], "default": true},
 	"taskbar": {"options": [false, true], "default": false},
+	"autostart": {"options": [false, true], "default": false},  # Windows Run key, via the helper
 }
 
 ## Minutes between events per «events» level: 0 = off, 1 = rarely, 2 = normal, 3 = often.

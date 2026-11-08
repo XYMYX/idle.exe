@@ -588,7 +588,6 @@ Sits on the desk and listens to every bug. Click: squeak.,Sits on the desk and l
 Robot toy,Robot toy,Spielzeugroboter
 A wind-up robot. When the battery is empty it falls over. Click: wind it up.,A wind-up robot. When the battery is empty it falls over. Click: wind it up.,"Ein Aufzieh-Roboter. Ist die Batterie leer, kippt er um. Klick: aufziehen."
 Hamster,Hamster,Hamster
-"Runs in its wheel, eats and sleeps in its cage.","Runs in its wheel, eats and sleeps in its cage.","Rennt im Rad, frisst und schläft in seinem Käfig."
 Dog,Dog,Hund
 "Wags its tail, barks at the mouse, follows XYMYX.","Wags its tail, barks at the mouse, follows XYMYX.","Wedelt mit dem Schwanz, bellt die Maus an, folgt XYMYX."
 Aquarium,Aquarium,Aquarium
@@ -611,3 +610,33 @@ Fetch daemon,Fetch daemon,Apportier-Daemon
 Elephant memory,Elephant memory,Elefantengedächtnis
 Paw shake,Paw shake,Pfote geben
 Petting zoo,Petting zoo,Streichelzoo
+Seasonal decorations,Seasonal decorations,Saison-Deko
+Start with Windows,Start with Windows,Mit Windows starten
+"Start with Windows adds one entry for your user (HKCU Run). Only in the exported game, needs idle-sysinfo.exe.","Start with Windows adds one entry for your user (HKCU Run). Only in the exported game, needs idle-sysinfo.exe.","«Mit Windows starten» legt einen Eintrag für deinen Benutzer an (HKCU Run). Nur im exportierten Spiel, braucht idle-sysinfo.exe."
+Server workstation,Server workstation,Server-Workstation
+GPU rack,GPU rack,GPU-Rack
+AI accelerator,AI accelerator,KI-Beschleuniger
+Immersion cooling,Immersion cooling,Tauchkühlung
+Cooling tower,Cooling tower,Kühlturm
+Arctic data hall,Arctic data hall,Arktische Rechenhalle
+Hydro dam share,Hydro dam share,Staudamm-Anteil
+Fusion reactor,Fusion reactor,Fusionsreaktor
+Tape library,Tape library,Bandbibliothek
+Exabyte cluster,Exabyte cluster,Exabyte-Cluster
+DNA storage,DNA storage,DNA-Speicher
+Internet backbone,Internet backbone,Internet-Backbone
+Subsea cable,Subsea cable,Seekabel
+Operating system,Operating system,Betriebssystem
+Global cloud,Global cloud,Globale Cloud
+Mining island,Mining island,Mining-Insel
+Self-healing infrastructure,Self-healing infrastructure,Selbstheilende Infrastruktur
+AI agents,AI agents,KI-Agenten
+Threat intel network,Threat intel network,Threat-Intel-Netzwerk
+Cyber defense grid,Cyber defense grid,Cyber-Abwehrnetz
+Second campus,Second campus,Zweiter Campus
+Global HQ,Global HQ,Globaler Hauptsitz
+Bunker data center,Bunker data center,Bunker-Rechenzentrum
+%d d %d h %02d min,%d d %d h %02d min,%d T %d h %02d min
+%d h %02d min,%d h %02d min,%d h %02d min
+%d min,%d min,%d min
+"Scurries around freely, nibbles seeds and naps curled up.","Scurries around freely, nibbles seeds and naps curled up.","Flitzt frei herum, knabbert Körner und schläft eingerollt."

@@ -146,7 +146,7 @@ func _build_scene() -> void:
 	_world.add_child(_desk)
 
 	# Walking pets in front of the desk, behind XYMYX
-	for kind in ["elephant", "dog", "cat"]:
+	for kind in ["elephant", "dog", "cat", "hamster"]:
 		var w := Cat.new()
 		w.kind = kind
 		w.visible = _pet_shown(kind)
@@ -177,6 +177,16 @@ func _build_scene() -> void:
 	_toy.setup(_pet_home("robo_toy"), 8.0, game_width - _toy.size - 8.0)
 	_toy.moved.connect(_update_passthrough)
 	Game.pet_adopted.connect(func(_id: String) -> void: _update_pet_visibility())
+	# XYMYX and the pets: talk to the duck, kneel next to a pet on his walk
+	_xymyx.has_duck = _pet_shown("duck")
+	_xymyx.pet_near = _pet_near
+	_xymyx.petted.connect(func(target: Object) -> void:
+		if not is_instance_valid(target):
+			return
+		if target is Cat:
+			target.pet()
+		elif target is RoboToy:
+			target.poke())
 	_xymyx.moved.connect(_update_passthrough)
 	_xymyx.landed.connect(_on_landed)
 	Game.changed.connect(_update_passthrough)  # new parts enlarge the click area
@@ -237,7 +247,13 @@ func _build_scene() -> void:
 			_rebuild("setting " + key)
 			return
 		if key == "show_cat":  # «Show pets»
-			_update_pet_visibility())
+			_update_pet_visibility()
+		if key == "seasons":
+			_desk._season_check = 0.0  # check right away
+		if key == "autostart":
+			_apply_autostart())
+	if Settings.get_value("autostart"):
+		_apply_autostart()  # refresh the path in case idle.exe was moved
 	add_child(_watch)
 
 	_carry = CarryWindow.new()
@@ -271,6 +287,7 @@ func _update_pet_visibility() -> void:
 	for w: Cat in _walkers:
 		w.visible = _pet_shown(w.kind)
 	_toy.visible = _pet_shown("robo_toy")
+	_xymyx.has_duck = _pet_shown("duck")
 	_desk.queue_redraw()  # duck, hamster, aquarium
 	_update_passthrough(true)
 
@@ -281,6 +298,7 @@ func _pet_home(id: String) -> float:
 	match id:
 		"dog": return _desk.position.x + 24.0
 		"elephant": return _desk.position.x - 70.0
+		"hamster": return _desk.position.x - 50.0
 		"robo_toy": return _desk.position.x - 30.0
 	return _desk.position.x + 62.0
 
@@ -602,6 +620,30 @@ func _on_menu_id(id: int) -> void:
 
 
 # --- Click area -----------------------------------------------------------------
+
+## A pet XYMYX can kneel next to (within 40 px of x): an awake walker or the fallen robot toy.
+func _pet_near(x: float) -> Object:
+	for w: Cat in _walkers:
+		if w.visible and w.state_name() in ["STAND", "SIT", "GROOM"] and absf(w.position.x + w.size * 0.5 - x) < 40.0:
+			return w
+	if _toy.visible and _toy.state_name() == "LYING" and absf(_toy.position.x + _toy.size * 0.5 - x) < 40.0:
+		return _toy
+	return null
+
+
+## Start with Windows: the helper writes/removes the value «idle.exe» in HKCU\...\Run.
+## Not in the editor (it would register the Godot editor) and not without the helper.
+func _apply_autostart() -> void:
+	var helper := SystemStatus.helper_path()
+	if OS.has_feature("editor") or not FileAccess.file_exists(helper):
+		return
+	var args := ["--autostart", "off"]
+	if Settings.get_value("autostart"):
+		args = ["--autostart", "on", OS.get_executable_path()]
+	var rc := OS.execute(helper, PackedStringArray(args))
+	if rc != 0:
+		push_warning("idle.exe: autostart could not be changed (helper exit code %d)" % rc)
+
 
 ## Pet under the mouse (game coordinates): a walker, the robot toy or the desk (duck), else null.
 func _pet_at(p: Vector2) -> Object:

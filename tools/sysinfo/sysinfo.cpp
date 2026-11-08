@@ -16,6 +16,10 @@
 //   notaskbar:  gives idle.exe's main window the tool-window style, so it has no taskbar button
 //               (Godot has no flag for that). Reapplied if it gets lost.
 //
+// Third mode: «idle-sysinfo.exe --autostart on <path to idle.exe>» / «--autostart off» writes or
+// removes the value «idle.exe» under HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
+// (this user only, no admin rights). Exit code 0 = done.
+//
 // Build (MSYS2 UCRT64 g++, see tools/sysinfo/README.md):
 //   g++ -O2 -s -static -mwindows -o idle-sysinfo.exe sysinfo.cpp -lpdh
 
@@ -28,6 +32,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
+#include <shellapi.h>
+#include <string>
 #include <vector>
 
 namespace {
@@ -203,6 +209,27 @@ void set_dpi_aware() {
 	if (!set_ctx || !set_ctx(reinterpret_cast<HANDLE>(-4) /* PER_MONITOR_AWARE_V2 */)) SetProcessDPIAware();
 }
 
+// --- Autostart with Windows ---------------------------------------------------------
+
+int autostart(bool on, const wchar_t* exe) {
+	HKEY key = nullptr;
+	if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, nullptr, 0,
+			KEY_SET_VALUE, nullptr, &key, nullptr) != ERROR_SUCCESS) {
+		return 2;
+	}
+	LSTATUS st;
+	if (on) {
+		const std::wstring value = L"\"" + std::wstring(exe) + L"\"";  // quoted: paths with spaces
+		st = RegSetValueExW(key, L"idle.exe", 0, REG_SZ, reinterpret_cast<const BYTE*>(value.c_str()),
+				static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t)));
+	} else {
+		st = RegDeleteValueW(key, L"idle.exe");
+		if (st == ERROR_FILE_NOT_FOUND) st = ERROR_SUCCESS;  // already off
+	}
+	RegCloseKey(key);
+	return st == ERROR_SUCCESS ? 0 : 3;
+}
+
 bool write_line(HANDLE out, const char* text, int len) {
 	DWORD written = 0;
 	return WriteFile(out, text, static_cast<DWORD>(len), &written, nullptr) && written == static_cast<DWORD>(len);
@@ -212,6 +239,17 @@ bool write_line(HANDLE out, const char* text, int len) {
 
 int main(int argc, char** argv) {
 	SetDllDirectoryW(L"");  // never load DLLs from the current folder
+
+	if (argc > 2 && std::strcmp(argv[1], "--autostart") == 0) {
+		// Wide arguments: the path may contain non-ASCII characters (ä, ö, ü ...).
+		int wargc = 0;
+		LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+		if (!wargv) return 1;
+		const bool on = std::wcscmp(wargv[2], L"on") == 0;
+		const int rc = (on && wargc < 4) ? 1 : autostart(on, on ? wargv[3] : L"");
+		LocalFree(wargv);
+		return rc;
+	}
 	HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
 	if (out == nullptr || out == INVALID_HANDLE_VALUE) return 1;
 

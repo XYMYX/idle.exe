@@ -4,7 +4,7 @@ extends RefCounted
 ##
 ## kind:   walker = walks around like the cat (cat.gd with its own sprite set)
 ##         desk   = sits on the desk (drawn by desk.gd)
-##         corner = stands in the pet corner on the floor, left of the room (drawn by desk.gd)
+##         floor  = stands at a fixed spot on the floor (aquarium, drawn by desk.gd)
 ##         toy    = the wind-up robot toy (robo_toy.gd)
 ## The cat is stored in Game.cat (older saves), all others in Game.pets.
 
@@ -15,11 +15,11 @@ const PETS := [
 		"desc": "Walks around, sleeps, joins XYMYX on his walks."},
 	{"id": "robo_toy", "name": "Robot toy", "cost": 5000.0, "kind": "toy",
 		"desc": "A wind-up robot. When the battery is empty it falls over. Click: wind it up."},
-	{"id": "hamster", "name": "Hamster", "cost": 25000.0, "kind": "corner",
-		"desc": "Runs in its wheel, eats and sleeps in its cage."},
+	{"id": "hamster", "name": "Hamster", "cost": 25000.0, "kind": "walker",
+		"desc": "Scurries around freely, nibbles seeds and naps curled up."},
 	{"id": "dog", "name": "Dog", "cost": 250000.0, "kind": "walker",
 		"desc": "Wags its tail, barks at the mouse, follows XYMYX."},
-	{"id": "aquarium", "name": "Aquarium", "cost": 2.5e6, "kind": "corner",
+	{"id": "aquarium", "name": "Aquarium", "cost": 2.5e6, "kind": "floor",
 		"desc": "Fish and bubbles under a purple LED."},
 	{"id": "elephant", "name": "Baby elephant", "cost": 50.0e6, "kind": "walker",
 		"desc": "Small, curious, trumpets at the mouse."},

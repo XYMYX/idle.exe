@@ -10,6 +10,7 @@ extends AnimatedSprite2D
 ## Also used for the other walking pets (set «kind» before adding the node):
 ##   dog:      wag (instead of grooming), bark (instead of rearing up)
 ##   elephant: spray (instead of grooming), trumpet (instead of rearing up)
+##   hamster:  eat (instead of grooming), stand (stands up on its hind legs instead of rearing up)
 ## Missing sheets are drawn as grey placeholder boxes in the right size.
 
 signal moved
@@ -64,6 +65,7 @@ const SHEETS := {
 	"cat": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "curl", "groom": "scratch", "rear": "rear", "size": 32},
 	"dog": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "lie", "groom": "wag", "rear": "bark", "size": 32},
 	"elephant": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "lie", "groom": "spray", "rear": "trumpet", "size": 40},
+	"hamster": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "sleep", "groom": "eat", "rear": "stand", "size": 16},
 }
 ## Frames per sheet for the placeholders (same as the cat's sheets).
 const PLACEHOLDER_FRAMES := {"idle": 4, "walk": 6, "sit": 4, "curl": 4, "groom": 4, "rear": 4}

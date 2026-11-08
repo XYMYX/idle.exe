@@ -40,10 +40,12 @@ const SETTING_ROWS := [
 	["sleep_min", "Fall asleep after", ["5 min", "10 min", "20 min", "never"]],
 	["events", "Events", ["off", "rarely", "normal", "often"]],
 	["show_cat", "Show pets", ["on", "off"]],
+	["seasons", "Seasonal decorations", ["on", "off"]],
 	["max_fps", "Max. FPS", ["10", "20"]],
 	["system_status", "System status", ["off", "on"]],
 	["hide_fullscreen", "Hide during fullscreen", ["on", "off"]],
 	["taskbar", "Taskbar entry", ["off", "on"]],
+	["autostart", "Start with Windows", ["off", "on"]],
 ]
 const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters
@@ -830,6 +832,18 @@ func _size_text(gb: float) -> String:
 
 # --- Stats -------------------------------------------------------------------------
 
+## «2 min», «3 h 05 min», «1 d 4 h 10 min» (unambiguous, unlike «0:02 h»).
+func _playtime_text(sec: int) -> String:
+	var d := sec / 86400
+	var h := (sec % 86400) / 3600
+	var m := (sec % 3600) / 60
+	if d > 0:
+		return tr("%d d %d h %02d min") % [d, h, m]
+	if h > 0:
+		return tr("%d h %02d min") % [h, m]
+	return tr("%d min") % m
+
+
 func _stats_rows() -> Array:
 	var st: Dictionary = Game.stats
 	var owned := 0
@@ -848,7 +862,7 @@ func _stats_rows() -> Array:
 		skill_sum += int(Game.skills.get(s["id"], 0))
 	var sec := int(st.get("play_sec", 0))
 	var lines := [
-		[tr("Playtime"), (tr("%d d ") % (sec / 86400) if sec >= 86400 else "") + "%d:%02d h" % [(sec % 86400) / 3600, (sec % 3600) / 60]],
+		[tr("Playtime"), _playtime_text(sec)],
 		[tr("Earned in total"), BigNum.format_chf(Game.total_earned) + " CHF"],
 		[tr("Earned this run"), BigNum.format_chf(Game.run_earned) + " CHF"],
 		[tr("Companies sold"), str(int(st.get("sales", 0)))],
@@ -881,6 +895,7 @@ func _settings_rows() -> Array:
 	rows.append({"t": "text", "text": " ", "c": C_DIM})
 	rows.append({"t": "text", "c": C_DIM, "text": tr("The taskbar entry changes after a restart. The language is changed in the tray menu.")})
 	rows.append({"t": "text", "c": C_DIM, "text": tr("System status (right-click XYMYX) reads CPU, RAM, disk and GPU values. Display only, nothing is saved or sent.")})
+	rows.append({"t": "text", "c": C_DIM, "text": tr("Start with Windows adds one entry for your user (HKCU Run). Only in the exported game, needs idle-sysinfo.exe.")})
 	return rows
 
 

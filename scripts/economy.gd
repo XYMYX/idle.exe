@@ -52,7 +52,7 @@ const UPGRADES := [
 		"fx": {"code_mult": 2.0}},
 	{"id": "workstation", "cat": "hardware", "line": "PC", "name": "Workstation", "cost": 2.0e6,
 		"fx": {"code_mult": 2.0}, "uses": {"power": 1.0, "heat": 2.0}, "requires": ["water", "monitor_3"]},
-	{"id": "cpu", "cat": "hardware", "line": "CPU", "name": "CPU upgrade", "cost": 100.0, "growth": 1.6, "max": 25,
+	{"id": "cpu", "cat": "hardware", "line": "CPU", "name": "CPU upgrade", "cost": 100.0, "growth": 1.6, "max": 50,
 		"fx": {"code_mult": 1.05}},
 	{"id": "ram", "cat": "hardware", "line": "RAM", "name": "RAM stick", "cost": 10.0, "growth": 1.15, "max": 999,
 		"fx": {"code_add": 0.5, "ram_cap": 1.0}},
@@ -208,26 +208,86 @@ const UPGRADES := [
 		"fx": {"code_mult": 1.6}, "uses": {"power": 60.0, "heat": 80.0}},
 	{"id": "training_servers", "cat": "ai_lab", "line": "AI lab", "name": "Training servers", "cost": 6.0e10,
 		"fx": {"software": 2.5e6}, "uses": {"power": 80.0, "heat": 100.0, "ram": 64.0}},
-	{"id": "own_llm", "cat": "ai_lab", "line": "AI lab", "name": "Own language model", "cost": 1.8e11,
+	{"id": "own_llm", "cat": "ai_lab", "line": "AI lab", "name": "Own language model", "cost": 3.6e11,
 		"fx": {"software": 7.0e6}, "uses": {"power": 40.0, "heat": 50.0}},
 	# Quantum
-	{"id": "cryo_cooler", "cat": "quantum", "line": "Quantum", "name": "Cryo cooler", "cost": 3.0e11,
+	{"id": "cryo_cooler", "cat": "quantum", "line": "Quantum", "name": "Cryo cooler", "cost": 6.0e11,
 		"fx": {"cool_cap": 1500.0}},
-	{"id": "qubit_chip", "cat": "quantum", "line": "Quantum", "name": "Qubit chip", "cost": 7.5e11,
+	{"id": "qubit_chip", "cat": "quantum", "line": "Quantum", "name": "Qubit chip", "cost": 2.25e12,
 		"fx": {"code_mult": 2.5}, "uses": {"power": 30.0, "heat": 600.0}},
-	{"id": "quantum_cloud", "cat": "quantum", "line": "Quantum", "name": "Quantum cloud", "cost": 2.25e12,
+	{"id": "quantum_cloud", "cat": "quantum", "line": "Quantum", "name": "Quantum cloud", "cost": 6.75e12,
 		"fx": {"security": 35.0e6}, "uses": {"power": 100.0, "heat": 300.0}},
 	# Space
-	{"id": "sat_uplink", "cat": "space", "line": "Space", "name": "Satellite uplink", "cost": 6.0e12,
+	{"id": "sat_uplink", "cat": "space", "line": "Space", "name": "Satellite uplink", "cost": 1.8e13,
 		"fx": {"net_mult": 1.5}, "uses": {"power": 20.0, "heat": 10.0}},
-	{"id": "own_satellite", "cat": "space", "line": "Space", "name": "Own satellite", "cost": 1.0e13,
+	{"id": "own_satellite", "cat": "space", "line": "Space", "name": "Own satellite", "cost": 3.0e13,
 		"fx": {"storage": 120.0e6}},
-	{"id": "orbital_dc", "cat": "space", "line": "Space", "name": "Orbital data center", "cost": 5.5e13,
+	{"id": "orbital_dc", "cat": "space", "line": "Space", "name": "Orbital data center", "cost": 1.65e14,
 		"fx": {"storage": 400.0e6}},
+	# --- More tiers in the classic lines (2026-11-08): every category stays useful up to the endgame ---
+	# Hardware
+	{"id": "server_workstation", "cat": "hardware", "line": "PC", "name": "Server workstation", "cost": 1.5e9,
+		"fx": {"code_mult": 1.2}, "uses": {"power": 5.0, "heat": 8.0}},
+	{"id": "gpu_rack", "cat": "hardware", "line": "GPU", "name": "GPU rack", "cost": 6.0e9,
+		"fx": {"code_mult": 1.25}, "uses": {"power": 40.0, "heat": 60.0}},
+	{"id": "ai_accelerator", "cat": "hardware", "line": "GPU", "name": "AI accelerator", "cost": 1.5e12,
+		"fx": {"code_mult": 1.3}, "uses": {"power": 60.0, "heat": 90.0}},
+	# Cooling
+	{"id": "immersion_cooling", "cat": "cooling", "line": "Cooling", "name": "Immersion cooling", "cost": 1.5e10,
+		"fx": {"cool_cap": 400.0}},
+	{"id": "cooling_tower", "cat": "cooling", "line": "Cooling", "name": "Cooling tower", "cost": 5.0e11,
+		"fx": {"cool_cap": 1000.0}},
+	{"id": "arctic_hall", "cat": "cooling", "line": "Cooling", "name": "Arctic data hall", "cost": 1.2e13,
+		"fx": {"cool_cap": 3000.0}},
+	# Power
+	{"id": "hydro_dam", "cat": "power", "line": "Power", "name": "Hydro dam share", "cost": 2.4e11,
+		"fx": {"power_cap": 3000.0}},
+	{"id": "fusion_reactor", "cat": "power", "line": "Power", "name": "Fusion reactor", "cost": 9.0e12,
+		"fx": {"power_cap": 8000.0}},
+	# Storage
+	{"id": "tape_library", "cat": "storage", "line": "Storage", "name": "Tape library", "cost": 1.2e9,
+		"fx": {"storage": 40000.0}, "uses": {"power": 10.0, "heat": 10.0}},
+	{"id": "exabyte_cluster", "cat": "storage", "line": "Storage", "name": "Exabyte cluster", "cost": 2.5e10,
+		"fx": {"storage": 400000.0}, "uses": {"power": 60.0, "heat": 80.0}},
+	{"id": "dna_storage", "cat": "storage", "line": "Storage", "name": "DNA storage", "cost": 1.8e12,
+		"fx": {"storage": 5.0e6}, "uses": {"power": 30.0, "heat": 30.0}},
+	# Network
+	{"id": "backbone", "cat": "network", "line": "Network", "name": "Internet backbone", "cost": 3.0e10,
+		"fx": {"net_mult": 1.2}},
+	{"id": "subsea_cable", "cat": "network", "line": "Network", "name": "Subsea cable", "cost": 2.4e12,
+		"fx": {"net_mult": 1.25}},
+	# Software
+	{"id": "dev_platform", "cat": "software", "line": "Products", "name": "Developer platform", "cost": 1.2e10,
+		"fx": {"software": 250000.0}},
+	{"id": "operating_system", "cat": "software", "line": "Products", "name": "Operating system", "cost": 5.0e11,
+		"fx": {"software": 3.0e6}},
+	{"id": "global_cloud", "cat": "software", "line": "Products", "name": "Global cloud", "cost": 1.5e13,
+		"fx": {"software": 3.5e7}, "uses": {"power": 200.0, "heat": 250.0}},
+	# Mining
+	{"id": "mining_island", "cat": "mining", "line": "Mining", "name": "Mining island", "cost": 8.0e11,
+		"fx": {"mining": 3.0e6}, "uses": {"power": 800.0, "heat": 900.0}},
+	# Automation
+	{"id": "self_healing", "cat": "automation", "line": "Automation", "name": "Self-healing infrastructure", "cost": 3.0e9,
+		"fx": {"contract_speed": 1.1}},
+	{"id": "ai_agents", "cat": "automation", "line": "Automation", "name": "AI agents", "cost": 4.0e11,
+		"fx": {"contract_speed": 1.15}, "requires": ["own_llm"]},
+	# Security
+	{"id": "threat_intel", "cat": "security", "line": "Security", "name": "Threat intel network", "cost": 5.0e11,
+		"fx": {"security": 2.0e6}, "uses": {"power": 50.0, "heat": 60.0}},
+	{"id": "cyber_defense", "cat": "security", "line": "Security", "name": "Cyber defense grid", "cost": 1.5e13,
+		"fx": {"security": 3.0e7}, "uses": {"power": 150.0, "heat": 200.0}},
+	# Locations
+	{"id": "second_campus", "cat": "locations", "line": "Locations", "name": "Second campus", "cost": 6.0e10,
+		"fx": {"power_cap": 300.0, "cool_cap": 300.0, "ram_cap": 256.0, "office": 800000.0}},
+	{"id": "global_hq", "cat": "locations", "line": "Locations", "name": "Global HQ", "cost": 4.5e12,
+		"fx": {"power_cap": 500.0, "cool_cap": 500.0, "ram_cap": 512.0, "office": 1.0e7}},
+	{"id": "bunker_dc", "cat": "locations", "line": "Locations", "name": "Bunker data center", "cost": 6.0e13,
+		"fx": {"power_cap": 1000.0, "cool_cap": 1000.0, "ram_cap": 1024.0, "office": 7.0e7}},
 ]
 
 ## Locations in build order (for the wall map: one more dot per location).
-const LOCATIONS := ["coworking", "office_small", "office_city", "colocation", "campus"]
+const LOCATIONS := ["coworking", "office_small", "office_city", "colocation", "campus",
+	"second_campus", "global_hq", "bunker_dc"]
 
 const FX_ADD := ["code_add", "storage", "software", "mining", "power_cap", "cool_cap",
 	"auto_accept", "auto_deliver", "event_shield", "ram_cap", "security", "bounty", "office"]
