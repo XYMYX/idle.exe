@@ -93,6 +93,7 @@ autostart ........ OFF by default; if on: one value in HKCU\...\CurrentVersion\R
 | `drag` XYMYX | pick him up, carry and throw him |
 | `click` desk | open the upgrade terminal |
 | `click` pet | pet it · duck squeaks · robot toy gets wound up |
+| `drag` pet | lift it and drop it (the robot toy falls over) |
 | `drag` desk | move the whole strip (position is saved) |
 | `right click` | menu: pause, system status (if on), reset strip, quit |
 | tray icon | left: terminal · right: menu incl. language |

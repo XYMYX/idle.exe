@@ -434,7 +434,7 @@ func _process(delta: float) -> void:
 		Press.DESK:
 			_drag_bar()
 		Press.CAT:
-			pass  # the cat can't be carried
+			_drag_pet(delta)
 
 
 func _start_drag() -> void:
@@ -448,7 +448,12 @@ func _start_drag() -> void:
 		_update_passthrough(true)  # the figure is in the carry window now, no longer in the strip
 		Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 	elif _press == Press.CAT:
-		pass
+		# Walkers and the robot toy can be lifted (the duck on the desk can't)
+		if is_instance_valid(_press_pet) and _press_pet.has_method("grab"):
+			_press_pet.grab()
+			_last_drag_p = _press_pet.position
+			_throw_vel = Vector2.ZERO
+			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
 	else:
 		_move_start_win = get_window().position
 		_move_start_desk = _desk_from_right
@@ -470,7 +475,9 @@ func _release() -> void:
 			_xymyx.bounce()  # the more often, the higher
 			Game.note_stat("max_combo", _xymyx.combo_level())
 	elif was == Press.CAT:
-		if not dragged and is_instance_valid(_press_pet):
+		if dragged and is_instance_valid(_press_pet) and _press_pet.has_method("drop") and _press_pet.is_lifted():
+			_press_pet.drop(_throw_vel)  # falls to the floor and lands
+		elif not dragged and is_instance_valid(_press_pet):
 			if _press_pet is Cat:
 				_press_pet.pet()
 				Game.note_stat("pets_all")
@@ -502,6 +509,18 @@ func _drag_figure(delta: float) -> void:
 		_throw_vel = _throw_vel.lerp((p - _last_drag_p) / delta, 0.5)
 	_last_drag_p = p
 	_show_carry()
+
+
+## A pet hangs from the mouse by its top centre. It stays inside the strip.
+func _drag_pet(delta: float) -> void:
+	if not is_instance_valid(_press_pet) or not _press_pet.has_method("drag_to") or not _press_pet.is_lifted():
+		return
+	var m := Vector2(DisplayServer.mouse_get_position() - get_window().position) / pixel_scale
+	_press_pet.drag_to(m)
+	var p: Vector2 = _press_pet.position
+	if delta > 0.0:  # throw speed, smoothed
+		_throw_vel = _throw_vel.lerp((p - _last_drag_p) / delta, 0.5)
+	_last_drag_p = p
 
 
 ## Move the whole strip: the window vertically, the desk inside it horizontally.

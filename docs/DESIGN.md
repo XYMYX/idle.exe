@@ -325,13 +325,13 @@ The settings moved out of the category list into a `[Settings]` button in the to
 | Rubber duck | 500 | desk (desk.gd) | sits on the table right of the laptop (`DUCK_RECT` 47,16), click = squeak animation |
 | Cat | 1K | walker (cat.gd) | as before |
 | Robot toy | 5K | toy (robo_toy.gd) | walks ±50 px, battery 40–120 s, falls over and lies; click = wind up / beep and turn |
-| Hamster | 25K | corner (desk.gd) | cage in the pet corner: run / eat / sleep, switches every 20–60 s |
+| Hamster | 25K | walker | runs free (16 px): eat instead of grooming, stands up on its hind legs at the mouse (was a cage until 2026-11-08) |
 | Dog | 250K | walker | like the cat: wag instead of grooming, bark instead of rearing up |
-| Aquarium | 2.5M | corner | tank on a small cabinet, loop |
+| Aquarium | 2.5M | floor (desk.gd) | tank on a small cabinet directly left of the chair (`AQUARIUM_RECT` −21,24), loop |
 | Baby elephant | 50M | walker | like the cat: spray instead of grooming, trumpet instead of rearing up |
 
 - Walkers: `Cat` with `kind` (cat/dog/elephant), sheet names in `Cat.SHEETS`; missing sheets are grey placeholder boxes.
-- Pet corner: on the floor left of the board (or the leftmost part), right to left: hamster, aquarium. Part of the click outline.
+- **Lifting:** walkers and the robot toy can be dragged with the mouse (hang by the top centre, stay inside the strip), fall with gravity when released and land (`<kind>_dangle/_fall/_land.png`, `robo_toy_held.png`; existing frames stand in until drawn). The dropped robot toy tips over.
 - «Show pets» (setting key `show_cat`) hides all of them. Only petting the cat counts for the `pets` stat / flag.
 
 ### XYMYX and the pets, seasons, autostart (2026-11-08, for v0.3.0)
@@ -443,7 +443,9 @@ Animated = horizontal sheet, width = frames × width. If a PNG is missing, the g
 | `cat_idle.png` / `cat_sit.png` / `cat_curl.png` / `cat_scratch.png` / `cat_rear.png` | 32×32 | 4 each | 1–8 | floor | cat: stand, sit down, lie down to curled up, groom, rear up (faces right) |
 | `cat_walk.png` | 32×32 | 6 | 8 | floor | cat walking |
 | `pet_duck_idle.png` / `pet_duck_squeak.png` | 12×12 | 2 / 3 | 1 / 8 | desk 47,16 | rubber duck idle / squeaking |
-| `pet_hamster_run.png` / `_eat` / `_sleep` | 24×24 | 4 / 2 / 2 | 8 / 4 / 1 | pet corner | cage with wheel incl. hamster |
+| `hamster_idle/walk/sit/sleep/eat/stand.png` | 16×16 | 4/6/4/4/4/4 | like the cat | floor | free-running hamster |
+| `<cat|dog|elephant|hamster>_dangle/_fall/_land.png` | pet size | 4 / 2 / 3 | 6 / 8 / 8 | lifted | hanging from the cursor, falling, landing |
+| `robo_toy_held.png` | 16×16 | 4 | 10 | lifted | legs stepping in the air |
 | `pet_aquarium.png` | 20×24 | 6 | 4 | pet corner | tank on a cabinet, fish, bubbles, purple LED |
 | `dog_idle/walk/sit/lie/wag/bark.png` | 32×32 | 4/6/4/4/4/4 | like the cat | floor | dog, same structure as the cat sheets |
 | `elephant_idle/walk/sit/lie/spray/trumpet.png` | 40×40 | 4/6/4/4/4/4 | like the cat | floor | baby elephant, same structure |

@@ -9,16 +9,20 @@ extends AnimatedSprite2D
 
 signal moved
 
-enum State { WALK, IDLE, WIND, FALL, LYING }
+enum State { WALK, IDLE, WIND, FALL, LYING, HELD, DROP }
+
+const GRAVITY := 600.0
 
 const SPEED := 10.0
 const ROAM := 50.0
 const BATTERY_SEC := Vector2(40.0, 120.0)
 const IDLE_SEC := Vector2(2.0, 5.0)
-const FRAMES := {"walk": 4, "idle": 2, "wind": 3, "fall": 3}
+const FRAMES := {"walk": 4, "idle": 2, "wind": 3, "fall": 3, "held": 4}
 const PLACEHOLDER_SIZE := 16
 
 var home_x := 0.0
+var floor_y := 0.0
+var _vel := Vector2.ZERO
 var min_x := 0.0
 var max_x := 0.0
 var size := float(PLACEHOLDER_SIZE)
@@ -48,6 +52,9 @@ func _ready() -> void:
 	_add(sf, "fall", _frames("fall"), 8.0, [], false)
 	var fall := _frames("fall")
 	_add(sf, "lying", fall, 1.0, [fall.size() - 1], true)
+	# Lifted: legs keep stepping in the air (robo_toy_held.png, else the walk frames)
+	var held := _frames("held") if ResourceLoader.exists("res://art/robo_toy_held.png") else _frames("walk")
+	_add(sf, "held", held, 10.0, [], true)
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
 	_bubble = SpeechBubble.new()
@@ -58,6 +65,7 @@ func _ready() -> void:
 func setup(home: float, lo: float, hi: float) -> void:
 	min_x = lo
 	max_x = hi
+	floor_y = position.y
 	home_x = clampf(home, lo, hi)
 	_x = home_x
 	position.x = home_x
@@ -86,6 +94,18 @@ func poke() -> bool:
 
 func _process(delta: float) -> void:
 	if paused or not visible:
+		return
+	if _state == State.DROP:
+		_vel.y += GRAVITY * delta
+		var pos := position + _vel * delta
+		pos.x = clampf(pos.x, min_x, max_x)
+		if pos.y >= floor_y:
+			pos.y = floor_y
+			_state = State.FALL  # dropped: it tips over and has to be wound up again
+			play("fall")
+		position = pos.round() if _state == State.FALL else pos
+		_x = position.x
+		moved.emit()
 		return
 	match _state:
 		State.WALK:
@@ -147,6 +167,31 @@ func hit(p: Vector2) -> bool:
 		_image_cache[tex] = tex.get_image()
 	var img: Image = _image_cache[tex]
 	return img != null and img.get_pixelv(Vector2i(local)).a > 0.1
+
+
+func is_lifted() -> bool:
+	return _state == State.HELD or _state == State.DROP
+
+
+func grab() -> void:
+	_state = State.HELD
+	flip_h = false
+	play("held")
+
+
+func drag_to(p: Vector2) -> void:
+	var pos := (p - Vector2(size * 0.5, 1.0)).round()
+	pos.x = clampf(pos.x, min_x, max_x)
+	pos.y = clampf(pos.y, 0.0, floor_y)
+	if pos != position:
+		position = pos
+		_x = pos.x
+		moved.emit()
+
+
+func drop(vel: Vector2) -> void:
+	_vel = vel
+	_state = State.DROP
 
 
 func state_name() -> String:

@@ -15,7 +15,9 @@ extends AnimatedSprite2D
 
 signal moved
 
-enum State { STAND, WALK, SIT, GROOM, SLEEP, REAR, BUSY }
+enum State { STAND, WALK, SIT, GROOM, SLEEP, REAR, BUSY, GRABBED, FALLING }
+
+const GRAVITY := 600.0  # game pixels per second² (like XYMYX)
 
 const SPEED := 14.0                          # game pixels per second
 const STAND_TIME := Vector2(3.0, 8.0)
@@ -59,6 +61,8 @@ var _image_cache := {}
 var _bubble: SpeechBubble
 var size := 48.0  # frame size in game px (sheet height)
 var kind := "cat"
+var floor_y := 0.0      # y on the floor (top edge of the sprite)
+var _vel := Vector2.ZERO
 
 ## Sheet names per kind: hub animation -> file suffix. Placeholder size if a sheet is missing.
 const SHEETS := {
@@ -67,6 +71,8 @@ const SHEETS := {
 	"elephant": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "lie", "groom": "spray", "rear": "trumpet", "size": 40},
 	"hamster": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "sleep", "groom": "eat", "rear": "stand", "size": 16},
 }
+## Lifting (optional sheets <kind>_dangle/_fall/_land.png); without them existing frames stand in.
+const LIFT_SHEETS := ["dangle", "fall", "land"]
 ## Frames per sheet for the placeholders (same as the cat's sheets).
 const PLACEHOLDER_FRAMES := {"idle": 4, "walk": 6, "sit": 4, "curl": 4, "groom": 4, "rear": 4}
 
@@ -93,6 +99,13 @@ func _ready() -> void:
 	_add(sf, "rear_up", rear, 6.0, [0, 1, 2], false)
 	_add(sf, "rear", rear, 2.0, [2, 3], true)
 	_add(sf, "rear_down", rear, 6.0, [2, 1, 0], false)
+	# Lifted with the mouse: hang, fall, land. Missing sheets: idle (hang), walk frame 1 (fall).
+	var dangle := _lift_frames("dangle", idle)
+	var fall := _lift_frames("fall", [walk[0]] as Array[Texture2D])
+	var land := _lift_frames("land", [idle[0]] as Array[Texture2D])
+	_add(sf, "dangle", dangle, 6.0, [], true)
+	_add(sf, "fall", fall, 8.0, [], true)
+	_add(sf, "land", land, 8.0, [], false)
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
 	_bubble = SpeechBubble.new()
@@ -103,6 +116,7 @@ func _ready() -> void:
 func setup(home: float, lo: float, hi: float) -> void:
 	min_x = lo
 	max_x = hi
+	floor_y = position.y
 	home_x = clampf(home, lo, hi)
 	_x = home_x
 	position.x = home_x
@@ -116,6 +130,11 @@ func set_home(home: float) -> void:
 
 func _process(delta: float) -> void:
 	if paused or not visible:
+		return
+	if _state == State.FALLING:
+		_process_fall(delta)
+		return
+	if _state == State.GRABBED:
 		return
 	_rear_cooldown -= delta
 	_follow_check -= delta
@@ -174,9 +193,59 @@ func pet() -> void:
 			_groom()
 
 
+# --- Lifting with the mouse -------------------------------------------------------
+
+func is_lifted() -> bool:
+	return _state == State.GRABBED or _state == State.FALLING
+
+
+func grab() -> void:
+	_state = State.GRABBED
+	_next = Callable()
+	_following = false
+	flip_h = false
+	_bubble.flash("excl", 1.0)
+	play("dangle")
+
+
+## Hang from the cursor: p = grip point (top centre of the sprite).
+func drag_to(p: Vector2) -> void:
+	var pos := (p - Vector2(size * 0.5, 1.0)).round()
+	pos.x = clampf(pos.x, min_x, max_x)
+	pos.y = clampf(pos.y, 0.0, floor_y)
+	if pos != position:
+		position = pos
+		_x = pos.x
+		moved.emit()
+
+
+func drop(vel: Vector2) -> void:
+	_vel = vel
+	_state = State.FALLING
+	play("fall")
+
+
+func _process_fall(delta: float) -> void:
+	_vel.y += GRAVITY * delta
+	var pos := position + _vel * delta
+	if pos.x < min_x or pos.x > max_x:
+		_vel.x = 0.0
+		pos.x = clampf(pos.x, min_x, max_x)
+	if pos.y >= floor_y:
+		pos.y = floor_y
+		position = pos.round()
+		_x = position.x
+		moved.emit()
+		_play_then("land", _stand)
+		return
+	position = pos
+	_x = pos.x
+	moved.emit()
+
+
 ## Mouse position in game pixels (10× per second). Close by: she rears up and looks at it.
 func mouse_at(g: Vector2) -> void:
-	if not visible or paused:
+	if not visible or paused or is_lifted():
 		return
 	var near := g.distance_to(position + Vector2(size * 0.5, size * 0.6)) < MOUSE_RADIUS
 	if _state == State.REAR:
@@ -196,6 +265,8 @@ func mouse_at(g: Vector2) -> void:
 ## User away: she curls up too; back: she wakes up.
 func set_away(away: bool) -> void:
 	_forced_sleep = away
+	if is_lifted():
+		return
 	if away and _state in [State.STAND, State.SIT, State.GROOM]:
 		if _state == State.STAND:
 			_play_then("sit_down", func() -> void: _play_then("lie_down", _sleep))
@@ -230,7 +301,7 @@ func state_name() -> String:
 # --- Following XYMYX ------------------------------------------------------------
 
 func _check_follow() -> void:
-	if not xymyx_out_x.is_valid():
+	if not xymyx_out_x.is_valid() or is_lifted() or _state == State.BUSY:
 		return
 	var xx: float = xymyx_out_x.call()
 	if xx < 0.0:  # he is home again
@@ -336,6 +407,22 @@ func _frames(anim: String) -> Array[Texture2D]:
 		var atlas := AtlasTexture.new()
 		atlas.atlas = sheet
 		atlas.region = Rect2(i * size, 0, size, size)
+		out.append(atlas)
+	return out
+
+
+## Optional lifting sheet; without it the given frames stand in.
+func _lift_frames(anim: String, fallback: Array[Texture2D]) -> Array[Texture2D]:
+	var path := "res://art/%s_%s.png" % [kind, anim]
+	if not ResourceLoader.exists(path):
+		return fallback
+	var out: Array[Texture2D] = []
+	var sheet: Texture2D = load(path)
+	var s := sheet.get_height()
+	for i in sheet.get_width() / s:
+		var atlas := AtlasTexture.new()
+		atlas.atlas = sheet
+		atlas.region = Rect2(i * s, 0, s, s)
 		out.append(atlas)
 	return out
 
