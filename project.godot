@@ -12,7 +12,7 @@ config_version=5
 
 config/name="idle.exe"
 config/description="Desktop idle game with XYMYX"
-config/version="0.1.1"
+config/version="0.2.0"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 run/max_fps=20
@@ -23,6 +23,7 @@ config/windows_native_icon="res://art/xymyx.ico"
 [autoload]
 
 Game="*res://scripts/game.gd"
+Settings="*res://scripts/settings.gd"
 
 [display]
 

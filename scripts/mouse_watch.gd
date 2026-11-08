@@ -4,14 +4,13 @@ extends Node
 ## no keys) and derives simple events for XYMYX from it.
 ## Samples 10× per second, which costs practically nothing.
 
-signal away      # mouse has not moved for AWAY_SEC
+signal away      # mouse has not moved for Settings.away_sec()
 signal back      # mouse moves again
 signal startled  # fast movement close to XYMYX
 signal hovered   # cursor rests on XYMYX for HOVER_SEC
 signal sampled(game_pos: Vector2)  # cursor position in game pixels (for looking after it)
 
 const SAMPLE_SEC := 0.1
-const AWAY_SEC := 600.0          # 10 minutes
 const HOVER_SEC := 1.5
 const STARTLE_SPEED := 2500.0    # screen pixels per second
 const STARTLE_RADIUS := 60.0     # game pixels around the figure's center
@@ -55,7 +54,7 @@ func _process(delta: float) -> void:
 			back.emit()
 	else:
 		_still += dt
-		if not is_away and _still >= AWAY_SEC:
+		if not is_away and _still >= Settings.away_sec():
 			is_away = true
 			away.emit()
 

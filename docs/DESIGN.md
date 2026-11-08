@@ -278,6 +278,19 @@ Goal: a first run (everything bought, greedy simulation with research and acquis
 - **Room:** all new tiers are 8×8 board icons (`art/icon_<id>.png`); the board is now up to 10 icons wide.
 - **Balancing:** first run **162.8 h** (≈ 6.8 days, was 23.3 h). Campus at 25 h, AI lab 35–57 h, quantum 56–80 h, space 111–163 h. Power, cooling and RAM suffice for everything (all bought: 1,130/2,373 kW, 2,117/2,691 cooling, 134/1,239 GB). Income with everything: ~13B CHF/s.
 
+### Settings and system status (2026-11-08)
+New terminal category «Settings» (autoload `Settings`, `scripts/settings.gd`, stored in `settings.cfg` section `[settings]`):
+size (auto/1x–4x, after a restart), mouse reactions on/off, fall asleep after 5/10/20 min/never, events off/rarely/normal/often
+(minutes between events: –, 20–45, 10–25, 5–12), show cat, max. FPS 10/20, system status off/on.
+
+**System status (opt-in, decided with MYX):** the only exception to «the game reads nothing from the system». Right-click → «System status»
+opens a terminal view with CPU load, RAM, free disk space (system drive), uptime, GPU load and GPU temperature (NVIDIA via NVML).
+No CPU temperature (would need a kernel driver). Display only: never saved, never sent, no effect on the game.
+- Helper `tools/sysinfo/sysinfo.cpp` → `idle-sysinfo.exe` (MSYS2 g++, static, no console window). Started with
+  `OS.execute_with_pipe(..., false)` only while the view is open, prints one JSON line per second, exits when idle.exe's
+  process is gone. `scripts/system_status.gd` reads the pipe without blocking.
+- Release: ZIP with `idle.exe` + `idle-sysinfo.exe` (the helper is optional, the game runs without it).
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
@@ -290,7 +303,7 @@ On a company sale **skills stay** (knowledge), everything else of these stages r
 
 ## Backlog (smaller items, as of 2026-11-07)
 - ~~Screenshot for the README~~ done 2026-11-08 (`docs/screenshot_strip.png`, `docs/screenshot_terminal.png`).
-- Settings in the terminal: scale, mouse reactions on/off, sleep delay, event frequency.
+- ~~Settings in the terminal~~ done 2026-11-08.
 - ~~Click area as an outline~~ done 2026-11-08: union of all drawn rectangles (`Desk.outline_rects`, `main._outline`), hanging parts connected by 1 px strings to a bridge at the bottom. Blocks about 20 % less desktop than the old bounding box; falls back to the box if the union ever loses a part.
 - First release: export preset, include `*.ico` in the non-resource export filter, GitHub release with download.
 - Mention Claude at the end of README.md shortly before the first release.

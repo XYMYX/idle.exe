@@ -7,7 +7,6 @@ extends Node
 signal started(event: Dictionary)
 signal resolved(event: Dictionary, choice: Dictionary, auto: bool)
 
-const INTERVAL_MIN := Vector2(10.0, 25.0)  # minutes between events
 const TIMEOUT_SEC := 180.0                 # how long an event waits for your choice
 const NO_REPEAT := 6                       # don't repeat the last n events
 
@@ -23,6 +22,9 @@ var _recent: Array[String] = []
 
 func _ready() -> void:
 	_schedule()
+	Settings.changed.connect(func(key: String) -> void:
+		if key == "events":
+			_schedule())
 
 
 func _process(delta: float) -> void:
@@ -31,8 +33,8 @@ func _process(delta: float) -> void:
 		if pending_left <= 0.0:
 			choose(default_index(pending), true)
 		return
-	if Game.paused or is_away.call():
-		return  # the timer doesn't run while nobody is there
+	if Game.paused or is_away.call() or int(Settings.get_value("events")) == 0:
+		return  # the timer doesn't run while nobody is there (or events are switched off)
 	_next -= delta
 	if _next <= 0.0:
 		trigger()
@@ -121,7 +123,8 @@ func default_index(ev: Dictionary) -> int:
 
 
 func _schedule() -> void:
-	_next = randf_range(INTERVAL_MIN.x, INTERVAL_MIN.y) * 60.0
+	var r := Settings.event_interval()  # minutes, from the settings
+	_next = randf_range(r.x, r.y) * 60.0
 
 
 ## Random event that fits the current game state and didn't just happen.

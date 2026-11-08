@@ -525,3 +525,33 @@ Chewed cable,Chewed cable,Angeknabbertes Kabel
 The cat has found a new toy: the network cable.,The cat has found a new toy: the network cable.,Die Katze hat ein neues Spielzeug gefunden: das Netzwerkkabel.
 Buy cable protectors,Buy cable protectors,Kabelschutz kaufen
 Hope she stops,Hope she stops,"Hoffen, dass sie aufhört"
+Settings,Settings,Einstellungen
+SETTINGS,SETTINGS,EINSTELLUNGEN
+Size,Size,Grösse
+Mouse reactions,Mouse reactions,Maus-Reaktionen
+Fall asleep after,Fall asleep after,Einschlafen nach
+Events,Events,Events
+Show cat,Show cat,Katze zeigen
+Max. FPS,Max. FPS,Max. FPS
+System status,System status,Systemstatus
+auto,auto,auto
+on,on,an
+off,off,aus
+never,never,nie
+rarely,rarely,selten
+normal,normal,normal
+often,often,oft
+Size takes effect after a restart. The language is changed in the tray menu.,Size takes effect after a restart. The language is changed in the tray menu.,Die Grösse gilt nach einem Neustart. Die Sprache wechselst du im Tray-Menü.
+"System status (right-click XYMYX) reads CPU, RAM, disk and GPU values. Display only, nothing is saved or sent.","System status (right-click XYMYX) reads CPU, RAM, disk and GPU values. Display only, nothing is saved or sent.","Der Systemstatus (Rechtsklick auf XYMYX) liest CPU-, RAM-, Festplatten- und GPU-Werte. Nur Anzeige, nichts wird gespeichert oder gesendet."
+SYSTEM STATUS,SYSTEM STATUS,SYSTEMSTATUS
+Switched off. Turn it on in the settings.,Switched off. Turn it on in the settings.,Ausgeschaltet. Schalte ihn in den Einstellungen ein.
+threads,threads,Threads
+Display only: nothing is saved or sent. Updates once per second while this view is open.,Display only: nothing is saved or sent. Updates once per second while this view is open.,"Nur Anzeige: nichts wird gespeichert oder gesendet. Aktualisiert sich jede Sekunde, solange diese Ansicht offen ist."
+waiting for data ...,waiting for data ...,warte auf Daten ...
+Disk,Disk,Disk
+%s free of %s,%s free of %s,%s frei von %s
+load unknown,load unknown,Last unbekannt
+Uptime,Uptime,Laufzeit
+%d d ,%d d ,%d T 
+Helper not found (idle-sysinfo.exe next to idle.exe),Helper not found (idle-sysinfo.exe next to idle.exe),Hilfsprogramm fehlt (idle-sysinfo.exe neben idle.exe)
+Helper could not be started,Helper could not be started,Hilfsprogramm konnte nicht gestartet werden

@@ -16,7 +16,7 @@ const DRAG_START_PX := 3.0   # mouse travel (game pixels) after which a click be
 const SETTINGS_PATH := "user://settings.cfg"
 const LANGUAGES := ["de", "en"]
 
-enum MenuId { INFO, TERMINAL, PAUSE, RESET, LANGUAGE, DEBUG_EVENT, QUIT }
+enum MenuId { INFO, TERMINAL, PAUSE, RESET, LANGUAGE, DEBUG_EVENT, QUIT, SYSTEM }
 enum Press { NONE, FIGURE, DESK, CAT }
 
 var pixel_scale := BASE_SCALE
@@ -84,6 +84,8 @@ func _setup_window() -> void:
 	var dpi := DisplayServer.screen_get_dpi(screen)
 	# screen_get_scale() always returns 1.0 on Windows (per the docs), hence DPI/96.
 	pixel_scale = maxi(1, roundi(BASE_SCALE * dpi / 96.0))
+	if int(Settings.get_value("scale")) > 0:
+		pixel_scale = int(Settings.get_value("scale"))  # fixed size from the settings
 	game_width = _usable.size.x / pixel_scale
 
 	# Saved layout: distance of the strip from the bottom edge (pixels) and of the desk from the right edge.
@@ -109,7 +111,7 @@ func _build_scene() -> void:
 	_world.add_child(_desk)
 
 	_cat = Cat.new()  # in front of the desk, behind XYMYX
-	_cat.visible = Game.cat
+	_cat.visible = _cat_shown()
 	_world.add_child(_cat)
 	_cat.position.y = GAME_HEIGHT - _cat.size  # size is known after _ready (sheet height)
 
@@ -127,7 +129,7 @@ func _build_scene() -> void:
 	_cat.xymyx_out_x = _xymyx.out_x
 	_cat.moved.connect(_update_passthrough)
 	Game.cat_adopted.connect(func() -> void:
-		_cat.visible = true
+		_cat.visible = _cat_shown()
 		_update_passthrough(true))
 	_xymyx.moved.connect(_update_passthrough)
 	_xymyx.landed.connect(_on_landed)
@@ -167,12 +169,19 @@ func _build_scene() -> void:
 		_cat.set_away(false)
 		_xymyx.wake_up())
 	_watch.startled.connect(func() -> void:
-		if _press == Press.NONE:  # don't get startled by our own dragging
+		if _press == Press.NONE and Settings.get_value("mouse_reactions"):  # not by our own dragging
 			_xymyx.startle())
-	_watch.hovered.connect(_xymyx.notice)
+	_watch.hovered.connect(func() -> void:
+		if Settings.get_value("mouse_reactions"):
+			_xymyx.notice())
 	_watch.sampled.connect(func(g: Vector2) -> void:
-		_xymyx.face_toward(g.x)
-		_cat.mouse_at(g))
+		if Settings.get_value("mouse_reactions"):
+			_xymyx.face_toward(g.x)
+			_cat.mouse_at(g))
+	Settings.changed.connect(func(key: String) -> void:
+		if key == "show_cat":
+			_cat.visible = _cat_shown()
+			_update_passthrough(true))
 	add_child(_watch)
 
 	_carry = CarryWindow.new()
@@ -193,6 +202,10 @@ func _place_desk() -> void:
 		_xymyx.set_home(home, repair)
 	if _cat != null and _cat.max_x > 0.0:
 		_cat.set_home(_cat_home())
+
+
+func _cat_shown() -> bool:
+	return Game.cat and Settings.get_value("show_cat")
 
 
 ## The cat's spot: on the floor in front of the rack, right of the desk.
@@ -260,6 +273,8 @@ func _fill_menu(from_tray := false) -> void:
 	_menu.set_item_disabled(_menu.get_item_index(MenuId.INFO), true)
 	_menu.add_separator()
 	_menu.add_item(tr("Open terminal"), MenuId.TERMINAL)
+	if Settings.get_value("system_status"):
+		_menu.add_item(tr("System status"), MenuId.SYSTEM)
 	_menu.add_check_item(tr("Pause"), MenuId.PAUSE)
 	_menu.set_item_checked(_menu.get_item_index(MenuId.PAUSE), Game.paused)
 	_menu.add_item(tr("Reset strip"), MenuId.RESET)
@@ -477,6 +492,9 @@ func _on_menu_id(id: int) -> void:
 			_cat.paused = Game.paused
 		MenuId.TERMINAL:
 			_toggle_terminal()
+		MenuId.SYSTEM:
+			var right := int(_home_rect().end.x * pixel_scale)
+			_terminal.open_system(get_window().position + Vector2i(right, 0))
 		MenuId.RESET:
 			_reset_layout()
 		MenuId.LANGUAGE:

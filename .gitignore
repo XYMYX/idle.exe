@@ -5,6 +5,9 @@
 /build/
 *.tmp
 
+# Built helper (see tools/sysinfo/README.md), shipped in the release ZIP
+tools/sysinfo/*.exe
+
 # Personal notes for Claude Code, local only
 CLAUDE.md
 CLAUDE.local.md

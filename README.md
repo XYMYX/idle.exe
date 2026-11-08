@@ -49,6 +49,7 @@
 ```text
 features/
 ├── desktop-pet         transparent always-on-top strip above the taskbar, clicks pass through
+├── settings          size, mouse reactions, sleep time, event frequency, cat, FPS
 ├── idle-economy        75 upgrades · 14 categories · power, cooling & RAM budget
 ├── visible-setup       laptop → gaming PC → server racks → AI lab → quantum → orbit
 ├── contracts           client jobs, product updates, open-source stars, automation
@@ -73,7 +74,10 @@ git repos ........ not read
 network .......... none
 mouse position ... used, so XYMYX can react to your cursor
 save file ........ stays on your computer
+system status .... OFF by default (opt-in in the settings)
 ```
+
+**System status (opt-in):** if you switch it on, right-click XYMYX → «System status» shows CPU load, RAM, free disk space, uptime, GPU load and GPU temperature (NVIDIA only). A small helper (`idle-sysinfo.exe`, source in `tools/sysinfo/`) reads these values once per second, only while that view is open. They are only displayed: never saved, never sent anywhere, and they don't affect the game. No CPU temperature (that would need a kernel driver).
 
 ## `$ man controls`
 
@@ -84,12 +88,12 @@ save file ........ stays on your computer
 | `click` desk | open the upgrade terminal |
 | `click` cat | pet her |
 | `drag` desk | move the whole strip (position is saved) |
-| `right click` | menu: pause, reset strip, quit |
+| `right click` | menu: pause, system status (if on), reset strip, quit |
 | tray icon | left: terminal · right: menu incl. language |
 
 ## `$ ./run`
 
-**Download:** grab `idle.exe` from the [latest release](https://github.com/XYMYX/idle.exe/releases/latest) and start it. No installer, a single file.
+**Download:** grab the ZIP from the [latest release](https://github.com/XYMYX/idle.exe/releases/latest), unpack it and start `idle.exe`. No installer. `idle-sysinfo.exe` is only needed for the optional system status and must stay next to `idle.exe`.
 
 > Windows SmartScreen may warn because the file isn't signed: «More info» → «Run anyway».
 

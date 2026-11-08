@@ -29,6 +29,18 @@ const CAT_SKILLS := "!skills"
 const CAT_RESEARCH := "!research"
 const CAT_ACQ := "!acquisitions"
 const CAT_PET := "!cat"
+const CAT_SETTINGS := "!settings"
+const CAT_SYSTEM := "!system"
+## Settings view: key -> [label, [option texts in the order of Settings.OPTIONS]]
+const SETTING_ROWS := [
+	["scale", "Size", ["auto", "1x", "2x", "3x", "4x"]],
+	["mouse_reactions", "Mouse reactions", ["on", "off"]],
+	["sleep_min", "Fall asleep after", ["5 min", "10 min", "20 min", "never"]],
+	["events", "Events", ["off", "rarely", "normal", "often"]],
+	["show_cat", "Show cat", ["on", "off"]],
+	["max_fps", "Max. FPS", ["10", "20"]],
+	["system_status", "System status", ["off", "on"]],
+]
 const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters
 
@@ -54,6 +66,7 @@ var _btn_oc: Button
 var _next_spec := ""           # specialization chosen for the next run
 var _sell_armed_until := 0     # ticks (ms) until the confirm button is active
 var _live_labels := {}         # key -> Label whose text changes every refresh (no rebuild)
+var _sys: SystemStatus         # helper reader for the «System status» view (opt-in)
 
 var _cat := "hardware"
 var _line := ""
@@ -76,8 +89,13 @@ func setup(pixel_scale: int, events: EventDirector) -> void:
 	_fs = roundi(14.0 * pixel_scale / 3.0)  # 14 px at 100 %
 	theme = _make_theme(_fs, maxi(1, roundi(pixel_scale / 3.0)))
 	_build_ui()
-	popup_hide.connect(func() -> void: hidden_msec = Time.get_ticks_msec())
+	_sys = SystemStatus.new()
+	add_child(_sys)
+	popup_hide.connect(func() -> void:
+		hidden_msec = Time.get_ticks_msec()
+		_sys.stop())  # the helper only runs while the view is open
 	Game.changed.connect(_refresh_all)
+	Settings.changed.connect(func(_k: String) -> void: _refresh_all())
 
 
 ## Language switched: rebuild everything with the new texts.
@@ -85,6 +103,16 @@ func refresh_language() -> void:
 	_cat_sig = ""
 	_body_sig = ""
 	_refresh_all()
+
+
+## Opens the «System status» view directly (right-click menu).
+func open_system(anchor: Vector2i) -> void:
+	_cat = CAT_SYSTEM
+	_afford_mode = false
+	if visible:
+		_refresh_all()
+	else:
+		open_at(anchor)
 
 
 ## Opens the pending event directly.
@@ -213,6 +241,8 @@ func _refresh_all() -> void:
 		_cat_sig = sig
 		_render_cats(cats)
 
+	if _cat != CAT_SYSTEM or _afford_mode or not visible:
+		_sys.stop()  # only runs while the «System status» view is shown
 	var rows := _body_rows()
 	var nav := "%s|%s|%s" % [_afford_mode, _cat, _line]
 	sig = nav + str(_expanded) + str(rows)
@@ -262,6 +292,11 @@ func _cat_rows() -> Array:
 		"locked": false, "afford": acq_ready, "special": true})
 	rows.append({"id": CAT_PET, "name": tr("Cat"), "sel": _cat == CAT_PET and not _afford_mode,
 		"locked": false, "afford": Game.can_adopt_cat(), "special": true})
+	rows.append({"id": CAT_SETTINGS, "name": tr("Settings"), "sel": _cat == CAT_SETTINGS and not _afford_mode,
+		"locked": false, "afford": false, "special": true})
+	if Settings.get_value("system_status"):
+		rows.append({"id": CAT_SYSTEM, "name": tr("System status"), "sel": _cat == CAT_SYSTEM and not _afford_mode,
+			"locked": false, "afford": false, "special": true})
 	rows.append({"id": CAT_COMPANY, "name": tr("Company"), "sel": _cat == CAT_COMPANY and not _afford_mode,
 		"locked": false, "afford": Game.can_sell(), "special": true})
 	rows.append({"id": CAT_CTF, "name": tr("CTF"), "sel": _cat == CAT_CTF and not _afford_mode,
@@ -291,6 +326,10 @@ func _body_rows() -> Array:
 		return _acq_rows()
 	if not _afford_mode and _cat == CAT_PET:
 		return _pet_rows()
+	if not _afford_mode and _cat == CAT_SETTINGS:
+		return _settings_rows()
+	if not _afford_mode and _cat == CAT_SYSTEM:
+		return _system_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -452,6 +491,8 @@ func _render_body(rows: Array) -> void:
 				_render_project(r)
 			"company":
 				_render_company(r)
+			"setting":
+				_render_setting(r)
 			"adopt":
 				var row := HBoxContainer.new()
 				var lbl := _label(tr("Adopt a cat"))
@@ -697,6 +738,102 @@ func _render_project(r: Dictionary) -> void:
 			_content.add_child(_label("  " + r["problem"], C_WARN))
 
 
+# --- System status (opt-in, display only) -------------------------------------------
+
+func _system_rows() -> Array:
+	var on: bool = Settings.get_value("system_status") and visible and not _afford_mode
+	if on:
+		_sys.start()  # no-op while it runs
+	else:
+		_sys.stop()
+	var rows := [{"t": "title", "text": tr("SYSTEM STATUS")}]
+	if not Settings.get_value("system_status"):
+		rows.append({"t": "text", "c": C_DIM, "text": tr("Switched off. Turn it on in the settings.")})
+		return rows
+	var info := SystemStatus.static_info()
+	rows.append({"t": "text", "c": C_DIM, "text": "CPU  %s  (%d %s)" % [info["cpu_name"], info["cores"], tr("threads")]})
+	if info["gpu_name"] != "":
+		rows.append({"t": "text", "c": C_DIM, "text": "GPU  %s" % info["gpu_name"]})
+	rows.append({"t": "text", "text": " ", "c": C_DIM})
+	for key in ["sys_cpu", "sys_ram", "sys_disk", "sys_gpu", "sys_up"]:
+		rows.append({"t": "live", "key": key, "c": C_TEXT})
+	rows.append({"t": "live", "key": "sys_err", "c": C_WARN})
+	rows.append({"t": "text", "text": " ", "c": C_DIM})
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("Display only: nothing is saved or sent. Updates once per second while this view is open.")})
+	return rows
+
+
+func _update_system_labels() -> void:
+	if not _live_labels.has("sys_cpu") or not is_instance_valid(_live_labels["sys_cpu"]):
+		return
+	var v := _sys.values
+	var gb := 1024.0 * 1024.0 * 1024.0
+	var wait := tr("waiting for data ...")
+	if v.is_empty():
+		_live_labels["sys_cpu"].text = "CPU    " + wait
+		for key in ["sys_ram", "sys_disk", "sys_gpu", "sys_up"]:
+			_live_labels[key].text = ""
+	else:
+		_live_labels["sys_cpu"].text = "CPU    %s %3d %%" % [_pct_bar(float(v["cpu"])), roundi(float(v["cpu"]))]
+		var ram_used := float(v["ram_used"]) / gb
+		var ram_total := float(v["ram_total"]) / gb
+		_live_labels["sys_ram"].text = "RAM    %s  %.1f / %.1f GB" % [
+			_pct_bar(100.0 * ram_used / maxf(ram_total, 0.001)), ram_used, ram_total]
+		var free := float(v["disk_free"]) / gb
+		var total := float(v["disk_total"]) / gb
+		_live_labels["sys_disk"].text = tr("Disk") + "   %s  " % _pct_bar(100.0 * (1.0 - free / maxf(total, 0.001))) \
+			+ tr("%s free of %s") % [_size_text(free), _size_text(total)]
+		var gpu := float(v["gpu"])
+		var temp := int(v["gpu_temp"])
+		var gpu_text := "GPU    " + ("%s %3d %%" % [_pct_bar(gpu), roundi(gpu)] if gpu >= 0.0 else tr("load unknown"))
+		if temp >= 0:
+			gpu_text += "  ·  %d °C" % temp
+		_live_labels["sys_gpu"].text = gpu_text
+		var up := int(v["uptime"])
+		_live_labels["sys_up"].text = tr("Uptime") + " " + (tr("%d d ") % (up / 86400) if up >= 86400 else "") \
+			+ "%d:%02d h" % [(up % 86400) / 3600, (up % 3600) / 60]
+	_live_labels["sys_err"].text = tr(_sys.error) if _sys.error != "" else ""
+
+
+func _pct_bar(pct: float) -> String:
+	var n := clampi(roundi(pct / 100.0 * 10.0), 0, 10)
+	return "[" + "#".repeat(n) + ".".repeat(10 - n) + "]"
+
+
+func _size_text(gb: float) -> String:
+	return "%.2f TB" % (gb / 1024.0) if gb >= 1024.0 else "%.0f GB" % gb
+
+
+# --- Settings ----------------------------------------------------------------------
+
+func _settings_rows() -> Array:
+	var rows := [{"t": "title", "text": tr("SETTINGS")}]
+	for s: Array in SETTING_ROWS:
+		rows.append({"t": "setting", "key": s[0], "value": Settings.get_value(s[0])})
+	rows.append({"t": "text", "text": " ", "c": C_DIM})
+	rows.append({"t": "text", "c": C_DIM, "text": tr("Size takes effect after a restart. The language is changed in the tray menu.")})
+	rows.append({"t": "text", "c": C_DIM, "text": tr("System status (right-click XYMYX) reads CPU, RAM, disk and GPU values. Display only, nothing is saved or sent.")})
+	return rows
+
+
+func _render_setting(r: Dictionary) -> void:
+	var def: Array = []
+	for s: Array in SETTING_ROWS:
+		if s[0] == r["key"]:
+			def = s
+	var options: Array = Settings.OPTIONS[r["key"]]["options"]
+	var row := HBoxContainer.new()
+	var name_lbl := _label(tr(def[1]))
+	name_lbl.custom_minimum_size.x = 170
+	row.add_child(name_lbl)
+	for i in options.size():
+		var v: Variant = options[i]
+		var text := "[%s]" % tr(def[2][i])
+		row.add_child(_button(text, C_OK if v == r["value"] else C_DIM, Settings.set_value.bind(r["key"], v)))
+	_content.add_child(row)
+
+
 # --- Cat (decoration) -----------------------------------------------------------------
 
 func _pet_rows() -> Array:
@@ -824,6 +961,7 @@ func _update_live_labels() -> void:
 		var filled := int(frac * BAR_LEN)
 		_live_labels["research"].text = "  [" + "#".repeat(filled) + ".".repeat(BAR_LEN - filled) + "] %3d%%  " % int(frac * 100.0) \
 			+ tr("ETA %s") % _dur(maxf(float(ra["left"]), 0.0))
+	_update_system_labels()
 	if _live_labels.has("points") and is_instance_valid(_live_labels["points"]):
 		_live_labels["points"].text = tr("A sale now gives +%d know-how points.") % Game.sell_points()
 
