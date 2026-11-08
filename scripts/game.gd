@@ -491,6 +491,18 @@ func flag_progress(f: Dictionary) -> float:
 				n += int(product_versions[p])
 			return float(n)
 		"owns": return 1.0 if has(f["target"]) else 0.0
+		"pets": return float(stats.get("pets", 0))
+		"sales": return float(stats.get("sales", 0))
+		"research": return float(research_done.size())
+		"acquisitions": return float(acquisitions.size())
+		"locations": return float(Economy.location_count(levels))
+		"skill": return float(skills.get(String(f["target"]).get_slice(":", 0), 0))
+		"flags":
+			var n := 0
+			for o: Dictionary in FlagData.FLAGS:
+				if o["id"] != f["id"] and flags.get(o["id"], false):
+					n += 1
+			return float(n)
 		"all_upgrades":
 			for u: Dictionary in Economy.UPGRADES:
 				if Economy.max_level(u) == 1 and not has(u["id"]):
@@ -500,7 +512,11 @@ func flag_progress(f: Dictionary) -> float:
 
 
 static func flag_target(f: Dictionary) -> float:
-	return 1.0 if f["goal"] in ["owns", "all_upgrades"] else float(f["target"])
+	match f["goal"]:
+		"owns", "all_upgrades": return 1.0
+		"skill": return float(String(f["target"]).get_slice(":", 1))
+		"flags": return float(FlagData.FLAGS.size() - 1)
+	return float(f["target"])
 
 
 ## Capture every flag whose goal is reached: money once + permanent tool bonus.

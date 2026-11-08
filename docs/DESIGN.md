@@ -154,6 +154,12 @@ Counters start with stage 8, so contracts delivered before do not count.
 All 15 VMs need 70 GB – a real gate early, easy later. A first idea with 16 GB per VM was impossible (RAM costs ×1.15 per stick, 280 GB would cost over 10^18 CHF).
 **Balancing:** total time stays ~20.2 h (VMs mostly change *when* things are bought); flag tools are not simulated and should save about another hour.
 
+#### Second flag set (2026-11-08)
+16 more flags (28 in total), only existing tool bonuses. New goal types, each reading a counter that already exists: `pets`, `sales`, `research`, `acquisitions`, `locations`, `skill` ("id:level"), `flags` (all other flags).
+missing_byte (100K earned), lost_packet (10 contracts), midnight_breach (10 naps), ghost_session (pet the cat 25×), kernel_panic (25 events), secret_branch (25 updates), last_commit (100 contracts), phantom_port (honeypot VM), forgotten_backup (nightly backups), broken_cipher (pentesting 3), black_box (3 research projects), zero_trust (3 locations), shadow_admin (3 acquisitions), cold_boot (1 sale), terminal_zero (3 sales), final_flag (every other flag).
+- The new tools add together about total ×1.19, coding ×1.11, contract rewards ×1.16, contract speed ×1.08, net ×1.10, events ×1.27. All 28 tools: total ×1.37, coding ×1.24, contract rewards ×1.33.
+- Not in the simulation (it doesn't model flags); they only make later runs a bit faster, since flags stay after a sale.
+
 ### Stage 9 – Prestige: selling the company (done 2026-11-07)
 Terminal category «Company». Math in `scripts/progress.gd`, logic in `Game.sell_company()`. Save version 6.
 - **Sale** possible from 1B CHF earned in the current run. Gives **know-how points** = floor(5 × sqrt(run earnings / 1B)): 1B → 5, 10B → 15, 100B → 50. Each point: **+2 % on everything**, forever.
