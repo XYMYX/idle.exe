@@ -331,7 +331,7 @@ The settings moved out of the category list into a `[Settings]` button in the to
 | Baby elephant | 50M | walker | like the cat: spray instead of grooming, trumpet instead of rearing up |
 
 - Walkers: `Cat` with `kind` (cat/dog/elephant), sheet names in `Cat.SHEETS`; missing sheets are grey placeholder boxes.
-- **Lifting:** walkers and the robot toy can be dragged with the mouse (hang by the top centre, stay inside the strip), fall with gravity when released and land (`<kind>_dangle/_fall/_land.png`, `robo_toy_held.png`; existing frames stand in until drawn). The dropped robot toy tips over.
+- **Lifting:** walkers and the robot toy can be dragged with the mouse (hang by the top centre, up to the top of the screen via a second carry window `_pet_carry`), fall with gravity when released and land (`<kind>_dangle/_fall/_land.png`, `robo_toy_held.png`; existing frames stand in until drawn). The dropped robot toy tips over.
 - «Show pets» (setting key `show_cat`) hides all of them. Only petting the cat counts for the `pets` stat / flag.
 
 ### XYMYX and the pets, seasons, autostart (2026-11-08, for v0.3.0)

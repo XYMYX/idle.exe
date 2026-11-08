@@ -31,6 +31,8 @@ var _toy: RoboToy
 var _press_pet: Object = null  # pet under the mouse button (walker, toy) or the desk for the duck
 var _counter: CommitCounter
 var _carry: CarryWindow
+var _pet_carry: CarryWindow   # second carry window for a lifted pet (XYMYX keeps his own)
+var _carried: Object = null    # pet that is carried or still falling
 var _menu: PopupMenu
 var _terminal: TerminalMenu
 var _watch: MouseWatch
@@ -259,6 +261,9 @@ func _build_scene() -> void:
 	_carry = CarryWindow.new()
 	_carry.setup(_xymyx.sprite_frames, pixel_scale, FIGURE)  # before add_child: starts hidden
 	add_child(_carry)
+	_pet_carry = CarryWindow.new()
+	_pet_carry.setup(_cat.sprite_frames, pixel_scale, int(_cat.size))
+	add_child(_pet_carry)
 
 
 ## Align desk, counter and XYMYX's home spot with _desk_from_right.
@@ -414,6 +419,7 @@ func _process(delta: float) -> void:
 		if _screen_signature() != _screen_sig and _press == Press.NONE:
 			_rebuild("monitor setup changed")
 			return
+	_update_pet_carry()
 	if _press == Press.NONE:
 		if _xymyx.is_airborne():
 			_show_carry()  # currently falling
@@ -451,6 +457,8 @@ func _start_drag() -> void:
 		# Walkers and the robot toy can be lifted (the duck on the desk can't)
 		if is_instance_valid(_press_pet) and _press_pet.has_method("grab"):
 			_press_pet.grab()
+			_carried = _press_pet
+			_pet_carry.set_figure(_press_pet.sprite_frames, int(_press_pet.size), pixel_scale)
 			_last_drag_p = _press_pet.position
 			_throw_vel = Vector2.ZERO
 			Input.set_default_cursor_shape(Input.CURSOR_DRAG)
@@ -511,12 +519,32 @@ func _drag_figure(delta: float) -> void:
 	_show_carry()
 
 
-## A pet hangs from the mouse by its top centre. It stays inside the strip.
+## While a pet is carried or falls it is shown in the pet carry window (also above the strip);
+## once it has landed it is back in the strip.
+func _update_pet_carry() -> void:
+	if _carried == null:
+		return
+	if not is_instance_valid(_carried):
+		_carried = null
+		_pet_carry.hide()
+		return
+	if _carried.is_lifted():
+		_carried.visible = false
+		var screen := get_window().position + Vector2i(_carried.position * pixel_scale)
+		_pet_carry.follow(_carried, screen)
+	else:
+		_pet_carry.hide()
+		_carried = null
+		_update_pet_visibility()  # back in the strip (incl. click area)
+
+
+## A pet hangs from the mouse by its top centre, up to the top of the screen.
 func _drag_pet(delta: float) -> void:
 	if not is_instance_valid(_press_pet) or not _press_pet.has_method("drag_to") or not _press_pet.is_lifted():
 		return
 	var m := Vector2(DisplayServer.mouse_get_position() - get_window().position) / pixel_scale
-	_press_pet.drag_to(m)
+	var top := float(_usable.position.y - get_window().position.y) / pixel_scale  # top of the screen
+	_press_pet.drag_to(m, top)
 	var p: Vector2 = _press_pet.position
 	if delta > 0.0:  # throw speed, smoothed
 		_throw_vel = _throw_vel.lerp((p - _last_drag_p) / delta, 0.5)

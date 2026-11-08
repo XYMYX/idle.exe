@@ -129,12 +129,13 @@ func set_home(home: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if paused or not visible:
+	if paused:
 		return
+	# Carried or falling: shown in the carry window, so the strip sprite is hidden meanwhile
 	if _state == State.FALLING:
 		_process_fall(delta)
 		return
-	if _state == State.GRABBED:
+	if _state == State.GRABBED or not visible:
 		return
 	_rear_cooldown -= delta
 	_follow_check -= delta
@@ -208,11 +209,12 @@ func grab() -> void:
 	play("dangle")
 
 
-## Hang from the cursor: p = grip point (top centre of the sprite).
-func drag_to(p: Vector2) -> void:
+## Hang from the cursor: p = grip point (top centre of the sprite). top = highest y (may be
+## above the strip, up to the top of the screen).
+func drag_to(p: Vector2, top := 0.0) -> void:
 	var pos := (p - Vector2(size * 0.5, 1.0)).round()
 	pos.x = clampf(pos.x, min_x, max_x)
-	pos.y = clampf(pos.y, 0.0, floor_y)
+	pos.y = clampf(pos.y, top, floor_y)
 	if pos != position:
 		position = pos
 		_x = pos.x

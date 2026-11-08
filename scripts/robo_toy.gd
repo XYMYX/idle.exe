@@ -93,7 +93,7 @@ func poke() -> bool:
 
 
 func _process(delta: float) -> void:
-	if paused or not visible:
+	if paused:
 		return
 	if _state == State.DROP:
 		_vel.y += GRAVITY * delta
@@ -106,6 +106,8 @@ func _process(delta: float) -> void:
 		position = pos.round() if _state == State.FALL else pos
 		_x = position.x
 		moved.emit()
+		return
+	if not visible or _state == State.HELD:
 		return
 	match _state:
 		State.WALK:
@@ -179,10 +181,10 @@ func grab() -> void:
 	play("held")
 
 
-func drag_to(p: Vector2) -> void:
+func drag_to(p: Vector2, top := 0.0) -> void:
 	var pos := (p - Vector2(size * 0.5, 1.0)).round()
 	pos.x = clampf(pos.x, min_x, max_x)
-	pos.y = clampf(pos.y, 0.0, floor_y)
+	pos.y = clampf(pos.y, top, floor_y)
 	if pos != position:
 		position = pos
 		_x = pos.x
