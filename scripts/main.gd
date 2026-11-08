@@ -19,7 +19,8 @@ const EDGE := 24.0           # figures keep this distance to the screen edges (g
 const SETTINGS_PATH := "user://settings.cfg"
 const LANGUAGES := ["de", "en"]
 
-enum MenuId { INFO, TERMINAL, PAUSE, RESET, LANGUAGE, DEBUG_EVENT, QUIT, SYSTEM }
+enum MenuId { INFO, TERMINAL, PAUSE, RESET, LANGUAGE, DEBUG_EVENT, QUIT, SYSTEM, DEBUG_FAULT, DEBUG_PLAY }
+const FAULT_INTERVAL_MIN := Vector2(15.0, 40.0)  # minutes between server faults (visual only)
 enum Press { NONE, FIGURE, DESK, CAT }
 
 var pixel_scale := BASE_SCALE
@@ -29,6 +30,8 @@ var _world: Node2D
 var _desk: Desk
 var _xymyx: Xymyx
 var _cat: Cat                # the cat (first walker)
+var _play: PlayDirector      # pets' play rounds at the toy box
+var _fault_next := 0.0       # seconds until the next server fault
 var _walkers: Array[Cat] = []  # cat, dog, baby elephant (same logic, own sprites)
 var _toy: RoboToy
 var _press_pet: Object = null  # pet under the mouse button (walker, toy) or the desk for the duck
@@ -153,6 +156,9 @@ func _build_scene() -> void:
 
 	_desk = Desk.new()
 	_world.add_child(_desk)
+	_play = PlayDirector.new()  # props: in front of the desk, behind the pets
+	_play.desk = _desk
+	_world.add_child(_play)
 
 	# Walking pets in front of the desk, behind XYMYX
 	for kind in ["elephant", "dog", "cat", "hamster"]:
@@ -201,6 +207,13 @@ func _build_scene() -> void:
 	_xymyx.station_x = func() -> float:
 		return _desk.position.x + _desk.station_origin().x if _desk.station_available() else -1.0
 	_xymyx.charge_phase.connect(_desk.set_station)
+	# Server repair (visual only): the toolbox follows his hand, the device is fixed afterwards
+	_xymyx.toolbox_frame.connect(_desk.set_toolbox_frame)
+	_xymyx.repaired.connect(func() -> void: _desk.set_fault(""))
+	_fault_next = randf_range(FAULT_INTERVAL_MIN.x, FAULT_INTERVAL_MIN.y) * 60.0
+	_play.walkers = _walkers
+	_play.toy = _toy
+	_play.shape_changed.connect(func() -> void: _update_passthrough(true))
 	_desk.shape_changed.connect(func() -> void: _update_passthrough(true))
 	_xymyx.landed.connect(_on_landed)
 	Game.changed.connect(_update_passthrough)  # new parts enlarge the click area
@@ -392,6 +405,8 @@ func _fill_menu(from_tray := false) -> void:
 	if from_tray and OS.is_debug_build():
 		# Only when started from the editor (debug build), never in an exported release
 		_menu.add_item("[debug] Trigger event", MenuId.DEBUG_EVENT)
+		_menu.add_item("[debug] Server fault", MenuId.DEBUG_FAULT)
+		_menu.add_item("[debug] Play round", MenuId.DEBUG_PLAY)
 		_menu.set_item_disabled(_menu.get_item_index(MenuId.DEBUG_EVENT), not _events.pending.is_empty())
 	_menu.add_separator()
 	_menu.add_item(tr("Quit"), MenuId.QUIT)
@@ -417,6 +432,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif _pet_at(p) != null:
 			_press = Press.CAT
 			_press_pet = _pet_at(p)
+		elif _desk.toybox_hit(p - _desk.position):
+			_play.start_round()  # click on the toy box: play round
+			return
 		elif _home_rect().has_point(p) and _desk_hit(p):
 			_press = Press.DESK
 		_press_screen = DisplayServer.mouse_get_position()
@@ -433,6 +451,12 @@ func _process(delta: float) -> void:
 			_rebuild("monitor setup changed")
 			return
 	_update_pet_carry()
+	if not Game.paused:
+		_fault_next -= delta
+		if _fault_next <= 0.0:
+			_fault_next = 60.0  # XYMYX busy: try again in a minute
+			if _start_fault():
+				_fault_next = randf_range(FAULT_INTERVAL_MIN.x, FAULT_INTERVAL_MIN.y) * 60.0
 	if _press == Press.NONE:
 		if _xymyx.is_airborne():
 			_show_carry()  # currently falling
@@ -662,6 +686,7 @@ func _on_menu_id(id: int) -> void:
 		MenuId.PAUSE:
 			Game.paused = not Game.paused
 			_xymyx.paused = Game.paused
+			_play.paused = Game.paused
 			for w: Cat in _walkers:
 				w.paused = Game.paused
 			_toy.paused = Game.paused
@@ -674,6 +699,10 @@ func _on_menu_id(id: int) -> void:
 			_reset_layout()
 		MenuId.LANGUAGE:
 			_toggle_language()
+		MenuId.DEBUG_FAULT:
+			_start_fault()
+		MenuId.DEBUG_PLAY:
+			_play.start_round()
 		MenuId.DEBUG_EVENT:
 			_events.trigger_now()
 		MenuId.QUIT:
@@ -704,6 +733,21 @@ func _apply_autostart() -> void:
 	var rc := OS.execute(helper, PackedStringArray(args))
 	if rc != 0:
 		push_warning("idle.exe: autostart could not be changed (helper exit code %d)" % rc)
+
+
+## A random owned device breaks (visual only) and XYMYX goes to repair it. false = not now.
+func _start_fault() -> bool:
+	if _desk.fault_id != "" or not _xymyx.can_service():
+		return false
+	var ids := _desk.faultable()
+	if ids.is_empty():
+		return false
+	var id: String = ids.pick_random()
+	var r := _desk.part_rect(id)
+	_desk.set_fault(id)
+	_xymyx.start_service(_desk.position.x + Desk.TOOLBOX_RECT.position.x, _desk.position.x + r.position.x,
+		r.size.y >= 120.0)
+	return true
 
 
 ## Pet under the mouse (game coordinates): a walker, the robot toy or the desk (duck), else null.
@@ -830,6 +874,7 @@ func _update_passthrough(force := false) -> void:
 			rects.append(_region_of(w.position.x))
 	if _toy.visible:
 		rects.append(_region_of(_toy.position.x))
+	rects.append_array(_play.outline_rects())
 	if rects == _last_rects and not force:
 		return  # nothing moved far enough (called on every step while walking)
 	_last_rects = rects

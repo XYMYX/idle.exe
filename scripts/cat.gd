@@ -15,7 +15,7 @@ extends AnimatedSprite2D
 
 signal moved
 
-enum State { STAND, WALK, SIT, GROOM, SLEEP, REAR, BUSY, GRABBED, FALLING }
+enum State { STAND, WALK, SIT, GROOM, SLEEP, REAR, BUSY, GRABBED, FALLING, PLAY }
 
 const GRAVITY := 600.0 * Art.SCALE  # game pixels per second² (like XYMYX)
 
@@ -62,6 +62,10 @@ var _bubble: SpeechBubble
 var size := 48.0  # frame size in game px (sheet height)
 var kind := "cat"
 var floor_y := 0.0      # y on the floor (top edge of the sprite)
+var play_spot := 0.0    # x where the pet plays (set by PlayDirector)
+var _play_step := ""    # dog: fetch, carry, drop, chase_out, chase_back; cat: track, pounce
+var _play_timer := 0.0
+var _leap_from := 0.0
 var _vel := Vector2.ZERO
 
 ## Sheet names per kind: hub animation -> file suffix. size = old art size (shown ×Art.SCALE game px).
@@ -71,6 +75,16 @@ const SHEETS := {
 	"elephant": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "lie", "groom": "spray", "rear": "trumpet", "size": 40},
 	"hamster": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "sleep", "groom": "eat", "rear": "stand", "size": 16},
 }
+## Play rounds at the toy box (optional sheets, see integration notes 2026-11-08). Props are drawn by
+## PlayDirector; the dog's fetch frames 1–3 already contain the ball.
+const PLAY_SHEETS := {
+	"cat": {"track": "cat_laser_track", "pounce": "cat_laser_pounce"},
+	"dog": {"chase": "dog_ball_chase", "fetch": "dog_ball_fetch"},
+	"elephant": {"play": "elephant_play"},
+	"hamster": {"play": "hamster_play"},
+}
+const POUNCE_LEAP := 45.0   # world travel of a pounce (not sprite scaling)
+const CHASE_RUN := 120.0    # the dog's sprint away from the ball and back
 ## Lifting (optional sheets <kind>_dangle/_fall/_land.png); without them existing frames stand in.
 const LIFT_SHEETS := ["dangle", "fall", "land"]
 ## Frames per sheet for the placeholders (same as the cat's sheets).
@@ -106,6 +120,19 @@ func _ready() -> void:
 	_add(sf, "dangle", dangle, 6.0, [], true)
 	_add(sf, "fall", fall, 8.0, [], true)
 	_add(sf, "land", land, 8.0, [], false)
+	for anim: String in PLAY_SHEETS.get(kind, {}):
+		var frames := Art.sheet_frames("res://art/%s.png" % PLAY_SHEETS[kind][anim])
+		if frames.is_empty():
+			continue
+		match anim:
+			"track": _add(sf, "p_track", frames, 4.0, [1, 2, 3, 2], true)
+			"pounce": _add(sf, "p_pounce", frames, 8.0, [], false)
+			"chase": _add(sf, "p_chase", frames, 12.0, [], true)
+			"fetch":
+				_add(sf, "p_fetch", frames, 6.0, [0, 1, 2, 3], false)
+				_add(sf, "p_carry", frames, 1.0, [3], true)
+				_add(sf, "p_drop", frames, 6.0, [3, 2, 1, 0], false)
+			"play": _add(sf, "p_play", frames, 4.0, [0, 1, 2, 3, 2, 1], true)
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
 	_bubble = SpeechBubble.new()
@@ -148,6 +175,9 @@ func _process(delta: float) -> void:
 		return
 	if _state == State.GRABBED or not visible:
 		return
+	if _state == State.PLAY:
+		_process_play(delta)
+		return
 	_rear_cooldown -= delta
 	_follow_check -= delta
 	if _follow_check <= 0.0:
@@ -163,7 +193,9 @@ func _process(delta: float) -> void:
 					_play_then("sit_down", _sit)
 		State.WALK:
 			if _step_towards(_target_x, SPEED * delta):
-				if _after_walk == State.SIT:
+				if _after_walk == State.PLAY:
+					_begin_play()
+				elif _after_walk == State.SIT:
 					_play_then("sit_down", _sit)
 				else:
 					_stand()
@@ -258,7 +290,7 @@ func _process_fall(delta: float) -> void:
 
 ## Mouse position in game pixels (10× per second). Close by: she rears up and looks at it.
 func mouse_at(g: Vector2) -> void:
-	if not visible or paused or is_lifted():
+	if not visible or paused or is_lifted() or _state == State.PLAY:
 		return
 	var near := g.distance_to(position + Vector2(size * 0.5, size * 0.6)) < MOUSE_RADIUS
 	if _state == State.REAR:
@@ -278,7 +310,7 @@ func mouse_at(g: Vector2) -> void:
 ## User away: she curls up too; back: she wakes up.
 func set_away(away: bool) -> void:
 	_forced_sleep = away
-	if is_lifted():
+	if is_lifted() or _state == State.PLAY:
 		return
 	if away and _state in [State.STAND, State.SIT, State.GROOM]:
 		if _state == State.STAND:
@@ -314,7 +346,8 @@ func state_name() -> String:
 # --- Following XYMYX ------------------------------------------------------------
 
 func _check_follow() -> void:
-	if not xymyx_out_x.is_valid() or is_lifted() or _state == State.BUSY:
+	if not xymyx_out_x.is_valid() or is_lifted() or _state == State.BUSY or _state == State.PLAY \
+			or (_state == State.WALK and _after_walk == State.PLAY):
 		return
 	var xx: float = xymyx_out_x.call()
 	if xx < 0.0:  # he is home again
@@ -374,6 +407,100 @@ func _rear_up() -> void:
 		play("rear"))
 
 
+# --- Play rounds at the toy box -----------------------------------------------------
+
+## Can this pet take part (sheets exist, awake enough, not carried)?
+func can_play() -> bool:
+	return visible and not is_lifted() and (sprite_frames.has_animation("p_play")
+		or sprite_frames.has_animation("p_track") or sprite_frames.has_animation("p_fetch"))
+
+
+func start_play(spot: float) -> void:
+	play_spot = clampf(spot, min_x, max_x)
+	_following = false
+	_forced_sleep = false
+	_walk_to(play_spot, State.PLAY)
+
+
+func in_play_round() -> bool:
+	return _state == State.PLAY
+
+
+func end_play() -> void:
+	if _state == State.PLAY or (_state == State.WALK and _after_walk == State.PLAY):
+		_play_step = ""
+		_stand()
+
+
+func _begin_play() -> void:
+	_state = State.PLAY
+	flip_h = false  # all play sheets face right, the props lie to the right
+	_play_timer = randf_range(2.0, 4.0)
+	match kind:
+		"cat":
+			_play_step = "track"
+			play("p_track")
+		"dog":
+			_play_step = "fetch"
+			play("p_fetch")
+		_:
+			_play_step = "play"
+			play("p_play")
+
+
+func _process_play(delta: float) -> void:
+	_play_timer -= delta
+	match _play_step:
+		"track":
+			if _play_timer <= 0.0 and sprite_frames.has_animation("p_pounce"):
+				_play_step = "pounce"
+				_leap_from = _x
+				play("p_pounce")
+		"pounce":
+			# world leap during the airborne frames 2/3, back to the spot afterwards
+			if frame >= 2 and frame <= 4:
+				_step_towards(_leap_from + POUNCE_LEAP, POUNCE_LEAP * 4.0 * delta)
+		"carry":
+			if _play_timer <= 0.0:
+				_play_step = "drop"
+				play("p_drop")
+		"chase_out", "chase_back":
+			if _step_towards(_target_x, SPEED * 2.5 * delta):
+				if _play_step == "chase_out":
+					_play_step = "chase_back"
+					_target_x = play_spot
+					flip_h = true
+				else:
+					flip_h = false
+					_play_step = "fetch"
+					play("p_fetch")
+
+
+## Called from _on_animation_finished while playing.
+func _play_anim_done() -> void:
+	match _play_step:
+		"pounce":
+			_x = play_spot
+			position.x = roundf(_x)
+			moved.emit()
+			_play_step = "track"
+			_play_timer = randf_range(2.0, 4.0)
+			play("p_track")
+		"fetch":
+			_play_step = "carry"
+			_play_timer = 1.5
+			play("p_carry")
+		"drop":
+			if sprite_frames.has_animation("p_chase"):
+				_play_step = "chase_out"
+				_target_x = clampf(play_spot + CHASE_RUN, min_x, max_x)
+				flip_h = false
+				play("p_chase")
+			else:
+				_play_step = "fetch"
+				play("p_fetch")
+
+
 func _walk_to(x: float, after: State) -> void:
 	_state = State.WALK
 	_target_x = x
@@ -389,6 +516,9 @@ func _play_then(anim: String, next: Callable) -> void:
 
 
 func _on_animation_finished() -> void:
+	if _state == State.PLAY:
+		_play_anim_done()
+		return
 	if _state == State.BUSY and _next.is_valid():
 		var n := _next
 		_next = Callable()

@@ -9,7 +9,7 @@ extends AnimatedSprite2D
 
 signal moved
 
-enum State { WALK, IDLE, WIND, FALL, LYING, HELD, DROP }
+enum State { WALK, IDLE, WIND, FALL, LYING, HELD, DROP, PLAY_GO, PLAY }
 
 const GRAVITY := 600.0 * Art.SCALE
 
@@ -55,6 +55,10 @@ func _ready() -> void:
 	# Lifted: legs keep stepping in the air (robo_toy_held.png, else the walk frames)
 	var held := _frames("held") if ResourceLoader.exists("res://art/robo_toy_held.png") else _frames("walk")
 	_add(sf, "held", held, 10.0, [], true)
+	# Play round at the toy box: taps its gear wheel (robo_toy_play.png; the gear is drawn by PlayDirector)
+	var play_frames := Art.sheet_frames("res://art/robo_toy_play.png")
+	if not play_frames.is_empty():
+		_add(sf, "play", play_frames, 4.0, [0, 1, 2, 3, 2, 1], true)
 	sprite_frames = sf
 	animation_finished.connect(_on_animation_finished)
 	_bubble = SpeechBubble.new()
@@ -118,7 +122,17 @@ func _process(delta: float) -> void:
 		_x = position.x
 		moved.emit()
 		return
-	if not visible or _state == State.HELD:
+	if not visible or _state == State.HELD or _state == State.PLAY:
+		return
+	if _state == State.PLAY_GO:
+		_x = move_toward(_x, play_spot, SPEED * delta)
+		if roundf(_x) != position.x:
+			position.x = roundf(_x)
+			moved.emit()
+		if _x == play_spot:
+			_state = State.PLAY
+			flip_h = false
+			play("play")
 		return
 	match _state:
 		State.WALK:
@@ -205,6 +219,31 @@ func drag_to(p: Vector2, top := 0.0) -> void:
 func drop(vel: Vector2) -> void:
 	_vel = vel
 	_state = State.DROP
+
+
+# --- Play round at the toy box ---------------------------------------------------
+
+var play_spot := 0.0
+
+
+func can_play() -> bool:
+	return visible and not is_lifted() and sprite_frames.has_animation("play")
+
+
+func start_play(spot: float) -> void:
+	play_spot = clampf(spot, min_x, max_x)
+	_state = State.PLAY_GO
+	flip_h = play_spot < _x
+	play("walk")
+
+
+func in_play_round() -> bool:
+	return _state == State.PLAY
+
+
+func end_play() -> void:
+	if _state == State.PLAY or _state == State.PLAY_GO:
+		_wind_up()  # fresh battery after playing, walks on
 
 
 func state_name() -> String:

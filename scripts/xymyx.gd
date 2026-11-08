@@ -10,9 +10,11 @@ signal repair_started            # the desk flashes the purchased part
 signal landed                    # back on the ground after being dropped
 signal petted(target: Object)    # kneeled next to a pet: main lets it react (heart, wind-up)
 signal charge_phase(phase: String)  # charging cabinet: opening, charging, full, closing
+signal toolbox_frame(f: int)        # server repair: the toolbox follows his hand (0 closed … 3 tool out)
+signal repaired                     # server repair: the device is fixed (desk shows its normal sheet)
 
 enum State { SITTING, WALKING_OUT, STANDING, WALKING_HOME, WALKING_TO_REPAIR, ACTION,
-	GRABBED, FALLING, LANDING, SLEEPING, WALKING_TO_STATION, CHARGING }
+	GRABBED, FALLING, LANDING, SLEEPING, WALKING_TO_STATION, CHARGING, SERVICE }
 
 const SIZE := 48.0 * Art.SCALE               # figure size in game pixels (144)
 const WALK_SPEED := 18.0 * Art.SCALE         # game pixels per second
@@ -74,12 +76,23 @@ const CHARGE_SEC := Vector2(30.0, 60.0)
 const CHARGE_RISE := 4.0             # stands 4 px higher than the cabinet's origin
 const OPEN_SEC := 0.8                # doors opening (6 frames at 8 fps)
 const FULL_SEC := 1.5                # shows the full battery before stepping out
+## Server repair (sheets xymyx_fault_notice / tool_fetch / tool_walk / service_low / service_high /
+## service_done). Character origin = toolbox origin - (89, 96); at the device: high units origin + 117,
+## low units origin + 78 to the right of his origin.
+const TOOLBOX_REACH := 89.0
+const SERVICE_HIGH_X := 117.0
+const SERVICE_LOW_X := 78.0
+const SERVICE_SEC := 6.0
 
 var home_x := 0.0
 var has_duck := false       # set by main: «duck_talk» only with the duck on the desk
 var pet_near: Callable      # set by main: (x) -> pet object close to x or null
 var station_x: Callable     # set by main: () -> x of the charging cabinet, -1 if there is none
 var _charge_step := ""      # open, in, charge, full, out
+var _svc_step := ""         # notice, to_box, fetch, to_device, work, done, back, stow
+var _svc_box_x := 0.0       # his x at the toolbox
+var _svc_dev_x := 0.0       # his x at the device
+var _svc_high := false
 var _kneel_target: Object = null
 var repair_x := 0.0
 var min_x := 0.0
@@ -123,6 +136,14 @@ func _ready() -> void:
 			continue
 		var a: Dictionary = ACTIONS[anim]
 		_add_anim(sf, anim, frames, a["fps"], a["seq"], a.get("loop", false))
+	for svc: Array in [["fault_notice", 4.0, [0, 1, 2], false], ["tool_fetch", 4.0, [0, 1, 2, 3], false],
+			["tool_walk", 6.0, [], true], ["service_low", 6.0, [], true], ["service_high", 6.0, [], true],
+			["service_done", 4.0, [0, 1, 0, 1], false]]:
+		var fr := PlaceholderArt.load_frames("res://art/xymyx_%s.png" % svc[0], none)
+		if not fr.is_empty():
+			_add_anim(sf, svc[0], fr, svc[1], svc[2], svc[3])
+			if svc[0] == "tool_fetch":
+				_add_anim(sf, "tool_stow", fr, 4.0, [3, 2, 1, 0], false)
 	var charge := PlaceholderArt.load_frames("res://art/xymyx_charge.png", none)
 	if not charge.is_empty():
 		_add_anim(sf, "charge_in", charge, 4.0, [0, 1, 2, 3], false)
@@ -196,6 +217,8 @@ func _process(delta: float) -> void:
 					State.WALKING_TO_STATION: _begin_charge()
 		State.CHARGING:
 			_process_charge(delta)
+		State.SERVICE:
+			_process_service(delta)
 		State.ACTION:
 			if _action == "roll":
 				_process_roll(delta)
@@ -246,6 +269,7 @@ func start_repair() -> void:
 	if _action == "roll":
 		chair_taken.emit(false)
 	_leave_station()
+	_abort_service()
 	_walk_to(repair_x, State.WALKING_TO_REPAIR)
 
 
@@ -359,6 +383,9 @@ func set_home(home: float, repair: float) -> void:
 		State.WALKING_TO_STATION, State.CHARGING:
 			_leave_station()  # the cabinet moved with the desk: go back to work
 			_walk_to(home, State.WALKING_HOME)
+		State.SERVICE:
+			_abort_service()  # toolbox and devices moved with the desk
+			_walk_to(home, State.WALKING_HOME)
 
 
 ## Grabbed: wriggle and look at the user. Running actions are cancelled.
@@ -366,6 +393,7 @@ func grab() -> void:
 	if _state == State.ACTION and _action == "roll":
 		chair_taken.emit(false)
 	_leave_station()
+	_abort_service()
 	_bubble.set_zzz(false)
 	_state = State.GRABBED
 	_action = ""
@@ -586,6 +614,96 @@ func _idle_ok(anim: String) -> bool:
 	return sprite_frames.has_animation(anim) and (anim != "duck_talk" or has_duck)
 
 
+# --- Server repair -----------------------------------------------------------------
+
+## Can he do a repair right now (sitting at the desk, sheets available)?
+func can_service() -> bool:
+	return _state == State.SITTING and not paused and sprite_frames.has_animation("tool_fetch") \
+		and sprite_frames.has_animation("tool_walk")
+
+
+## A device broke: box_x / dev_x = toolbox and device origin (game x), high = tall unit.
+func start_service(box_x: float, dev_x: float, high: bool) -> void:
+	if not can_service():
+		return
+	_svc_box_x = box_x - TOOLBOX_REACH
+	_svc_high = high and sprite_frames.has_animation("service_high")
+	_svc_dev_x = dev_x - (SERVICE_HIGH_X if _svc_high else SERVICE_LOW_X)
+	_state = State.SERVICE
+	_action = ""
+	flip_h = false
+	emote("excl", 1.5)
+	if sprite_frames.has_animation("fault_notice"):
+		_svc_step = "notice"
+		play("fault_notice")
+	else:
+		_svc_go("to_box", _svc_box_x, "walk")
+
+
+func _svc_go(step: String, x: float, anim: String) -> void:
+	_svc_step = step
+	_target_x = x
+	flip_h = x < _x
+	play(anim)
+
+
+func _process_service(delta: float) -> void:
+	match _svc_step:
+		"to_box", "to_device", "back":
+			var anim_speed := WALK_SPEED * (0.8 if _svc_step != "to_box" else 1.0)
+			if _step_towards(_target_x, anim_speed * delta):
+				flip_h = false
+				match _svc_step:
+					"to_box":
+						_svc_step = "fetch"
+						play("tool_fetch")
+					"to_device":
+						_svc_step = "work"
+						_timer = SERVICE_SEC
+						play("service_high" if _svc_high else "service_low")
+					"back":
+						_svc_step = "stow"
+						play("tool_stow")
+		"work":
+			_timer -= delta
+			if _timer <= 0.0:
+				repaired.emit()
+				_svc_step = "done"
+				if sprite_frames.has_animation("service_done"):
+					play("service_done")
+				else:
+					_service_anim_done()
+		"fetch", "stow":
+			# the toolbox follows his hand frame by frame
+			var seq := [0, 1, 2, 3] if _svc_step == "fetch" else [3, 2, 1, 0]
+			toolbox_frame.emit(seq[clampi(frame, 0, 3)])
+
+
+func _service_anim_done() -> void:
+	match _svc_step:
+		"notice":
+			_svc_go("to_box", _svc_box_x, "walk")
+		"fetch":
+			toolbox_frame.emit(3)  # wrench taken out
+			_svc_go("to_device", _svc_dev_x, "tool_walk")
+		"done":
+			_svc_go("back", _svc_box_x, "tool_walk")
+		"stow":
+			toolbox_frame.emit(0)  # wrench back, box closed
+			_svc_step = ""
+			_walk_to(home_x, State.WALKING_HOME)
+
+
+## Interrupted (lifted, purchase, desk moved): the device counts as repaired, the box closes.
+func _abort_service() -> void:
+	if _state != State.SERVICE and _svc_step == "":
+		return
+	if _svc_step in ["notice", "to_box", "fetch", "to_device", "work"]:
+		repaired.emit()
+	_svc_step = ""
+	toolbox_frame.emit(0)
+
+
 # --- Charging cabinet --------------------------------------------------------------
 
 ## Arrived in front of the cabinet: the doors open, then he steps in.
@@ -645,6 +763,8 @@ func _process_roll(delta: float) -> void:
 func _on_animation_finished() -> void:
 	# Only non-looping animations end by themselves.
 	match _state:
+		State.SERVICE:
+			_service_anim_done()
 		State.CHARGING:
 			if _charge_step == "in":  # eyes off: charging
 				_charge_step = "charge"

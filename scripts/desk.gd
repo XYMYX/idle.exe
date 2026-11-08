@@ -118,6 +118,23 @@ const STATION_SIZE := Vector2(144, 144)
 const STATION_FPS := 8.0                  # opening / closing
 const STATION_CHARGE_FPS := 2.0           # 5 <-> 6 while charging
 
+## Server repair (visual only): a device shows its <part>_fault.png (2 frames, only the status light
+## differs) until XYMYX has repaired it. Only devices whose fault sheet has the part's frame size.
+const FAULT_PARTS := ["homeserver", "nas", "asic_shelf", "mining_rack", "test_server", "sec_lab"]
+const FAULT_FPS := 2.0
+## Toolbox on the floor under the desk, right part (72×48 frames: 0 closed … 3 tool removed).
+const TOOLBOX_TEX := "res://art/toolbox.png"
+const TOOLBOX_RECT := Rect2(96, 96, 72, 48)
+## Toy box for the pets' play rounds (96×72 frames: 0 closed, 1–4 opening, 5 ready), left corner.
+const TOYBOX_TEX := "res://art/toy_box.png"
+const TOYBOX_SIZE := Vector2(96, 72)
+const TOYBOX_FPS := 6.0
+## Duck reacts during play rounds, aquarium fish follow a laser dot next to the tank.
+const DUCK_PLAY := "res://art/pet_duck_play.png"        # 3 frames
+const AQUARIUM_PLAY := "res://art/pet_aquarium_play.png"  # 6 frames
+const LASER_TEX := "res://art/pet_laser.png"            # 12×12, 2 frames
+const AQUARIUM_LASER := [Vector2(58, 23), Vector2(62, 20), Vector2(66, 22), Vector2(63, 26), Vector2(59, 25), Vector2(55, 23)]
+
 const CHAIR := "res://art/chair.png"
 const CHAIR_POS := Vector2(0, 42)
 const FLASH_SEC := 0.6
@@ -139,6 +156,12 @@ var _anim_left := 0.0
 var _anim_key := ""
 var _squeak_left := 0.0
 var _season := ""            # current seasonal decoration id, "" = none
+var fault_id := ""           # part («needs» id) that currently shows its fault sheet
+var toolbox_frame := 0       # set by XYMYX while he takes out / puts back the wrench
+var aquarium_play := false   # play round: fish follow the laser dot
+var _toybox := "closed"      # closed, opening, open, closing
+var _toybox_t := 0.0
+var _duck_play_left := 0.0
 var _station := "closed"     # closed, opening, charging, full, closing
 var _station_t := 0.0        # seconds since the phase started
 
@@ -163,6 +186,16 @@ func flash(id: String) -> void:
 
 ## Only redraw when an animation frame changes or something is flashing.
 func _process(delta: float) -> void:
+	if _toybox != "closed":
+		_toybox_t += delta
+		if _toybox == "closing" and _toybox_frame() == 0:
+			_toybox = "closed"
+		queue_redraw()
+	if _duck_play_left > 0.0:
+		_duck_play_left -= delta
+		queue_redraw()
+	if fault_id != "" or aquarium_play:
+		queue_redraw()
 	if _station != "closed":
 		_station_t += delta
 		if _station == "closing" and _station_frame() == 0:
@@ -226,6 +259,91 @@ func left_extent() -> float:
 	return x
 
 
+# --- Server repair -----------------------------------------------------------------
+
+func _fault_tex(id: String) -> String:
+	return "res://art/%s_fault.png" % id
+
+
+## Owned devices that can show a fault (fault sheet with the part's frame size).
+func faultable() -> Array[String]:
+	var out: Array[String] = []
+	for part: Dictionary in PARTS:
+		var id: String = part["needs"]
+		if not FAULT_PARTS.has(id) or not _shown(part):
+			continue
+		var t := _tex(_fault_tex(id))
+		if t != null and t.get_height() == int(part["size"].y) and t.get_width() % int(part["size"].x) == 0:
+			out.append(id)
+	return out
+
+
+## Top-left corner and height of a device (desk coordinates).
+func part_rect(id: String) -> Rect2:
+	for part: Dictionary in PARTS:
+		if part["needs"] == id:
+			return Rect2(part["pos"], part["size"])
+	return Rect2()
+
+
+func set_fault(id: String) -> void:
+	fault_id = id
+	queue_redraw()
+
+
+func set_toolbox_frame(f: int) -> void:
+	if f != toolbox_frame:
+		toolbox_frame = f
+		queue_redraw()
+
+
+func toolbox_shown() -> bool:
+	return _tex(TOOLBOX_TEX) != null and not faultable().is_empty()
+
+
+# --- Toy box (pet play rounds) -------------------------------------------------------
+
+func toybox_shown() -> bool:
+	if _tex(TOYBOX_TEX) == null:
+		return false
+	for pd: Dictionary in PetData.PETS:
+		if _pet_shown(pd["id"]):
+			return true
+	return false
+
+
+## Top-left corner of the toy box (desk coordinates), Vector2.INF if not shown.
+func toybox_origin() -> Vector2:
+	var c := _corner_rects()
+	return c["toybox"].position if c.has("toybox") else Vector2.INF
+
+
+func toybox_hit(p: Vector2) -> bool:
+	var c := _corner_rects()
+	return c.has("toybox") and c["toybox"].has_point(p)
+
+
+func set_toybox(phase: String) -> void:
+	if phase == _toybox or (phase == "closing" and _toybox == "closed"):
+		return
+	_toybox = phase
+	_toybox_t = 0.0
+	queue_redraw()
+
+
+func _toybox_frame() -> int:
+	match _toybox:
+		"opening": return mini(5, int(_toybox_t * TOYBOX_FPS))
+		"open": return 5
+		"closing": return maxi(0, 5 - int(_toybox_t * TOYBOX_FPS))
+	return 0
+
+
+func duck_react(sec := 1.5) -> void:
+	_duck_play_left = sec
+	queue_redraw()
+
+
 # --- Charging cabinet --------------------------------------------------------------
 
 ## The cabinet replaces the rack once the rack is owned and the sheet exists.
@@ -279,6 +397,9 @@ func _corner_rects() -> Dictionary:
 		right = minf(right, _board_rect().position.x - BOARD_LINE)
 	if _pet_shown("aquarium"):
 		right = minf(right, AQUARIUM_RECT.position.x)
+	if toybox_shown():
+		out["toybox"] = Rect2(Vector2(right - CORNER_GAP - TOYBOX_SIZE.x, SIZE.y - TOYBOX_SIZE.y), TOYBOX_SIZE)
+		right = out["toybox"].position.x
 	if _season != "":
 		out["season"] = Rect2(Vector2(right - CORNER_GAP - SEASON_SIZE.x, SIZE.y - SEASON_SIZE.y), SEASON_SIZE)
 	return out
@@ -318,13 +439,24 @@ func squeak() -> void:
 
 
 func _draw_pets() -> void:
-	if _pet_shown("duck"):
+	if _pet_shown("duck") and _duck_play_left > 0.0 and _tex(DUCK_PLAY) != null:
+		_draw_sprite(DUCK_PLAY, DUCK_RECT.position, DUCK_RECT.size, 6.0)
+	elif _pet_shown("duck"):
 		if _squeak_left > 0.0:
 			_draw_sprite(DUCK_SQUEAK, DUCK_RECT.position, DUCK_RECT.size, 8.0)
 		else:
 			_draw_sprite(DUCK_IDLE, DUCK_RECT.position, DUCK_RECT.size, 1.0)
-	if _pet_shown("aquarium"):
+	if _pet_shown("aquarium") and aquarium_play and _tex(AQUARIUM_PLAY) != null:
+		var f := _frame(AQUARIUM_PLAY, AQUARIUM_RECT.size, 4.0)
+		_draw_frame(AQUARIUM_PLAY, AQUARIUM_RECT.position, AQUARIUM_RECT.size, f)
+		if _tex(LASER_TEX) != null:
+			_draw_sprite(LASER_TEX, AQUARIUM_RECT.position + AQUARIUM_LASER[f % AQUARIUM_LASER.size()] - Vector2(6, 6),
+				Vector2(12, 12), 6.0)
+	elif _pet_shown("aquarium"):
 		_draw_sprite(AQUARIUM_TEX, AQUARIUM_RECT.position, AQUARIUM_RECT.size, AQUARIUM_FPS)
+	var tb := _corner_rects()
+	if tb.has("toybox"):
+		_draw_frame(TOYBOX_TEX, tb["toybox"].position, TOYBOX_SIZE, _toybox_frame())
 	var corner := _corner_rects()
 	if corner.has("season"):
 		_draw_sprite(_season_tex(), corner["season"].position, SEASON_SIZE, _season_fps())
@@ -345,6 +477,8 @@ func _draw() -> void:
 		var c := _tex(CHAIR)
 		if c:
 			draw_texture_rect(c, Rect2(CHAIR_POS, CHAIR_SIZE), false)
+	if toolbox_shown():
+		_draw_frame(TOOLBOX_TEX, TOOLBOX_RECT.position, TOOLBOX_RECT.size, toolbox_frame)
 	_draw_parts(false)
 	_draw_pets()
 	# Flash: 3× on/off within FLASH_SEC
@@ -361,6 +495,9 @@ func _draw_parts(behind: bool) -> void:
 			continue
 		if part["needs"] == "rack_cooling" and station_available() and _station != "closed":
 			continue  # the cooling overlay would cover the open cabinet
+		if part["needs"] == fault_id and fault_id != "":
+			_draw_sprite(_fault_tex(fault_id), part["pos"], part["size"], FAULT_FPS)
+			continue
 		if part.get("skill_frames", false):
 			_draw_frame(part["tex"], part["pos"], part["size"], SkillData.learned_count(Game.skills) - 1)
 		elif part.get("location_frames", false):
@@ -433,6 +570,10 @@ func outline_rects() -> Array[Rect2]:
 		out.append(Rect2(r.position.x - BOARD_LINE, r.position.y, r.size.x + 2 * BOARD_LINE, r.size.y + BOARD_TRAY))
 	if station_available() and _station != "closed":
 		out.append(Rect2(station_origin(), STATION_SIZE))  # open doors
+	if toolbox_shown():
+		out.append(TOOLBOX_RECT)
+	if aquarium_play and _pet_shown("aquarium"):
+		out.append(Rect2(AQUARIUM_RECT.position + Vector2(46, 11), Vector2(30, 24)))  # laser dot next to the tank
 	if _pet_shown("duck"):
 		out.append(DUCK_RECT)
 	if _pet_shown("aquarium"):

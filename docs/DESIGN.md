@@ -384,6 +384,25 @@ stands inside at the same origin 4 px higher (`xymyx_charge.png`, front view, 0�
 full (1.5 s), eyes on (3→0), walks back; the cabinet closes behind him. The rack cooling overlay is hidden while the
 doors are open. Lifting him, a repair or moving the desk interrupts the charge cleanly (doors close).
 
+### Server repair and pet play rounds (2026-11-08, art + integration notes from MYX)
+Both purely visual, no effect on income.
+- **Server repair:** every 15–40 min (while XYMYX sits at the desk) a random owned device shows its `<part>_fault.png`
+  (2 frames, only the status light). Devices: home server, NAS, ASIC shelf, mining rack, security lab (test server only
+  once its fault sheet has the new 48×72 frame size; the rack is the charging cabinet and never breaks). XYMYX:
+  `fault_notice` (seated → looks up → stands) → walks to the toolbox (under the desk, `TOOLBOX_RECT` 96,96, his origin
+  = box − (89,96)) → `tool_fetch` 0–3 with the toolbox frames in sync → `tool_walk` to the device (high units ≥120 px:
+  his origin = device − 117, `service_high`; lower ones − 78, `service_low`) → 6 s repair, device back to normal →
+  `service_done` → back to the box → `tool_stow` (3→0, box closes) → walks home. Lifting him, a purchase or moving the
+  desk aborts cleanly (device counts as repaired, box closes).
+- **Play rounds** (`scripts/play_director.gd`): every 20–45 min or on a click on the toy box (corner left of the
+  board, 96×72, frames 0–5 open, 5→0 close). The duck reacts (`pet_duck_play`), the aquarium fish follow a laser dot
+  next to the tank (`pet_aquarium_play` + `pet_laser` at the given centers). Walkers and the robot toy walk to spots
+  right of the box and play 30 s: cat `cat_laser_track` / `cat_laser_pounce` (45 px world leap to the dot), dog
+  `dog_ball_fetch` (frames 1–3 contain the ball; the loose ball is hidden then) → carry → drop → `dog_ball_chase`
+  sprint, elephant `elephant_play` + `elephant_toy` at the per-frame anchors, hamster `hamster_play` + ring
+  (+36,12), robot `robo_toy_play` + gear (+36,24). Props are drawn by PlayDirector and stored again afterwards.
+- Debug tray entries (editor builds only): «Server fault», «Play round».
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
