@@ -163,6 +163,12 @@ missing_byte (100K earned), lost_packet (10 contracts), midnight_breach (10 naps
 - The new tools add together about total ×1.19, coding ×1.11, contract rewards ×1.16, contract speed ×1.08, net ×1.10, events ×1.27. All 28 tools: total ×1.37, coding ×1.24, contract rewards ×1.33.
 - Not in the simulation (it doesn't model flags); they only make later runs a bit faster, since flags stay after a sale.
 
+#### Pet flags (2026-11-08)
+8 more flags (36 in total): rubber_duck_debugging (squeak the duck 10×), phantom_firmware (wind up the robot toy 10×),
+infinite_loop (hamster), neon_firewall (aquarium), dead_drop (dog), encrypted_echo (baby elephant), last_handshake
+(pet cat/dog/elephant 50×), orphaned_container (all 7 pets). New goal types `pet`, `pets_owned`, `pets_all`, `squeaks`,
+`winds` with new stats `pets_all`, `squeaks`, `winds` (`pets_all` starts at the old cat count). Small bonuses (+2–5 %).
+
 ### Stage 9 – Prestige: selling the company (done 2026-11-07)
 Terminal category «Company». Math in `scripts/progress.gd`, logic in `Game.sell_company()`. Save version 6.
 - **Sale** possible from 1B CHF earned in the current run. Gives **know-how points** = floor(5 × sqrt(run earnings / 1B)): 1B → 5, 10B → 15, 100B → 50. Each point: **+2 % on everything**, forever.
@@ -299,6 +305,35 @@ don't count). Prints 1/0 on changes. While hidden: the world isn't drawn and the
 so every click goes through; the economy keeps running. If the helper dies, XYMYX shows again and it is restarted
 after 30 s. Without the helper nothing happens.
 
+### Monitor, taskbar entry, tray menu, stats (2026-11-08, for v0.3.0)
+- **Monitor:** setting «Monitor» [main] [1] [2] [3]. `main.gd` checks every 2 s a signature of the monitor setup
+  (number of monitors, chosen monitor, its usable rect and DPI, settings monitor/scale). On a change it saves the
+  layout and reloads the main scene (`_rebuild`); the game state lives in the `Game` autoload and isn't touched.
+  So size and monitor now apply immediately. `_save_layout` never writes when the screen size is 0 (headless).
+- **Taskbar entry:** setting «Taskbar entry» (off by default, applies after a restart). The helper's `--watch` mode
+  with `notaskbar` sets `WS_EX_TOOLWINDOW` on the main window (Godot 4.7 has no window flag for it).
+- **Tray menu:** `_menu.grab_focus()` after opening, so it closes when you click elsewhere (needs a check on Windows).
+- **Stats:** terminal category «Stats»: playtime (new stat `play_sec`, only while running, not offline), earnings,
+  sales, know-how, contracts, events, flags, upgrades, research, acquisitions, skills, stars, combo, naps, cat.
+
+### Pets (2026-11-08, for v0.3.0, data in `scripts/pet_data.gd`)
+Terminal category «Pets» (was «Cat»), all decoration only, kept when the company is sold, save version 11 (`pets`).
+The settings moved out of the category list into a `[Settings]` button in the top right corner of the terminal.
+
+| Pet | Cost | Kind | Behaviour |
+|---|---|---|---|
+| Rubber duck | 500 | desk (desk.gd) | sits on the table right of the laptop (`DUCK_RECT` 47,16), click = squeak animation |
+| Cat | 1K | walker (cat.gd) | as before |
+| Robot toy | 5K | toy (robo_toy.gd) | walks ±50 px, battery 40–120 s, falls over and lies; click = wind up / beep and turn |
+| Hamster | 25K | corner (desk.gd) | cage in the pet corner: run / eat / sleep, switches every 20–60 s |
+| Dog | 250K | walker | like the cat: wag instead of grooming, bark instead of rearing up |
+| Aquarium | 2.5M | corner | tank on a small cabinet, loop |
+| Baby elephant | 50M | walker | like the cat: spray instead of grooming, trumpet instead of rearing up |
+
+- Walkers: `Cat` with `kind` (cat/dog/elephant), sheet names in `Cat.SHEETS`; missing sheets are grey placeholder boxes.
+- Pet corner: on the floor left of the board (or the leftmost part), right to left: hamster, aquarium. Part of the click outline.
+- «Show pets» (setting key `show_cat`) hides all of them. Only petting the cat counts for the `pets` stat / flag.
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
@@ -315,9 +350,9 @@ On a company sale **skills stay** (knowledge), everything else of these stages r
 - ~~Click area as an outline~~ done 2026-11-08: union of all drawn rectangles (`Desk.outline_rects`, `main._outline`), hanging parts connected by 1 px strings to a bridge at the bottom. Blocks about 20 % less desktop than the old bounding box; falls back to the box if the union ever loses a part.
 - First release: export preset, include `*.ico` in the non-resource export filter, GitHub release with download.
 - Mention Claude at the end of README.md shortly before the first release.
-- Multi-monitor support (currently primary screen only) and reacting to resolution changes at runtime.
-- ~~Hide while a fullscreen app runs~~ done 2026-11-08 via the helper (not a GDExtension). Still open: hide the main window's taskbar entry.
-- Known quirk: the tray menu may stay open after clicking elsewhere.
+- ~~Multi-monitor support and reacting to resolution changes~~ done 2026-11-08.
+- ~~Hide while a fullscreen app runs~~ done 2026-11-08 via the helper (not a GDExtension). ~~Hide the taskbar entry~~ done 2026-11-08.
+- ~~Tray menu stays open~~ fixed 2026-11-08 (grab_focus).
 
 ## Open / maybe never
 - Mining with a fluctuating price and investing: luck factor plus power as an extra resource. Little value for a lot of work. Only as an option, at the very end.
@@ -375,6 +410,12 @@ Animated = horizontal sheet, width = frames × width. If a PNG is missing, the g
 | `world_map.png` | 14×10 | 5 | – | 104, 6 | wall map, frame n = n+1 locations lit (fixed frame, no animation) |
 | `cat_idle.png` / `cat_sit.png` / `cat_curl.png` / `cat_scratch.png` / `cat_rear.png` | 32×32 | 4 each | 1–8 | floor | cat: stand, sit down, lie down to curled up, groom, rear up (faces right) |
 | `cat_walk.png` | 32×32 | 6 | 8 | floor | cat walking |
+| `pet_duck_idle.png` / `pet_duck_squeak.png` | 12×12 | 2 / 3 | 1 / 8 | desk 47,16 | rubber duck idle / squeaking |
+| `pet_hamster_run.png` / `_eat` / `_sleep` | 24×24 | 4 / 2 / 2 | 8 / 4 / 1 | pet corner | cage with wheel incl. hamster |
+| `pet_aquarium.png` | 20×24 | 6 | 4 | pet corner | tank on a cabinet, fish, bubbles, purple LED |
+| `dog_idle/walk/sit/lie/wag/bark.png` | 32×32 | 4/6/4/4/4/4 | like the cat | floor | dog, same structure as the cat sheets |
+| `elephant_idle/walk/sit/lie/spray/trumpet.png` | 40×40 | 4/6/4/4/4/4 | like the cat | floor | baby elephant, same structure |
+| `robo_toy_walk/idle/wind/fall.png` | 16×16 | 4/2/3/3 | 8/2/8/8 | floor | wind-up robot; last fall frame = lying |
 | `ac.png` | 24×10 | 2 | 3 | 90, -8 | wall air conditioner, airflow |
 | `homeserver.png` | 14×22 | 2 | 2 | -36, 26 | home server (tower on the floor), LEDs |
 | `router.png` | 12×6 | 2 | 4 | -35, 20 | router on the home server, flickering LEDs |

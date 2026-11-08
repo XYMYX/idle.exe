@@ -30,17 +30,20 @@ const CAT_RESEARCH := "!research"
 const CAT_ACQ := "!acquisitions"
 const CAT_PET := "!cat"
 const CAT_SETTINGS := "!settings"
+const CAT_STATS := "!stats"
 const CAT_SYSTEM := "!system"
 ## Settings view: key -> [label, [option texts in the order of Settings.OPTIONS]]
 const SETTING_ROWS := [
 	["scale", "Size", ["auto", "1x", "2x", "3x", "4x"]],
+	["monitor", "Monitor", ["main", "1", "2", "3"]],
 	["mouse_reactions", "Mouse reactions", ["on", "off"]],
 	["sleep_min", "Fall asleep after", ["5 min", "10 min", "20 min", "never"]],
 	["events", "Events", ["off", "rarely", "normal", "often"]],
-	["show_cat", "Show cat", ["on", "off"]],
+	["show_cat", "Show pets", ["on", "off"]],
 	["max_fps", "Max. FPS", ["10", "20"]],
 	["system_status", "System status", ["off", "on"]],
 	["hide_fullscreen", "Hide during fullscreen", ["on", "off"]],
+	["taskbar", "Taskbar entry", ["off", "on"]],
 ]
 const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters
@@ -64,6 +67,7 @@ var _btn_afford: Button
 var _btn_next: Button
 var _btn_back: Button
 var _btn_oc: Button
+var _btn_settings: Button
 var _next_spec := ""           # specialization chosen for the next run
 var _sell_armed_until := 0     # ticks (ms) until the confirm button is active
 var _live_labels := {}         # key -> Label whose text changes every refresh (no rebuild)
@@ -154,7 +158,17 @@ func _build_ui() -> void:
 	root.custom_minimum_size = Vector2(cw * COLS, lh * ROWS)
 	add_child(root)
 
-	root.add_child(_label("XYMYX OS // UPGRADE TERMINAL"))
+	# Title bar: name on the left, settings in the top right corner (not in the category list)
+	var title_row := HBoxContainer.new()
+	var title := _label("XYMYX OS // UPGRADE TERMINAL")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_row.add_child(title)
+	_btn_settings = _button("", C_TEXT, func() -> void:
+		_cat = CAT_SETTINGS if _cat != CAT_SETTINGS else "hardware"
+		_afford_mode = false
+		_refresh_all())
+	title_row.add_child(_btn_settings)
+	root.add_child(title_row)
 	root.add_child(_rule())
 	var head := HBoxContainer.new()
 	_money = _label("")
@@ -231,6 +245,8 @@ func _refresh_all() -> void:
 	_cats_title.text = tr("CATEGORIES")
 	_btn_afford.text = tr("[Show all]") if _afford_mode else tr("[Show affordable]")
 	_btn_next.text = tr("[Next upgrade]")
+	_btn_settings.text = tr("[Settings]")
+	_btn_settings.add_theme_color_override("font_color", C_OK if _cat == CAT_SETTINGS else C_TEXT)
 	_btn_back.text = tr("[Back]")
 	_btn_oc.text = tr("[Overclock: ON]") if Game.overclock else tr("[Overclock: OFF]")
 	_btn_oc.add_theme_color_override("font_color", C_OK if Game.overclock else C_TEXT)
@@ -291,9 +307,10 @@ func _cat_rows() -> Array:
 		func(c: Dictionary) -> bool: return Game.acquisition_problem(c["id"]) == "")
 	rows.append({"id": CAT_ACQ, "name": tr("Acquisitions"), "sel": _cat == CAT_ACQ and not _afford_mode,
 		"locked": false, "afford": acq_ready, "special": true})
-	rows.append({"id": CAT_PET, "name": tr("Cat"), "sel": _cat == CAT_PET and not _afford_mode,
-		"locked": false, "afford": Game.can_adopt_cat(), "special": true})
-	rows.append({"id": CAT_SETTINGS, "name": tr("Settings"), "sel": _cat == CAT_SETTINGS and not _afford_mode,
+	rows.append({"id": CAT_PET, "name": tr("Pets"), "sel": _cat == CAT_PET and not _afford_mode,
+		"locked": false, "afford": PetData.PETS.any(func(pd: Dictionary) -> bool: return Game.can_adopt_pet(pd["id"])),
+		"special": true})
+	rows.append({"id": CAT_STATS, "name": tr("Stats"), "sel": _cat == CAT_STATS and not _afford_mode,
 		"locked": false, "afford": false, "special": true})
 	if Settings.get_value("system_status"):
 		rows.append({"id": CAT_SYSTEM, "name": tr("System status"), "sel": _cat == CAT_SYSTEM and not _afford_mode,
@@ -329,6 +346,8 @@ func _body_rows() -> Array:
 		return _pet_rows()
 	if not _afford_mode and _cat == CAT_SETTINGS:
 		return _settings_rows()
+	if not _afford_mode and _cat == CAT_STATS:
+		return _stats_rows()
 	if not _afford_mode and _cat == CAT_SYSTEM:
 		return _system_rows()
 	if _afford_mode:
@@ -496,11 +515,14 @@ func _render_body(rows: Array) -> void:
 				_render_setting(r)
 			"adopt":
 				var row := HBoxContainer.new()
-				var lbl := _label(tr("Adopt a cat"))
+				var pid: String = r["id"]
+				var lbl := _label(tr(PetData.get_pet(pid)["name"]), C_DIM if r["owned"] else C_TEXT)
 				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 				row.add_child(lbl)
-				if Game.can_adopt_cat():
-					row.add_child(_button(tr("[ADOPT]"), C_OK, func() -> void: Game.adopt_cat()))
+				if r["owned"]:
+					row.add_child(_label(tr("[OWNED]") + " ", C_OK))
+				elif r["can"]:
+					row.add_child(_button(tr("[ADOPT]"), C_OK, func() -> void: Game.adopt_pet(pid)))
 				else:
 					row.add_child(_label(tr("[LOCKED]") + " ", C_DIM))
 				_content.add_child(row)
@@ -806,6 +828,50 @@ func _size_text(gb: float) -> String:
 	return "%.2f TB" % (gb / 1024.0) if gb >= 1024.0 else "%.0f GB" % gb
 
 
+# --- Stats -------------------------------------------------------------------------
+
+func _stats_rows() -> Array:
+	var st: Dictionary = Game.stats
+	var owned := 0
+	var one_off := 0
+	for u: Dictionary in Economy.UPGRADES:
+		if Economy.max_level(u) == 1:
+			one_off += 1
+			if Game.has(u["id"]):
+				owned += 1
+	var flags := 0
+	for f: Dictionary in FlagData.FLAGS:
+		if Game.flags.get(f["id"], false):
+			flags += 1
+	var skill_sum := 0
+	for s: Dictionary in SkillData.SKILLS:
+		skill_sum += int(Game.skills.get(s["id"], 0))
+	var sec := int(st.get("play_sec", 0))
+	var lines := [
+		[tr("Playtime"), (tr("%d d ") % (sec / 86400) if sec >= 86400 else "") + "%d:%02d h" % [(sec % 86400) / 3600, (sec % 3600) / 60]],
+		[tr("Earned in total"), BigNum.format_chf(Game.total_earned) + " CHF"],
+		[tr("Earned this run"), BigNum.format_chf(Game.run_earned) + " CHF"],
+		[tr("Companies sold"), str(int(st.get("sales", 0)))],
+		[tr("Know-how points"), str(Game.knowhow)],
+		[tr("Contracts delivered"), str(int(st.get("contracts", 0)))],
+		[tr("Events resolved"), str(int(st.get("events", 0)))],
+		[tr("CTF flags"), "%d / %d" % [flags, FlagData.FLAGS.size()]],
+		[tr("Upgrades owned"), "%d / %d" % [owned, one_off]],
+		[tr("Research projects"), "%d / %d" % [Game.research_done.size(), ResearchData.PROJECTS.size()]],
+		[tr("Acquisitions"), "%d / %d" % [Game.acquisitions.size(), AcquisitionData.COMPANIES.size()]],
+		[tr("Skill levels"), "%d / %d" % [skill_sum, SkillData.SKILLS.size() * SkillData.MAX_LEVEL]],
+		[tr("Stars"), BigNum.format(Game.stars)],
+		[tr("Best combo jump"), str(int(st.get("max_combo", 0)))],
+		[tr("Naps"), str(int(st.get("naps", 0)))],
+	]
+	if Game.cat:
+		lines.append([tr("Cat petted"), str(int(st.get("pets", 0)))])
+	var rows := [{"t": "title", "text": tr("STATS")}]
+	for l: Array in lines:
+		rows.append({"t": "text", "c": C_TEXT, "text": "%s %s" % [(l[0] + " ").rpad(24, "."), l[1]]})
+	return rows
+
+
 # --- Settings ----------------------------------------------------------------------
 
 func _settings_rows() -> Array:
@@ -813,7 +879,7 @@ func _settings_rows() -> Array:
 	for s: Array in SETTING_ROWS:
 		rows.append({"t": "setting", "key": s[0], "value": Settings.get_value(s[0])})
 	rows.append({"t": "text", "text": " ", "c": C_DIM})
-	rows.append({"t": "text", "c": C_DIM, "text": tr("Size takes effect after a restart. The language is changed in the tray menu.")})
+	rows.append({"t": "text", "c": C_DIM, "text": tr("The taskbar entry changes after a restart. The language is changed in the tray menu.")})
 	rows.append({"t": "text", "c": C_DIM, "text": tr("System status (right-click XYMYX) reads CPU, RAM, disk and GPU values. Display only, nothing is saved or sent.")})
 	return rows
 
@@ -838,17 +904,17 @@ func _render_setting(r: Dictionary) -> void:
 # --- Cat (decoration) -----------------------------------------------------------------
 
 func _pet_rows() -> Array:
-	var rows := [{"t": "title", "text": tr("CAT")}]
-	if Game.cat:
-		rows.append({"t": "text", "c": C_OK, "text": tr("Your cat lives with you. She stays when the company is sold.")})
-		rows.append({"t": "text", "c": C_TEXT, "text": tr("Petted: %d times") % int(Game.stats.get("pets", 0))})
-		rows.append({"t": "text", "c": C_DIM, "text": tr("Click her to pet her. Pure decoration, no effect on the game.")})
-	else:
-		rows.append({"t": "text", "c": C_DIM,
-			"text": tr("A cat for the room: walks around, sleeps, joins XYMYX on his walks. Pure decoration.")})
+	var rows := [{"t": "title", "text": tr("PETS")}]
+	rows.append({"t": "text", "c": C_DIM,
+		"text": tr("Pure decoration, no effect on the game. Pets stay when the company is sold.")})
+	for pd: Dictionary in PetData.PETS:
 		rows.append({"t": "text", "text": " ", "c": C_DIM})
-		rows.append({"t": "adopt"})
-		rows.append({"t": "text", "c": C_TEXT, "text": "  " + tr("Cost: %s CHF") % BigNum.format_chf(Game.CAT_COST)})
+		rows.append({"t": "adopt", "id": pd["id"], "owned": Game.has_pet(pd["id"]), "can": Game.can_adopt_pet(pd["id"])})
+		rows.append({"t": "text", "c": C_DIM if Game.has_pet(pd["id"]) else C_TEXT, "text": "  " + tr(pd["desc"])})
+		if not Game.has_pet(pd["id"]):
+			rows.append({"t": "text", "c": C_TEXT, "text": "  " + tr("Cost: %s CHF") % BigNum.format_chf(pd["cost"])})
+		elif pd["id"] == "cat":
+			rows.append({"t": "text", "c": C_DIM, "text": "  " + tr("Petted: %d times") % int(Game.stats.get("pets", 0))})
 	return rows
 
 
@@ -1009,7 +1075,7 @@ func _ctf_rows() -> Array:
 			var cur := Game.flag_progress(f)
 			var target := Game.flag_target(f)
 			var prog := ""
-			if f["goal"] not in ["owns", "all_upgrades"]:
+			if f["goal"] not in ["owns", "all_upgrades", "pet"]:
 				prog = "  (%s / %s)" % [BigNum.format(minf(cur, target)), BigNum.format(target)]
 			rows.append({"t": "text", "c": C_TEXT, "text": "[ ] %s  ·  %s%s" % [FlagData.flag_name(f), tr(f["text"]), prog]})
 			rows.append({"t": "text", "c": C_DIM, "text": "    " + tr("Tool: %s") % tool})

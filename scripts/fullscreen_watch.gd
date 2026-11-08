@@ -1,8 +1,10 @@
 class_name FullscreenWatch
 extends Node
-## Hides XYMYX while a fullscreen program (game, video) covers his monitor.
-## Uses the helper idle-sysinfo.exe in «--fullscreen» mode: it only checks whether the
-## foreground window fills the monitor, never its title or content, and prints 1/0 on changes.
+## Keeps the helper idle-sysinfo.exe running in «--watch» mode while the game runs:
+##   fullscreen: hide XYMYX while a fullscreen program (game, video) covers his monitor. The helper
+##               only checks whether the foreground window fills the monitor, never its title or
+##               content, and prints 1/0 on changes.
+##   notaskbar:  no taskbar button for the main window (Godot has no flag for that).
 ## Without the helper this simply does nothing.
 
 signal changed(fullscreen: bool)
@@ -20,6 +22,7 @@ var _check := 0.0
 func _ready() -> void:
 	Settings.changed.connect(func(key: String) -> void:
 		if key == "hide_fullscreen":
+			_stop()  # restart with the new flags
 			_apply_setting())
 	_apply_setting()
 
@@ -29,11 +32,22 @@ func _exit_tree() -> void:
 
 
 func _apply_setting() -> void:
-	if Settings.get_value("hide_fullscreen"):
-		_start()
-	else:
-		_stop()
+	if not Settings.get_value("hide_fullscreen"):
 		_set_fullscreen(false)
+	if _flags().is_empty():
+		_stop()
+	else:
+		_start()
+
+
+## «taskbar» takes effect at start only: the helper can remove the button but not bring it back.
+func _flags() -> PackedStringArray:
+	var f := PackedStringArray()
+	if Settings.get_value("hide_fullscreen"):
+		f.append("fullscreen")
+	if not Settings.get_value("taskbar"):
+		f.append("notaskbar")
+	return f
 
 
 func _start() -> void:
@@ -43,7 +57,9 @@ func _start() -> void:
 	if not FileAccess.file_exists(path):
 		set_process(false)
 		return
-	var p := OS.execute_with_pipe(path, PackedStringArray(["--fullscreen", str(OS.get_process_id())]), false)
+	var args := PackedStringArray(["--watch", str(OS.get_process_id())])
+	args.append_array(_flags())
+	var p := OS.execute_with_pipe(path, args, false)
 	if p.is_empty():
 		set_process(false)
 		return

@@ -50,16 +50,17 @@
 features/
 ├── desktop-pet         transparent always-on-top strip above the taskbar, clicks pass through,
 │                       hides while a fullscreen game or video runs
-├── settings          size, mouse reactions, sleep time, events, cat, FPS, fullscreen hiding
+├── settings          size, monitor, mouse reactions, sleep time, events, cat, FPS, fullscreen, taskbar
+├── stats             playtime, earnings, contracts, flags, upgrades and more
 ├── idle-economy        75 upgrades · 14 categories · power, cooling & RAM budget
 ├── visible-setup       laptop → gaming PC → server racks → AI lab → quantum → orbit
 ├── contracts           client jobs, product updates, open-source stars, automation
 ├── progression         5 skills · 6 research projects · 5 locations · 5 acquisitions
-├── ctf-flags           28 flags, each unlocks a tool with a permanent bonus
+├── ctf-flags           36 flags, each unlocks a tool with a permanent bonus
 ├── prestige            sell the company for know-how points and a specialization
 ├── random-events       a «!» pops up, click to decide or let the default happen
 ├── personality         types, stretches, drinks coffee, waves, naps, shows emotes
-├── cat                 adopt a cat: wanders, sleeps, follows XYMYX, likes being petted
+├── pets                rubber duck, cat, robot toy, hamster, dog, aquarium, baby elephant
 ├── interaction         pick him up, throw him, combo jumps, drag the whole desk
 ├── offline-progress    keeps earning while closed (up to 8 h)
 ├── i18n                English + German, switch via the tray icon
@@ -88,7 +89,7 @@ fullscreen check . only whether the foreground window fills the screen (to hide 
 | `click` XYMYX | jump · click faster for higher combo jumps |
 | `drag` XYMYX | pick him up, carry and throw him |
 | `click` desk | open the upgrade terminal |
-| `click` cat | pet her |
+| `click` pet | pet it · duck squeaks · robot toy gets wound up |
 | `drag` desk | move the whole strip (position is saved) |
 | `right click` | menu: pause, system status (if on), reset strip, quit |
 | tray icon | left: terminal · right: menu incl. language |

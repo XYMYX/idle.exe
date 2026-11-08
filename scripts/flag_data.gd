@@ -9,7 +9,8 @@ extends RefCounted
 ##         naps (times XYMYX fell asleep), all_upgrades (every one-off upgrade owned),
 ##         pets (cat petted), sales (company sold), research (projects finished),
 ##         acquisitions (companies bought), locations (owned), skill ("id:level"),
-##         flags (all other flags captured)
+##         flags (all other flags captured), pet (pet id owned), pets_owned (all pets),
+##         pets_all (cat/dog/elephant petted), squeaks (duck), winds (robot toy wound up)
 ## target: number to reach (for owns/all_upgrades: 1, skill: "id:level", flags: ignored)
 ## reward_min: one-time money in minutes of income
 ## tool:   {name, fx} with fx keys: code_mult, net_mult, software_mult, total_mult,
@@ -71,6 +72,23 @@ const FLAGS := [
 		"text": "Sell your company once", "tool": {"name": "Bootloader", "fx": {"code_mult": 1.05}}},
 	{"id": "terminal_zero", "goal": "sales", "target": 3.0, "reward_min": 30.0,
 		"text": "Sell your company 3 times", "tool": {"name": "Root shell", "fx": {"total_mult": 1.05}}},
+	# --- Pets (2026-11-08) ---------------------------------------------------------
+	{"id": "rubber_duck_debugging", "goal": "squeaks", "target": 10.0, "reward_min": 5.0,
+		"text": "Squeak the rubber duck 10 times", "tool": {"name": "Debug duck", "fx": {"code_mult": 1.03}}},
+	{"id": "phantom_firmware", "goal": "winds", "target": 10.0, "reward_min": 5.0,
+		"text": "Wind up the robot toy 10 times", "tool": {"name": "Firmware patch", "fx": {"contract_speed": 1.03}}},
+	{"id": "infinite_loop", "goal": "pet", "target": "hamster", "reward_min": 10.0,
+		"text": "Adopt the hamster", "tool": {"name": "Hamster wheel", "fx": {"code_mult": 1.02}}},
+	{"id": "neon_firewall", "goal": "pet", "target": "aquarium", "reward_min": 15.0,
+		"text": "Get the aquarium", "tool": {"name": "Neon glow", "fx": {"software_mult": 1.03}}},
+	{"id": "dead_drop", "goal": "pet", "target": "dog", "reward_min": 15.0,
+		"text": "Adopt the dog", "tool": {"name": "Fetch daemon", "fx": {"contract_reward": 1.03}}},
+	{"id": "encrypted_echo", "goal": "pet", "target": "elephant", "reward_min": 20.0,
+		"text": "Adopt the baby elephant", "tool": {"name": "Elephant memory", "fx": {"net_mult": 1.03}}},
+	{"id": "last_handshake", "goal": "pets_all", "target": 50.0, "reward_min": 10.0,
+		"text": "Pet your pets 50 times", "tool": {"name": "Paw shake", "fx": {"event_gain": 1.1}}},
+	{"id": "orphaned_container", "goal": "pets_owned", "target": 0.0, "reward_min": 30.0,
+		"text": "Adopt all pets", "tool": {"name": "Petting zoo", "fx": {"total_mult": 1.05}}},
 	{"id": "final_flag", "goal": "flags", "target": 0.0, "reward_min": 60.0,
 		"text": "Capture every other flag", "tool": {"name": "Hall of fame", "fx": {"total_mult": 1.1}}},
 ]

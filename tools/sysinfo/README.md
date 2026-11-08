@@ -8,10 +8,13 @@ and GPU temperature (NVIDIA only, via `nvml.dll` from the driver). No CPU temper
 
 The values are only displayed: never saved, never sent anywhere, no network access.
 
-Second mode, `idle-sysinfo.exe --fullscreen <pid>` (setting «Hide during fullscreen», on by default):
-once per second it checks whether the foreground window fills the monitor idle.exe is on
-(or Windows reports an exclusive fullscreen game) and prints `1` or `0` when that changes.
-It never reads window titles or contents.
+Second mode, `idle-sysinfo.exe --watch <pid> [fullscreen] [notaskbar]`, runs as long as idle.exe:
+
+- `fullscreen` (setting «Hide during fullscreen», on by default): once per second it checks whether the
+  foreground window fills the monitor idle.exe is on (or Windows reports an exclusive fullscreen game)
+  and prints `1` or `0` when that changes. It never reads window titles or contents.
+- `notaskbar` (setting «Taskbar entry» off, the default): gives idle.exe's main window the tool-window
+  style (`WS_EX_TOOLWINDOW`), so it has no taskbar button and doesn't show in Alt+Tab. Godot has no flag for that.
 The helper exits by itself when idle.exe is gone (it gets the game's process id as argument).
 
 ## Build (Windows, MSYS2 UCRT64)

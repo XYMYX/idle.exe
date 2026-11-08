@@ -5,7 +5,12 @@ extends AnimatedSprite2D
 ## when the mouse comes close (mouse position only) and can be petted with a click.
 ##
 ## Sitting is the hub: from there she grooms, lies down, rears up or stands up.
-## The sheets (art/cat_*.png, square frames: frame size = sheet height) face right, left = mirrored.
+## The sheets (art/<kind>_*.png, square frames: frame size = sheet height) face right, left = mirrored.
+##
+## Also used for the other walking pets (set «kind» before adding the node):
+##   dog:      wag (instead of grooming), bark (instead of rearing up)
+##   elephant: spray (instead of grooming), trumpet (instead of rearing up)
+## Missing sheets are drawn as grey placeholder boxes in the right size.
 
 signal moved
 
@@ -52,16 +57,27 @@ var _forced_sleep := false          # user away: sleeps until the mouse moves ag
 var _image_cache := {}
 var _bubble: SpeechBubble
 var size := 48.0  # frame size in game px (sheet height)
+var kind := "cat"
+
+## Sheet names per kind: hub animation -> file suffix. Placeholder size if a sheet is missing.
+const SHEETS := {
+	"cat": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "curl", "groom": "scratch", "rear": "rear", "size": 32},
+	"dog": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "lie", "groom": "wag", "rear": "bark", "size": 32},
+	"elephant": {"idle": "idle", "walk": "walk", "sit": "sit", "curl": "lie", "groom": "spray", "rear": "trumpet", "size": 40},
+}
+## Frames per sheet for the placeholders (same as the cat's sheets).
+const PLACEHOLDER_FRAMES := {"idle": 4, "walk": 6, "sit": 4, "curl": 4, "groom": 4, "rear": 4}
 
 
 func _ready() -> void:
 	centered = false
 	var sf := SpriteFrames.new()
+	size = float(SHEETS[kind]["size"])
 	var idle := _frames("idle")
 	var walk := _frames("walk")
 	var sit := _frames("sit")
 	var curl := _frames("curl")
-	var groom := _frames("scratch")
+	var groom := _frames("groom")
 	var rear := _frames("rear")
 	_add(sf, "stand", idle, 3.0, [], true)
 	_add(sf, "walk", walk, 8.0, [], true)
@@ -309,9 +325,9 @@ func _step_towards(target: float, step: float) -> bool:
 ## Square frames from a sheet, frame size = sheet height (works for 48, 32, 24 ...).
 func _frames(anim: String) -> Array[Texture2D]:
 	var out: Array[Texture2D] = []
-	var path := "res://art/cat_%s.png" % anim
+	var path := "res://art/%s_%s.png" % [kind, SHEETS[kind][anim]]
 	if not ResourceLoader.exists(path):
-		return out
+		return _placeholder(anim)
 	var sheet: Texture2D = load(path)
 	size = sheet.get_height()
 	for i in sheet.get_width() / sheet.get_height():
@@ -319,6 +335,22 @@ func _frames(anim: String) -> Array[Texture2D]:
 		atlas.atlas = sheet
 		atlas.region = Rect2(i * size, 0, size, size)
 		out.append(atlas)
+	return out
+
+
+## Grey box (body) on the floor with a lighter outline, one per frame. Sitting/lying frames get lower.
+func _placeholder(anim: String) -> Array[Texture2D]:
+	var out: Array[Texture2D] = []
+	var n: int = PLACEHOLDER_FRAMES[anim]
+	var s := int(size)
+	for i in n:
+		var h := s * 3 / 5
+		if anim == "sit" or anim == "curl":
+			h = maxi(s / 4, h - (s / 8) * i)  # sinks down over the frames
+		var img := Image.create_empty(s, s, false, Image.FORMAT_RGBA8)
+		img.fill_rect(Rect2i(s / 8, s - h, s * 3 / 4, h), Color(0.85, 0.85, 0.85))
+		img.fill_rect(Rect2i(s / 8 + 1, s - h + 1, s * 3 / 4 - 2, h - 2), Color(0.45, 0.45, 0.45))
+		out.append(ImageTexture.create_from_image(img))
 	return out
 
 

@@ -10,6 +10,7 @@ const PATH := "user://settings.cfg"
 ## «system_status» is opt-in: the only feature that reads data from the system (display only).
 const OPTIONS := {
 	"scale": {"options": [0, 1, 2, 3, 4], "default": 0},
+	"monitor": {"options": [0, 1, 2, 3], "default": 0},  # 0 = main monitor, n = monitor n
 	"mouse_reactions": {"options": [true, false], "default": true},
 	"sleep_min": {"options": [5, 10, 20, 0], "default": 10},
 	"events": {"options": [0, 1, 2, 3], "default": 2},
@@ -17,6 +18,7 @@ const OPTIONS := {
 	"max_fps": {"options": [10, 20], "default": 20},
 	"system_status": {"options": [false, true], "default": false},
 	"hide_fullscreen": {"options": [true, false], "default": true},
+	"taskbar": {"options": [false, true], "default": false},
 }
 
 ## Minutes between events per «events» level: 0 = off, 1 = rarely, 2 = normal, 3 = often.

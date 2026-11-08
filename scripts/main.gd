@@ -4,7 +4,7 @@ extends Node2D
 ##
 ## Mouse:
 ##   click XYMYX  = jump (combo)     drag XYMYX = pick up, carry, drop
-##   click cat    = pet
+##   click pet    = pet it (cat, dog, elephant), squeak (duck), wind up (robot toy)
 ##   click desk   = terminal         drag desk  = move the whole strip (saved)
 ##   right click  = menu
 
@@ -25,7 +25,10 @@ var game_width := 0
 var _world: Node2D
 var _desk: Desk
 var _xymyx: Xymyx
-var _cat: Cat
+var _cat: Cat                # the cat (first walker)
+var _walkers: Array[Cat] = []  # cat, dog, baby elephant (same logic, own sprites)
+var _toy: RoboToy
+var _press_pet: Object = null  # pet under the mouse button (walker, toy) or the desk for the duck
 var _counter: CommitCounter
 var _carry: CarryWindow
 var _menu: PopupMenu
@@ -39,6 +42,10 @@ var _fs_watch: FullscreenWatch
 var _fs_hidden := false  # a fullscreen program covers the monitor: draw nothing, let all clicks through
 
 var _usable := Rect2i()
+var _screen := 0             # monitor the strip is on
+var _screen_sig := ""        # monitor setup at start; a change rebuilds the strip
+var _screen_check := 0.0
+const SCREEN_CHECK_SEC := 2.0
 var _desk_from_right := float(DESK_FROM_RIGHT)
 
 # Current mouse action
@@ -61,6 +68,30 @@ func _ready() -> void:
 	_update_passthrough()
 
 
+## Monitor from the settings (0 = main monitor); falls back to the main one if it doesn't exist.
+func _chosen_screen() -> int:
+	var n := int(Settings.get_value("monitor"))
+	if n > 0 and n <= DisplayServer.get_screen_count():
+		return n - 1
+	return DisplayServer.get_primary_screen()
+
+
+## Everything that decides window size and position: number of monitors, the chosen one,
+## its usable area (taskbar!) and DPI, plus the settings «monitor» and «scale».
+func _screen_signature() -> String:
+	var s := _chosen_screen()
+	return "%d|%d|%s|%d|%s|%s" % [DisplayServer.get_screen_count(), s, DisplayServer.screen_get_usable_rect(s),
+		DisplayServer.screen_get_dpi(s), Settings.get_value("monitor"), Settings.get_value("scale")]
+
+
+## Rebuild the strip from scratch (new monitor, resolution, size). The game state lives in the
+## Game autoload and is not touched; only the scene with window, desk and figures is reloaded.
+func _rebuild(reason: String) -> void:
+	print("idle.exe: rebuilding the strip (%s)" % reason)
+	_save_layout()
+	get_tree().reload_current_scene.call_deferred()
+
+
 ## Language from settings.cfg; on first start German if Windows is German, otherwise English.
 func _load_language() -> void:
 	var cfg := ConfigFile.new()
@@ -81,7 +112,9 @@ func _toggle_language() -> void:
 
 
 func _setup_window() -> void:
-	var screen := DisplayServer.get_primary_screen()
+	_screen = _chosen_screen()
+	_screen_sig = _screen_signature()
+	var screen := _screen
 	_usable = DisplayServer.screen_get_usable_rect(screen)
 	var dpi := DisplayServer.screen_get_dpi(screen)
 	# screen_get_scale() always returns 1.0 on Windows (per the docs), hence DPI/96.
@@ -112,10 +145,20 @@ func _build_scene() -> void:
 	_desk = Desk.new()
 	_world.add_child(_desk)
 
-	_cat = Cat.new()  # in front of the desk, behind XYMYX
-	_cat.visible = _cat_shown()
-	_world.add_child(_cat)
-	_cat.position.y = GAME_HEIGHT - _cat.size  # size is known after _ready (sheet height)
+	# Walking pets in front of the desk, behind XYMYX
+	for kind in ["elephant", "dog", "cat"]:
+		var w := Cat.new()
+		w.kind = kind
+		w.visible = _pet_shown(kind)
+		_world.add_child(w)
+		w.position.y = GAME_HEIGHT - w.size  # size is known after _ready (sheet height)
+		_walkers.append(w)
+		if kind == "cat":
+			_cat = w
+	_toy = RoboToy.new()
+	_toy.visible = _pet_shown("robo_toy")
+	_world.add_child(_toy)
+	_toy.position.y = GAME_HEIGHT - _toy.size
 
 	_xymyx = Xymyx.new()
 	_xymyx.position.y = GAME_HEIGHT - FIGURE
@@ -127,12 +170,13 @@ func _build_scene() -> void:
 	_desk_from_right = _clamp_desk_from_right(_desk_from_right)
 	_place_desk()
 	_xymyx.setup(_xymyx.home_x, _xymyx.repair_x, 8.0, game_width - FIGURE - 8.0)
-	_cat.setup(_cat_home(), 8.0, game_width - FIGURE - 8.0)
-	_cat.xymyx_out_x = _xymyx.out_x
-	_cat.moved.connect(_update_passthrough)
-	Game.cat_adopted.connect(func() -> void:
-		_cat.visible = _cat_shown()
-		_update_passthrough(true))
+	for w: Cat in _walkers:
+		w.setup(_pet_home(w.kind), 8.0, game_width - w.size - 8.0)
+		w.xymyx_out_x = _xymyx.out_x
+		w.moved.connect(_update_passthrough)
+	_toy.setup(_pet_home("robo_toy"), 8.0, game_width - _toy.size - 8.0)
+	_toy.moved.connect(_update_passthrough)
+	Game.pet_adopted.connect(func(_id: String) -> void: _update_pet_visibility())
 	_xymyx.moved.connect(_update_passthrough)
 	_xymyx.landed.connect(_on_landed)
 	Game.changed.connect(_update_passthrough)  # new parts enlarge the click area
@@ -169,11 +213,13 @@ func _build_scene() -> void:
 	_watch.figure_center = func() -> Vector2: return _xymyx.position + Vector2(FIGURE, FIGURE) / 2.0
 	_watch.figure_hit = func(g: Vector2) -> bool: return _xymyx.visible and _xymyx.hit(g)
 	_watch.away.connect(func() -> void:
-		_cat.set_away(true)
+		for w: Cat in _walkers:
+			w.set_away(true)
 		_xymyx.fall_asleep()
 		Game.note_stat("naps"))
 	_watch.back.connect(func() -> void:
-		_cat.set_away(false)
+		for w: Cat in _walkers:
+			w.set_away(false)
 		_xymyx.wake_up())
 	_watch.startled.connect(func() -> void:
 		if _press == Press.NONE and Settings.get_value("mouse_reactions"):  # not by our own dragging
@@ -184,11 +230,14 @@ func _build_scene() -> void:
 	_watch.sampled.connect(func(g: Vector2) -> void:
 		if Settings.get_value("mouse_reactions"):
 			_xymyx.face_toward(g.x)
-			_cat.mouse_at(g))
+			for w: Cat in _walkers:
+				w.mouse_at(g))
 	Settings.changed.connect(func(key: String) -> void:
-		if key == "show_cat":
-			_cat.visible = _cat_shown()
-			_update_passthrough(true))
+		if key == "monitor" or key == "scale":
+			_rebuild("setting " + key)
+			return
+		if key == "show_cat":  # «Show pets»
+			_update_pet_visibility())
 	add_child(_watch)
 
 	_carry = CarryWindow.new()
@@ -207,16 +256,32 @@ func _place_desk() -> void:
 		_xymyx.repair_x = repair
 	else:
 		_xymyx.set_home(home, repair)
-	if _cat != null and _cat.max_x > 0.0:
-		_cat.set_home(_cat_home())
+	for w: Cat in _walkers:
+		if w.max_x > 0.0:
+			w.set_home(_pet_home(w.kind))
+	if _toy != null and _toy.max_x > 0.0:
+		_toy.set_home(_pet_home("robo_toy"))
 
 
-func _cat_shown() -> bool:
-	return Game.cat and Settings.get_value("show_cat")
+func _pet_shown(id: String) -> bool:
+	return Game.has_pet(id) and Settings.get_value("show_cat")
 
 
-## The cat's spot: on the floor in front of the rack, right of the desk.
-func _cat_home() -> float:
+func _update_pet_visibility() -> void:
+	for w: Cat in _walkers:
+		w.visible = _pet_shown(w.kind)
+	_toy.visible = _pet_shown("robo_toy")
+	_desk.queue_redraw()  # duck, hamster, aquarium
+	_update_passthrough(true)
+
+
+## Home spots: cat in front of the rack, dog in front of the desk, elephant and robot toy
+## on the left among the parts.
+func _pet_home(id: String) -> float:
+	match id:
+		"dog": return _desk.position.x + 24.0
+		"elephant": return _desk.position.x - 70.0
+		"robo_toy": return _desk.position.x - 30.0
 	return _desk.position.x + 62.0
 
 
@@ -313,8 +378,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not _xymyx.is_airborne() and _xymyx.hit(p) and _xymyx.can_grab():
 			_press = Press.FIGURE
 			_grab_offset = p - _xymyx.position
-		elif _cat.hit(p):
+		elif _pet_at(p) != null:
 			_press = Press.CAT
+			_press_pet = _pet_at(p)
 		elif _home_rect().has_point(p) and _desk_hit(p):
 			_press = Press.DESK
 		_press_screen = DisplayServer.mouse_get_position()
@@ -324,6 +390,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	_screen_check -= delta
+	if _screen_check <= 0.0:
+		_screen_check = SCREEN_CHECK_SEC
+		if _screen_signature() != _screen_sig and _press == Press.NONE:
+			_rebuild("monitor setup changed")
+			return
 	if _press == Press.NONE:
 		if _xymyx.is_airborne():
 			_show_carry()  # currently falling
@@ -380,9 +452,19 @@ func _release() -> void:
 			_xymyx.bounce()  # the more often, the higher
 			Game.note_stat("max_combo", _xymyx.combo_level())
 	elif was == Press.CAT:
-		if not dragged:
-			_cat.pet()
-			Game.note_stat("pets")
+		if not dragged and is_instance_valid(_press_pet):
+			if _press_pet is Cat:
+				_press_pet.pet()
+				Game.note_stat("pets_all")
+				if _press_pet.kind == "cat":
+					Game.note_stat("pets")
+			elif _press_pet is RoboToy:
+				if _press_pet.poke():
+					Game.note_stat("winds")
+			elif _press_pet == _desk:
+				_desk.squeak()
+				Game.note_stat("squeaks")
+		_press_pet = null
 	elif was == Press.DESK:
 		if dragged:
 			_save_layout()
@@ -455,6 +537,8 @@ func _reset_layout() -> void:
 
 
 func _save_layout() -> void:
+	if _usable.size.x <= 0 or _usable.size.y <= 0:
+		return  # no real screen (e.g. headless): never overwrite the saved position with nonsense
 	var cfg := ConfigFile.new()
 	cfg.load(SETTINGS_PATH)
 	var lift := _usable.end.y - GAME_HEIGHT * pixel_scale - get_window().position.y
@@ -489,6 +573,9 @@ func _open_menu(from_tray := false) -> void:
 	var menu_size := Vector2i(_menu.get_contents_minimum_size())
 	var at := DisplayServer.mouse_get_position() - Vector2i(0, menu_size.y)
 	_menu.popup(Rect2i(at, menu_size))
+	# Opened from the tray, the menu doesn't get the focus on its own, so a click elsewhere
+	# never closed it (known Windows quirk). With the focus it closes as soon as it loses it.
+	_menu.grab_focus()
 
 
 func _on_menu_id(id: int) -> void:
@@ -496,7 +583,9 @@ func _on_menu_id(id: int) -> void:
 		MenuId.PAUSE:
 			Game.paused = not Game.paused
 			_xymyx.paused = Game.paused
-			_cat.paused = Game.paused
+			for w: Cat in _walkers:
+				w.paused = Game.paused
+			_toy.paused = Game.paused
 		MenuId.TERMINAL:
 			_toggle_terminal()
 		MenuId.SYSTEM:
@@ -513,6 +602,18 @@ func _on_menu_id(id: int) -> void:
 
 
 # --- Click area -----------------------------------------------------------------
+
+## Pet under the mouse (game coordinates): a walker, the robot toy or the desk (duck), else null.
+func _pet_at(p: Vector2) -> Object:
+	for i in range(_walkers.size() - 1, -1, -1):  # the front one first
+		if _walkers[i].visible and _walkers[i].hit(p):
+			return _walkers[i]
+	if _toy.hit(p):
+		return _toy
+	if _desk.duck_hit(p - _desk.position):
+		return _desk
+	return null
+
 
 ## A click in the desk area that is not on a pixel of the figure.
 func _desk_hit(p: Vector2) -> bool:
@@ -621,8 +722,11 @@ func _update_passthrough(force := false) -> void:
 		rects.append(Rect2(r.position + _desk.position, r.size))
 	if not _xymyx.is_airborne():
 		rects.append(_figure_region())  # full height: jumps, speech bubble, emotes
-	if _cat.visible:
-		rects.append(_region_of(_cat.position.x))
+	for w: Cat in _walkers:
+		if w.visible:
+			rects.append(_region_of(w.position.x))
+	if _toy.visible:
+		rects.append(_region_of(_toy.position.x))
 	if rects == _last_rects and not force:
 		return  # nothing moved far enough (called on every step while walking)
 	_last_rects = rects

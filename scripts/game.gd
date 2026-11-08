@@ -12,10 +12,11 @@ signal company_sold(points: int)  # stage 9: prestige
 signal research_finished(id: String)  # stage 12
 signal company_acquired(id: String)  # stage 14
 signal cat_adopted
+signal pet_adopted(id: String)  # any pet incl. the cat
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 10  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills,
-	# 8 = research, 9 = acquisitions, 10 = cat
+const SAVE_VERSION := 11  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills,
+	# 8 = research, 9 = acquisitions, 10 = cat, 11 = more pets
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -36,9 +37,11 @@ var contract_quality := 1   # stage 7: Progress.QUALITY index for newly accepted
 var _oc_mult := 1.0
 var flags := {}  # stage 8a: captured CTF flags, id -> true
 ## Counters for flags: delivered contracts, resolved events, highest combo level, naps
-var stats := {"contracts": 0, "events": 0, "max_combo": 0, "naps": 0, "sales": 0, "pets": 0}
+var stats := {"contracts": 0, "events": 0, "max_combo": 0, "naps": 0, "sales": 0, "pets": 0, "play_sec": 0,
+	"pets_all": 0, "squeaks": 0, "winds": 0}  # pets = cat only, pets_all = cat + dog + elephant
 const CAT_COST := 1000.0
 var cat := false             # adopted (decoration only, kept when the company is sold)
+var pets := {}               # other pets (PetData): id -> true, kept when the company is sold
 var knowhow := 0             # stage 9: know-how points from selling the company (+2 % each)
 var run_earned := 0.0        # money earned in the current run (since the last sale)
 var specialization := ""     # stage 9: "", "security", "software" or "datacenter"
@@ -124,6 +127,8 @@ func _process(delta: float) -> void:
 		_automate_contracts()
 		_check_flags()
 		_check_research()
+		if not paused:
+			stats["play_sec"] = int(stats.get("play_sec", 0)) + 1  # playtime (not offline)
 	_autosave += delta
 	if _autosave >= AUTOSAVE_SEC:
 		_autosave = 0.0
@@ -421,7 +426,31 @@ func _check_research() -> void:
 	save_game()
 
 
-# --- Cat (decoration) ----------------------------------------------------------------
+# --- Pets (decoration) ---------------------------------------------------------------
+
+func has_pet(id: String) -> bool:
+	return cat if id == "cat" else pets.get(id, false)
+
+
+func can_adopt_pet(id: String) -> bool:
+	var p := PetData.get_pet(id)
+	return not p.is_empty() and not has_pet(id) and money >= float(p["cost"])
+
+
+func adopt_pet(id: String) -> bool:
+	if id == "cat":
+		return adopt_cat()
+	if not can_adopt_pet(id):
+		return false
+	var p := PetData.get_pet(id)
+	money -= float(p["cost"])
+	pets[id] = true
+	log_event("Pet adopted", p["name"], false)
+	pet_adopted.emit(id)
+	changed.emit()
+	save_game()
+	return true
+
 
 func can_adopt_cat() -> bool:
 	return not cat and money >= CAT_COST
@@ -434,6 +463,7 @@ func adopt_cat() -> bool:
 	cat = true
 	log_event("Cat adopted", "Cat", false)
 	cat_adopted.emit()
+	pet_adopted.emit("cat")
 	changed.emit()
 	save_game()
 	return true
@@ -497,6 +527,16 @@ func flag_progress(f: Dictionary) -> float:
 		"acquisitions": return float(acquisitions.size())
 		"locations": return float(Economy.location_count(levels))
 		"skill": return float(skills.get(String(f["target"]).get_slice(":", 0), 0))
+		"pet": return 1.0 if has_pet(f["target"]) else 0.0
+		"pets_owned":
+			var n := 0
+			for pd: Dictionary in PetData.PETS:
+				if has_pet(pd["id"]):
+					n += 1
+			return float(n)
+		"pets_all": return float(stats.get("pets_all", 0))
+		"squeaks": return float(stats.get("squeaks", 0))
+		"winds": return float(stats.get("winds", 0))
 		"flags":
 			var n := 0
 			for o: Dictionary in FlagData.FLAGS:
@@ -513,7 +553,8 @@ func flag_progress(f: Dictionary) -> float:
 
 static func flag_target(f: Dictionary) -> float:
 	match f["goal"]:
-		"owns", "all_upgrades": return 1.0
+		"owns", "all_upgrades", "pet": return 1.0
+		"pets_owned": return float(PetData.PETS.size())
 		"skill": return float(String(f["target"]).get_slice(":", 1))
 		"flags": return float(FlagData.FLAGS.size() - 1)
 	return float(f["target"])
@@ -631,6 +672,7 @@ func save_game() -> void:
 		"research_active": research_active,
 		"acquisitions": acquisitions,
 		"cat": cat,
+		"pets": pets,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -715,6 +757,11 @@ func load_game() -> void:
 	if ra is Dictionary and ra.has("id") and not ResearchData.get_project(String(ra["id"])).is_empty():
 		research_active = {"id": String(ra["id"]), "left": float(ra.get("left", 0.0))}
 	cat = bool(data.get("cat", false))  # missing before version 10
+	var pt: Variant = data.get("pets", {})  # missing before version 11
+	if pt is Dictionary:
+		for pd: Dictionary in PetData.PETS:
+			if pd["id"] != "cat" and pt.get(pd["id"], false):
+				pets[pd["id"]] = true
 	var aq: Variant = data.get("acquisitions", {})  # missing before version 9
 	if aq is Dictionary:
 		for c: Dictionary in AcquisitionData.COMPANIES:
@@ -729,6 +776,8 @@ func load_game() -> void:
 	if st is Dictionary:
 		for k: String in stats:
 			stats[k] = maxi(0, int(st.get(k, 0)))
+		# «pets_all» is newer than «pets» (cat only): earlier petting of the cat counts too
+		stats["pets_all"] = maxi(int(stats["pets_all"]), int(stats["pets"]))
 	contract_quality = clampi(int(data.get("contract_quality", 1)), 0, Progress.QUALITY.size() - 1)
 	var ct: Variant = data.get("contracts", {})  # missing in saves before version 3
 	if ct is Dictionary:

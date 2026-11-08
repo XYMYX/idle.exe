@@ -9,9 +9,12 @@
 // Lifetime: idle.exe starts it while the panel is open and passes its own process id.
 // The helper exits when that process is gone or when stdout can't be written anymore.
 //
-// Second mode: «idle-sysinfo.exe --fullscreen <pid>» prints «1» or «0» (one line, only when it
-// changes) depending on whether a fullscreen program covers the monitor idle.exe is on.
-// It only looks at the size of the foreground window, never at its title or content.
+// Second mode: «idle-sysinfo.exe --watch <pid> [fullscreen] [notaskbar]», runs as long as idle.exe:
+//   fullscreen: prints «1» or «0» (one line, only when it changes) depending on whether a fullscreen
+//               program covers the monitor idle.exe is on. It only looks at the size of the
+//               foreground window, never at its title or content.
+//   notaskbar:  gives idle.exe's main window the tool-window style, so it has no taskbar button
+//               (Godot has no flag for that). Reapplied if it gets lost.
 //
 // Build (MSYS2 UCRT64 g++, see tools/sysinfo/README.md):
 //   g++ -O2 -s -static -mwindows -o idle-sysinfo.exe sysinfo.cpp -lpdh
@@ -171,6 +174,27 @@ bool fullscreen_now(DWORD own_pid) {
 			&& r.right >= mi.rcMonitor.right && r.bottom >= mi.rcMonitor.bottom;
 }
 
+// --- No taskbar button ---------------------------------------------------------------
+
+struct HideCtx {
+	DWORD pid;
+};
+
+// Top-level, visible, not owned by another window = the windows that get a taskbar button.
+BOOL CALLBACK hide_taskbar_button(HWND h, LPARAM lp) {
+	auto* ctx = reinterpret_cast<HideCtx*>(lp);
+	DWORD pid = 0;
+	GetWindowThreadProcessId(h, &pid);
+	if (pid != ctx->pid || !IsWindowVisible(h) || GetWindow(h, GW_OWNER) != nullptr) return TRUE;
+	const LONG_PTR ex = GetWindowLongPtrW(h, GWL_EXSTYLE);
+	if (ex & WS_EX_TOOLWINDOW) return TRUE;  // already done
+	// The taskbar only notices the new style when the window is hidden and shown again.
+	ShowWindow(h, SW_HIDE);
+	SetWindowLongPtrW(h, GWL_EXSTYLE, (ex | WS_EX_TOOLWINDOW) & ~static_cast<LONG_PTR>(WS_EX_APPWINDOW));
+	ShowWindow(h, SW_SHOWNOACTIVATE);
+	return TRUE;
+}
+
 // Window and monitor sizes in real pixels, also with Windows scaling (125 %, 150 % ...).
 void set_dpi_aware() {
 	using Fn = BOOL (WINAPI*)(HANDLE);
@@ -191,16 +215,25 @@ int main(int argc, char** argv) {
 	HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
 	if (out == nullptr || out == INVALID_HANDLE_VALUE) return 1;
 
-	const bool fs_mode = argc > 1 && std::strcmp(argv[1], "--fullscreen") == 0;
-	const char* pid_arg = fs_mode ? (argc > 2 ? argv[2] : nullptr) : (argc > 1 ? argv[1] : nullptr);
+	const bool watch_mode = argc > 1 && std::strcmp(argv[1], "--watch") == 0;
+	const char* pid_arg = watch_mode ? (argc > 2 ? argv[2] : nullptr) : (argc > 1 ? argv[1] : nullptr);
+	bool watch_fullscreen = false, watch_taskbar = false;
+	for (int a = 3; watch_mode && a < argc; ++a) {
+		if (std::strcmp(argv[a], "fullscreen") == 0) watch_fullscreen = true;
+		if (std::strcmp(argv[a], "notaskbar") == 0) watch_taskbar = true;
+	}
 	const DWORD parent_pid = pid_arg ? static_cast<DWORD>(std::strtoul(pid_arg, nullptr, 10)) : 0;
 	HANDLE parent = parent_pid ? OpenProcess(SYNCHRONIZE, FALSE, parent_pid) : nullptr;
 
-	if (fs_mode) {
+	if (watch_mode) {
 		set_dpi_aware();
 		int last = -1;
 		for (;;) {
-			const int now = fullscreen_now(parent_pid) ? 1 : 0;
+			if (watch_taskbar && parent_pid) {
+				HideCtx ctx{parent_pid};
+				EnumWindows(hide_taskbar_button, reinterpret_cast<LPARAM>(&ctx));
+			}
+			const int now = (watch_fullscreen && fullscreen_now(parent_pid)) ? 1 : 0;
 			if (now != last) {
 				const char* line = now ? "1\n" : "0\n";
 				if (!write_line(out, line, 2)) break;

@@ -74,6 +74,20 @@ const BOARD_ITEMS := [
 ]
 const ANIM_TICK := 0.125  # at most 8 animation checks per second
 
+## Pets drawn by the desk (PetData). The duck sits on the table; hamster and aquarium stand in the
+## pet corner on the floor, left of everything else in the room (left of the board).
+const DUCK_RECT := Rect2(47, 16, 12, 12)
+const DUCK_IDLE := "res://art/pet_duck_idle.png"      # 2 frames
+const DUCK_SQUEAK := "res://art/pet_duck_squeak.png"  # 3 frames
+const SQUEAK_SEC := 0.6
+const CORNER := [  # right to left
+	{"id": "hamster", "size": Vector2(24, 24)},
+	{"id": "aquarium", "size": Vector2(20, 24), "tex": "res://art/pet_aquarium.png", "fps": 4.0},
+]
+const CORNER_GAP := 3.0
+const HAMSTER_ANIMS := {"run": 8.0, "eat": 4.0, "sleep": 1.0}  # art/pet_hamster_<anim>.png, fps
+const HAMSTER_SEC := Vector2(20.0, 60.0)
+
 const CHAIR := "res://art/chair.png"
 const CHAIR_POS := Vector2(0, 14)
 const FLASH_SEC := 0.6
@@ -93,6 +107,9 @@ var _flash_left := 0.0
 
 var _anim_left := 0.0
 var _anim_key := ""
+var _squeak_left := 0.0
+var _hamster := "run"
+var _hamster_left := 30.0
 
 
 func _ready() -> void:
@@ -116,6 +133,14 @@ func _process(delta: float) -> void:
 		_flash_left -= delta
 		queue_redraw()
 		return
+	if _squeak_left > 0.0:
+		_squeak_left -= delta
+		queue_redraw()
+	_hamster_left -= delta
+	if _hamster_left <= 0.0:
+		_hamster_left = randf_range(HAMSTER_SEC.x, HAMSTER_SEC.y)
+		var r := randf()
+		_hamster = "run" if r < 0.45 else ("eat" if r < 0.65 else "sleep")
 	_anim_left -= delta
 	if _anim_left > 0.0:
 		return
@@ -126,6 +151,12 @@ func _process(delta: float) -> void:
 			key += str(_frame(part["tex"], part["size"], part["fps"]))
 	if _board_count() > 0:
 		key += "b" + str(int(Time.get_ticks_msec() / 1000.0 * BOARD_FPS) % 2)
+	if _pet_shown("duck"):
+		key += "d" + str(_frame(DUCK_IDLE, DUCK_RECT.size, 1.0))
+	if _pet_shown("hamster"):
+		key += "h" + _hamster + str(_frame(_hamster_tex(), Vector2(24, 24), HAMSTER_ANIMS[_hamster]))
+	if _pet_shown("aquarium"):
+		key += "a" + str(_frame(CORNER[1]["tex"], CORNER[1]["size"], CORNER[1]["fps"]))
 	if key != _anim_key:
 		_anim_key = key
 		queue_redraw()
@@ -148,7 +179,61 @@ func left_extent() -> float:
 			x = minf(x, part["pos"].x)
 	if _board_count() > 0:
 		x = minf(x, _board_rect().position.x - 1)  # -1: the tray sticks out by 1 px
+	for r: Rect2 in _corner_rects().values():
+		x = minf(x, r.position.x)
 	return x
+
+
+# --- Pets on the desk and in the pet corner ---------------------------------------
+
+func _pet_shown(id: String) -> bool:
+	return Game.has_pet(id) and Settings.get_value("show_cat")
+
+
+func _hamster_tex() -> String:
+	return "res://art/pet_hamster_%s.png" % _hamster
+
+
+## id -> Rect2 of the pets in the corner (only adopted ones), placed right to left.
+func _corner_rects() -> Dictionary:
+	var out := {}
+	var right := 0.0
+	for part: Dictionary in PARTS:
+		if _shown(part):
+			right = minf(right, part["pos"].x)
+	if _board_count() > 0:
+		right = minf(right, _board_rect().position.x - 1)
+	for c: Dictionary in CORNER:
+		if not _pet_shown(c["id"]):
+			continue
+		var sz: Vector2 = c["size"]
+		var r := Rect2(Vector2(right - CORNER_GAP - sz.x, SIZE.y - sz.y), sz)
+		out[c["id"]] = r
+		right = r.position.x
+	return out
+
+
+## Click on the duck (desk coordinates)?
+func duck_hit(p: Vector2) -> bool:
+	return _pet_shown("duck") and DUCK_RECT.has_point(p)
+
+
+func squeak() -> void:
+	_squeak_left = SQUEAK_SEC
+	queue_redraw()
+
+
+func _draw_pets() -> void:
+	if _pet_shown("duck"):
+		if _squeak_left > 0.0:
+			_draw_sprite(DUCK_SQUEAK, DUCK_RECT.position, DUCK_RECT.size, 8.0)
+		else:
+			_draw_sprite(DUCK_IDLE, DUCK_RECT.position, DUCK_RECT.size, 1.0)
+	var corner := _corner_rects()
+	if corner.has("hamster"):
+		_draw_sprite(_hamster_tex(), corner["hamster"].position, corner["hamster"].size, HAMSTER_ANIMS[_hamster])
+	if corner.has("aquarium"):
+		_draw_sprite(CORNER[1]["tex"], corner["aquarium"].position, corner["aquarium"].size, CORNER[1]["fps"])
 
 
 func _draw() -> void:
@@ -167,6 +252,7 @@ func _draw() -> void:
 		if c:
 			draw_texture(c, CHAIR_POS)
 	_draw_parts(false)
+	_draw_pets()
 	# Flash: 3× on/off within FLASH_SEC
 	if _flash_left > 0.0 and int(_flash_left / FLASH_SEC * 6.0) % 2 == 1:
 		draw_rect(_flash_rect, Color(1, 1, 1, 0.75))
@@ -238,6 +324,10 @@ func outline_rects() -> Array[Rect2]:
 	if _board_count() > 0:
 		var r := _board_rect()
 		out.append(Rect2(r.position.x - 1, r.position.y, r.size.x + 2, r.size.y + BOARD_TRAY))
+	if _pet_shown("duck"):
+		out.append(DUCK_RECT)
+	for r: Rect2 in _corner_rects().values():
+		out.append(r)
 	return out
 
 

@@ -541,7 +541,6 @@ never,never,nie
 rarely,rarely,selten
 normal,normal,normal
 often,often,oft
-Size takes effect after a restart. The language is changed in the tray menu.,Size takes effect after a restart. The language is changed in the tray menu.,Die Grösse gilt nach einem Neustart. Die Sprache wechselst du im Tray-Menü.
 "System status (right-click XYMYX) reads CPU, RAM, disk and GPU values. Display only, nothing is saved or sent.","System status (right-click XYMYX) reads CPU, RAM, disk and GPU values. Display only, nothing is saved or sent.","Der Systemstatus (Rechtsklick auf XYMYX) liest CPU-, RAM-, Festplatten- und GPU-Werte. Nur Anzeige, nichts wird gespeichert oder gesendet."
 SYSTEM STATUS,SYSTEM STATUS,SYSTEMSTATUS
 Switched off. Turn it on in the settings.,Switched off. Turn it on in the settings.,Ausgeschaltet. Schalte ihn in den Einstellungen ein.
@@ -556,3 +555,59 @@ Uptime,Uptime,Laufzeit
 Helper not found (idle-sysinfo.exe next to idle.exe),Helper not found (idle-sysinfo.exe next to idle.exe),Hilfsprogramm fehlt (idle-sysinfo.exe neben idle.exe)
 Helper could not be started,Helper could not be started,Hilfsprogramm konnte nicht gestartet werden
 Hide during fullscreen,Hide during fullscreen,Bei Vollbild verstecken
+Taskbar entry,Taskbar entry,Taskleisten-Eintrag
+Monitor,Monitor,Monitor
+main,main,Haupt
+The taskbar entry changes after a restart. The language is changed in the tray menu.,The taskbar entry changes after a restart. The language is changed in the tray menu.,Der Taskleisten-Eintrag ändert sich nach einem Neustart. Die Sprache wechselst du im Tray-Menü.
+Stats,Stats,Statistik
+STATS,STATS,STATISTIK
+Playtime,Playtime,Spielzeit
+Earned in total,Earned in total,Insgesamt verdient
+Earned this run,Earned this run,In diesem Durchlauf
+Companies sold,Companies sold,Firmen verkauft
+Know-how points,Know-how points,Know-how-Punkte
+Contracts delivered,Contracts delivered,Aufträge geliefert
+Events resolved,Events resolved,Events gelöst
+CTF flags,CTF flags,CTF-Flaggen
+Upgrades owned,Upgrades owned,Upgrades gekauft
+Research projects,Research projects,Forschungsprojekte
+Skill levels,Skill levels,Skill-Stufen
+Stars,Stars,Sterne
+Best combo jump,Best combo jump,Bester Kombo-Sprung
+Naps,Naps,Nickerchen
+Cat petted,Cat petted,Katze gestreichelt
+[Settings],[Settings],[Einstellungen]
+Pets,Pets,Haustiere
+PETS,PETS,HAUSTIERE
+Pet adopted,Pet adopted,Haustier adoptiert
+Show pets,Show pets,Haustiere zeigen
+"Pure decoration, no effect on the game. Pets stay when the company is sold.","Pure decoration, no effect on the game. Pets stay when the company is sold.","Reine Deko, keine Wirkung aufs Spiel. Haustiere bleiben, wenn du die Firma verkaufst."
+Rubber duck,Rubber duck,Quietscheente
+Sits on the desk and listens to every bug. Click: squeak.,Sits on the desk and listens to every bug. Click: squeak.,Sitzt auf dem Schreibtisch und hört sich jeden Bug an. Klick: quietschen.
+"Walks around, sleeps, joins XYMYX on his walks.","Walks around, sleeps, joins XYMYX on his walks.","Läuft herum, schläft, begleitet XYMYX auf seinen Spaziergängen."
+Robot toy,Robot toy,Spielzeugroboter
+A wind-up robot. When the battery is empty it falls over. Click: wind it up.,A wind-up robot. When the battery is empty it falls over. Click: wind it up.,"Ein Aufzieh-Roboter. Ist die Batterie leer, kippt er um. Klick: aufziehen."
+Hamster,Hamster,Hamster
+"Runs in its wheel, eats and sleeps in its cage.","Runs in its wheel, eats and sleeps in its cage.","Rennt im Rad, frisst und schläft in seinem Käfig."
+Dog,Dog,Hund
+"Wags its tail, barks at the mouse, follows XYMYX.","Wags its tail, barks at the mouse, follows XYMYX.","Wedelt mit dem Schwanz, bellt die Maus an, folgt XYMYX."
+Aquarium,Aquarium,Aquarium
+Fish and bubbles under a purple LED.,Fish and bubbles under a purple LED.,Fische und Blubberblasen unter einer lila LED.
+Baby elephant,Baby elephant,Baby-Elefant
+"Small, curious, trumpets at the mouse.","Small, curious, trumpets at the mouse.","Klein, neugierig, trompetet die Maus an."
+Squeak the rubber duck 10 times,Squeak the rubber duck 10 times,Die Quietscheente 10-mal quietschen lassen
+Wind up the robot toy 10 times,Wind up the robot toy 10 times,Den Spielzeugroboter 10-mal aufziehen
+Adopt the hamster,Adopt the hamster,Den Hamster adoptieren
+Get the aquarium,Get the aquarium,Das Aquarium holen
+Adopt the dog,Adopt the dog,Den Hund adoptieren
+Adopt the baby elephant,Adopt the baby elephant,Den Baby-Elefanten adoptieren
+Pet your pets 50 times,Pet your pets 50 times,Deine Haustiere 50-mal streicheln
+Adopt all pets,Adopt all pets,Alle Haustiere adoptieren
+Debug duck,Debug duck,Debug-Ente
+Firmware patch,Firmware patch,Firmware-Patch
+Hamster wheel,Hamster wheel,Hamsterrad
+Neon glow,Neon glow,Neonlicht
+Fetch daemon,Fetch daemon,Apportier-Daemon
+Elephant memory,Elephant memory,Elefantengedächtnis
+Paw shake,Paw shake,Pfote geben
+Petting zoo,Petting zoo,Streichelzoo
