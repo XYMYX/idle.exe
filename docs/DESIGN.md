@@ -250,6 +250,15 @@ Special category «Acquisitions». A fixed list of 5 made-up companies. Each cos
 - **Room:** the logo of each acquired company appears on the board (8×8, `art/icon_acq_<id>.png`: hosting, app_studio, consulting, sec_boutique, chip_design; optionally 2 frames = 16×8).
 - **Balancing (greedy simulation with research and acquisitions):** first run **23.3 h** (24.6 h without acquisitions, 27.6 h without both). All 5 companies are bought, the last at 20.8 h.
 
+### Cat (decoration, 2026-11-08, `scripts/cat.gd`)
+Adopted once in the terminal («Cat», 1,000 CHF), stays when the company is sold. No effect on the game. Save version 10 (`cat`, stat `pets`).
+- **Own life:** stands, walks around her spot (in front of the rack, ±70 px), sits, grooms, curls up to sleep for 1–3 min. Sitting is the hub between the animations.
+- **Petting:** click = heart bubble, she sits down and grooms. Counted in the stats.
+- **Mouse:** cursor within 36 px: she rears up and looks at it, back down 1.5 s after it leaves, then 20 s cooldown (mouse position only).
+- **Follows XYMYX:** on half of his walks she walks along and keeps 30 px distance, then goes back home.
+- **User away (10 min):** she curls up too and wakes up shortly after the mouse moves again.
+- Frame size = sheet height (now 32 px). Clickable area like XYMYX (snapped to 24 px, full height); she can't be carried.
+
 ### Stages 10–14 – Plan (decided with MYX on 2026-11-07)
 Order: 10 → 11 → 12 → 13 → 14, one commit per stage. New room parts start as grey placeholders, the sprite list comes at the end of each stage; big things (locations, companies) become icons on the map/board.
 On a company sale **skills stay** (knowledge), everything else of these stages resets like upgrades.
@@ -324,6 +333,8 @@ Animated = horizontal sheet, width = frames × width. If a PNG is missing, the g
 | `fan.png` | 12×24 | 4 | 8 | 90, 24 | standing fan, rotor spins |
 | `ups.png` | 10×12 | 2 | 1 | 104, 36 | backup battery, LED blinks |
 | `world_map.png` | 14×10 | 5 | – | 104, 6 | wall map, frame n = n+1 locations lit (fixed frame, no animation) |
+| `cat_idle.png` / `cat_sit.png` / `cat_curl.png` / `cat_scratch.png` / `cat_rear.png` | 32×32 | 4 each | 1–8 | floor | cat: stand, sit down, lie down to curled up, groom, rear up (faces right) |
+| `cat_walk.png` | 32×32 | 6 | 8 | floor | cat walking |
 | `ac.png` | 24×10 | 2 | 3 | 90, -8 | wall air conditioner, airflow |
 | `homeserver.png` | 14×22 | 2 | 2 | -36, 26 | home server (tower on the floor), LEDs |
 | `router.png` | 12×6 | 2 | 4 | -35, 20 | router on the home server, flickering LEDs |

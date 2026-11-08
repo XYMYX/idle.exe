@@ -284,6 +284,11 @@ func face_toward(game_x: float) -> void:
 			flip_h = want
 
 
+## Out on a walk (walking out or standing around): his x, otherwise -1. For the cat.
+func out_x() -> float:
+	return _x if _state == State.WALKING_OUT or _state == State.STANDING else -1.0
+
+
 ## Carried or falling: shown in the carry window instead of the strip.
 func is_airborne() -> bool:
 	return _state == State.GRABBED or _state == State.FALLING

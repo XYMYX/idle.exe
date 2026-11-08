@@ -28,6 +28,7 @@ const CAT_COMPANY := "!company"
 const CAT_SKILLS := "!skills"
 const CAT_RESEARCH := "!research"
 const CAT_ACQ := "!acquisitions"
+const CAT_PET := "!cat"
 const SELL_CONFIRM_SEC := 5.0  # second click must come within this time
 const BAR_LEN := 20  # progress bar width in characters
 
@@ -259,6 +260,8 @@ func _cat_rows() -> Array:
 		func(c: Dictionary) -> bool: return Game.acquisition_problem(c["id"]) == "")
 	rows.append({"id": CAT_ACQ, "name": tr("Acquisitions"), "sel": _cat == CAT_ACQ and not _afford_mode,
 		"locked": false, "afford": acq_ready, "special": true})
+	rows.append({"id": CAT_PET, "name": tr("Cat"), "sel": _cat == CAT_PET and not _afford_mode,
+		"locked": false, "afford": Game.can_adopt_cat(), "special": true})
 	rows.append({"id": CAT_COMPANY, "name": tr("Company"), "sel": _cat == CAT_COMPANY and not _afford_mode,
 		"locked": false, "afford": Game.can_sell(), "special": true})
 	rows.append({"id": CAT_CTF, "name": tr("CTF"), "sel": _cat == CAT_CTF and not _afford_mode,
@@ -286,6 +289,8 @@ func _body_rows() -> Array:
 		return _research_rows()
 	if not _afford_mode and _cat == CAT_ACQ:
 		return _acq_rows()
+	if not _afford_mode and _cat == CAT_PET:
+		return _pet_rows()
 	if _afford_mode:
 		rows.append({"t": "title", "text": tr("AFFORDABLE")})
 		var ids: Array = Economy.ids().filter(func(id: String) -> bool: return Game.can_buy(id))
@@ -447,6 +452,16 @@ func _render_body(rows: Array) -> void:
 				_render_project(r)
 			"company":
 				_render_company(r)
+			"adopt":
+				var row := HBoxContainer.new()
+				var lbl := _label(tr("Adopt a cat"))
+				lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				row.add_child(lbl)
+				if Game.can_adopt_cat():
+					row.add_child(_button(tr("[ADOPT]"), C_OK, func() -> void: Game.adopt_cat()))
+				else:
+					row.add_child(_label(tr("[LOCKED]") + " ", C_DIM))
+				_content.add_child(row)
 			"live":
 				var lbl := _label("", r["c"])
 				_live_labels[r["key"]] = lbl
@@ -680,6 +695,23 @@ func _render_project(r: Dictionary) -> void:
 			+ tr("Duration: %s") % _dur(float(p["minutes"]) * 60.0)))
 		if r["problem"] != "":
 			_content.add_child(_label("  " + r["problem"], C_WARN))
+
+
+# --- Cat (decoration) -----------------------------------------------------------------
+
+func _pet_rows() -> Array:
+	var rows := [{"t": "title", "text": tr("CAT")}]
+	if Game.cat:
+		rows.append({"t": "text", "c": C_OK, "text": tr("Your cat lives with you. She stays when the company is sold.")})
+		rows.append({"t": "text", "c": C_TEXT, "text": tr("Petted: %d times") % int(Game.stats.get("pets", 0))})
+		rows.append({"t": "text", "c": C_DIM, "text": tr("Click her to pet her. Pure decoration, no effect on the game.")})
+	else:
+		rows.append({"t": "text", "c": C_DIM,
+			"text": tr("A cat for the room: walks around, sleeps, joins XYMYX on his walks. Pure decoration.")})
+		rows.append({"t": "text", "text": " ", "c": C_DIM})
+		rows.append({"t": "adopt"})
+		rows.append({"t": "text", "c": C_TEXT, "text": "  " + tr("Cost: %s CHF") % BigNum.format_chf(Game.CAT_COST)})
+	return rows
 
 
 # --- Acquisitions (stage 14) -----------------------------------------------------------

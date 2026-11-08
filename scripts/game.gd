@@ -11,10 +11,11 @@ signal flag_captured(id: String, reward: float)  # stage 8a: CTF flag
 signal company_sold(points: int)  # stage 9: prestige
 signal research_finished(id: String)  # stage 12
 signal company_acquired(id: String)  # stage 14
+signal cat_adopted
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 9  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills,
-	# 8 = research, 9 = acquisitions
+const SAVE_VERSION := 10  # 3 = contracts, 4 = versions + stars, 5 = flags + stats, 6 = prestige, 7 = skills,
+	# 8 = research, 9 = acquisitions, 10 = cat
 const AUTOSAVE_SEC := 30.0
 const OFFLINE_MAX_SEC := 8 * 3600.0
 
@@ -35,7 +36,9 @@ var contract_quality := 1   # stage 7: Progress.QUALITY index for newly accepted
 var _oc_mult := 1.0
 var flags := {}  # stage 8a: captured CTF flags, id -> true
 ## Counters for flags: delivered contracts, resolved events, highest combo level, naps
-var stats := {"contracts": 0, "events": 0, "max_combo": 0, "naps": 0, "sales": 0}
+var stats := {"contracts": 0, "events": 0, "max_combo": 0, "naps": 0, "sales": 0, "pets": 0}
+const CAT_COST := 1000.0
+var cat := false             # adopted (decoration only, kept when the company is sold)
 var knowhow := 0             # stage 9: know-how points from selling the company (+2 % each)
 var run_earned := 0.0        # money earned in the current run (since the last sale)
 var specialization := ""     # stage 9: "", "security", "software" or "datacenter"
@@ -418,6 +421,24 @@ func _check_research() -> void:
 	save_game()
 
 
+# --- Cat (decoration) ----------------------------------------------------------------
+
+func can_adopt_cat() -> bool:
+	return not cat and money >= CAT_COST
+
+
+func adopt_cat() -> bool:
+	if not can_adopt_cat():
+		return false
+	money -= CAT_COST
+	cat = true
+	log_event("Cat adopted", "Cat", false)
+	cat_adopted.emit()
+	changed.emit()
+	save_game()
+	return true
+
+
 # --- Acquisitions (stage 14) ---------------------------------------------------------
 
 ## Translated reason why a company can't be bought, "" if it can.
@@ -593,6 +614,7 @@ func save_game() -> void:
 		"research_done": research_done,
 		"research_active": research_active,
 		"acquisitions": acquisitions,
+		"cat": cat,
 	}
 	# Write to a temp file first, then rename: a crash in the middle of
 	# writing can't destroy the previous save this way.
@@ -676,6 +698,7 @@ func load_game() -> void:
 	var ra: Variant = data.get("research_active", {})
 	if ra is Dictionary and ra.has("id") and not ResearchData.get_project(String(ra["id"])).is_empty():
 		research_active = {"id": String(ra["id"]), "left": float(ra.get("left", 0.0))}
+	cat = bool(data.get("cat", false))  # missing before version 10
 	var aq: Variant = data.get("acquisitions", {})  # missing before version 9
 	if aq is Dictionary:
 		for c: Dictionary in AcquisitionData.COMPANIES:

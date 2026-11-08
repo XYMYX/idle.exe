@@ -4,6 +4,7 @@ extends Node2D
 ##
 ## Mouse:
 ##   click XYMYX  = jump (combo)     drag XYMYX = pick up, carry, drop
+##   click cat    = pet
 ##   click desk   = terminal         drag desk  = move the whole strip (saved)
 ##   right click  = menu
 
@@ -16,7 +17,7 @@ const SETTINGS_PATH := "user://settings.cfg"
 const LANGUAGES := ["de", "en"]
 
 enum MenuId { INFO, TERMINAL, PAUSE, RESET, LANGUAGE, DEBUG_EVENT, QUIT }
-enum Press { NONE, FIGURE, DESK }
+enum Press { NONE, FIGURE, DESK, CAT }
 
 var pixel_scale := BASE_SCALE
 var game_width := 0
@@ -24,6 +25,7 @@ var game_width := 0
 var _world: Node2D
 var _desk: Desk
 var _xymyx: Xymyx
+var _cat: Cat
 var _counter: CommitCounter
 var _carry: CarryWindow
 var _menu: PopupMenu
@@ -106,6 +108,11 @@ func _build_scene() -> void:
 	_desk = Desk.new()
 	_world.add_child(_desk)
 
+	_cat = Cat.new()  # in front of the desk, behind XYMYX
+	_cat.visible = Game.cat
+	_world.add_child(_cat)
+	_cat.position.y = GAME_HEIGHT - _cat.size  # size is known after _ready (sheet height)
+
 	_xymyx = Xymyx.new()
 	_xymyx.position.y = GAME_HEIGHT - FIGURE
 	_world.add_child(_xymyx)
@@ -116,6 +123,12 @@ func _build_scene() -> void:
 	_desk_from_right = _clamp_desk_from_right(_desk_from_right)
 	_place_desk()
 	_xymyx.setup(_xymyx.home_x, _xymyx.repair_x, 8.0, game_width - FIGURE - 8.0)
+	_cat.setup(_cat_home(), 8.0, game_width - FIGURE - 8.0)
+	_cat.xymyx_out_x = _xymyx.out_x
+	_cat.moved.connect(_update_passthrough)
+	Game.cat_adopted.connect(func() -> void:
+		_cat.visible = true
+		_update_passthrough(true))
 	_xymyx.moved.connect(_update_passthrough)
 	_xymyx.landed.connect(_on_landed)
 	Game.changed.connect(_update_passthrough)  # new parts enlarge the click area
@@ -147,14 +160,19 @@ func _build_scene() -> void:
 	_watch.figure_center = func() -> Vector2: return _xymyx.position + Vector2(FIGURE, FIGURE) / 2.0
 	_watch.figure_hit = func(g: Vector2) -> bool: return _xymyx.visible and _xymyx.hit(g)
 	_watch.away.connect(func() -> void:
+		_cat.set_away(true)
 		_xymyx.fall_asleep()
 		Game.note_stat("naps"))
-	_watch.back.connect(_xymyx.wake_up)
+	_watch.back.connect(func() -> void:
+		_cat.set_away(false)
+		_xymyx.wake_up())
 	_watch.startled.connect(func() -> void:
 		if _press == Press.NONE:  # don't get startled by our own dragging
 			_xymyx.startle())
 	_watch.hovered.connect(_xymyx.notice)
-	_watch.sampled.connect(func(g: Vector2) -> void: _xymyx.face_toward(g.x))
+	_watch.sampled.connect(func(g: Vector2) -> void:
+		_xymyx.face_toward(g.x)
+		_cat.mouse_at(g))
 	add_child(_watch)
 
 	_carry = CarryWindow.new()
@@ -173,6 +191,13 @@ func _place_desk() -> void:
 		_xymyx.repair_x = repair
 	else:
 		_xymyx.set_home(home, repair)
+	if _cat != null and _cat.max_x > 0.0:
+		_cat.set_home(_cat_home())
+
+
+## The cat's spot: on the floor in front of the rack, right of the desk.
+func _cat_home() -> float:
+	return _desk.position.x + 62.0
 
 
 func _build_menu() -> void:
@@ -266,6 +291,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not _xymyx.is_airborne() and _xymyx.hit(p) and _xymyx.can_grab():
 			_press = Press.FIGURE
 			_grab_offset = p - _xymyx.position
+		elif _cat.hit(p):
+			_press = Press.CAT
 		elif _home_rect().has_point(p) and _desk_hit(p):
 			_press = Press.DESK
 		_press_screen = DisplayServer.mouse_get_position()
@@ -294,6 +321,8 @@ func _process(delta: float) -> void:
 			_drag_figure(delta)
 		Press.DESK:
 			_drag_bar()
+		Press.CAT:
+			pass  # the cat can't be carried
 
 
 func _start_drag() -> void:
@@ -306,6 +335,8 @@ func _start_drag() -> void:
 		_xymyx.grab()
 		_update_passthrough(true)  # the figure is in the carry window now, no longer in the strip
 		Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+	elif _press == Press.CAT:
+		pass
 	else:
 		_move_start_win = get_window().position
 		_move_start_desk = _desk_from_right
@@ -326,6 +357,10 @@ func _release() -> void:
 		else:
 			_xymyx.bounce()  # the more often, the higher
 			Game.note_stat("max_combo", _xymyx.combo_level())
+	elif was == Press.CAT:
+		if not dragged:
+			_cat.pet()
+			Game.note_stat("pets")
 	elif was == Press.DESK:
 		if dragged:
 			_save_layout()
@@ -439,6 +474,7 @@ func _on_menu_id(id: int) -> void:
 		MenuId.PAUSE:
 			Game.paused = not Game.paused
 			_xymyx.paused = Game.paused
+			_cat.paused = Game.paused
 		MenuId.TERMINAL:
 			_toggle_terminal()
 		MenuId.RESET:
@@ -469,8 +505,13 @@ const REGION_STEP := 24.0
 const REGION_MARGIN := 8.0
 
 func _figure_region() -> Rect2:
-	var x0 := floorf((_xymyx.position.x - REGION_MARGIN) / REGION_STEP) * REGION_STEP
-	var x1 := ceilf((_xymyx.position.x + FIGURE + REGION_MARGIN) / REGION_STEP) * REGION_STEP
+	return _region_of(_xymyx.position.x)
+
+
+## Same for any 48 px wide figure at x (XYMYX, cat).
+func _region_of(x: float) -> Rect2:
+	var x0 := floorf((x - REGION_MARGIN) / REGION_STEP) * REGION_STEP
+	var x1 := ceilf((x + FIGURE + REGION_MARGIN) / REGION_STEP) * REGION_STEP
 	return Rect2(x0, 0, x1 - x0, GAME_HEIGHT)
 
 
@@ -539,6 +580,8 @@ func _update_passthrough(force := false) -> void:
 		rects.append(Rect2(r.position + _desk.position, r.size))
 	if not _xymyx.is_airborne():
 		rects.append(_figure_region())  # full height: jumps, speech bubble, emotes
+	if _cat.visible:
+		rects.append(_region_of(_cat.position.x))
 	if rects == _last_rects and not force:
 		return  # nothing moved far enough (called on every step while walking)
 	_last_rects = rects
